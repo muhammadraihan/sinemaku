@@ -6,11 +6,39 @@
         </a>
     </li>
     <li>
-        <a href="{{route('slide.index')}}" title="Slide" data-filter-tags="Slide">
-            <i class="fal fa-warehouse"></i>
-            <span class="nav-link-text">Slide</span>
+        <a href="#" title="Media" data-filter-tags="Media">
+            <i class="fal fa-book"></i>
+            <span class="nav-link-text">Master</span>
+        </a>
+        <ul>
+            <li>
+                <a href="{{route('kategoribioskop.index')}}" title="Category Cinema" data-filter-tags="Category Cinema">
+                    {{-- <i class="fal fa-project-diagram"></i> --}}
+                    <span class="nav-link-text">Master Category Cinema</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{route('masterbioskop.index')}}" title="Cinema Name" data-filter-tags="Cinema Name">
+                    {{-- <i class="fal fa-landmark"></i> --}}
+                    <span class="nav-link-text">Master Cinema Name</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{route('typetiket.index')}}" title="Type Ticket" data-filter-tags="Type Ticket">
+                    {{-- <i class="fal fa-ticket-alt"></i> --}}
+                    <span class="nav-link-text">Master Type Ticket</span>
+                </a>
+            </li>
+        </ul>
+    </li>
+
+    <li>
+        <a href="{{route('pelaporan.index')}}" title="Reporting" data-filter-tags="Reporting">
+            <i class="fal fa-clipboard-list"></i>
+            <span class="nav-link-text">Reporting</span>
         </a>
     </li>
+    @hasrole('superadmin')
     @isset($menu)
     @foreach ($menu as $parent_menu)
     <li class="">
@@ -27,4 +55,5 @@
     </li>
     @endforeach
     @endisset
+    @endhasrole
 </ul>

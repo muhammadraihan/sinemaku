@@ -11,6 +11,7 @@
 |
 */
 
+use App\Http\Controllers\PelaporanController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -40,4 +41,11 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::resource('permissions', 'PermissionController');
     Route::resource('roles', 'RoleController');
     Route::resource('slide', 'SlideController');
+    Route::resource('masterbioskop', 'MasterBioskopController');
+    Route::resource('kategoribioskop', 'KategoriBioskopController');
+    Route::resource('typetiket', 'TypeTiketController');
+    Route::resource('pelaporan', 'PelaporanController');
+    Route::get('get-cinema', [PelaporanController::class,'getCinemaByCategory'])->name('ref.cinema');
+    Route::get('get-city', [PelaporanController::class,'getCityByCategory'])->name('ref.city');
+    Route::get('get-type', [PelaporanController::class,'getTypeByCategory'])->name('ref.type');
 });
