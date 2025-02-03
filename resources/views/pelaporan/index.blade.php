@@ -1,6 +1,6 @@
 @extends('layouts.page')
 
-@section('title', 'Reporting Management')
+@section('title', 'Laporan Management')
 
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/datagrid/datatables/datatables.bundle.css')}}">
@@ -9,9 +9,9 @@
 @section('content')
 <div class="subheader">
     <h1 class="subheader-title">
-        <i class='subheader-icon fal fa-users'></i> Module: <span class='fw-300'>Reporting </span>
+        <i class='subheader-icon fal fa-users'></i> Modul: <span class='fw-300'>Laporan </span>
         <small>
-            Module for manage Reporting.
+            Modul Laporan.
         </small>
     </h1>
 </div>
@@ -20,12 +20,12 @@
         <div id="panel-1" class="panel">
             <div class="panel-hdr">
             <h2>
-                    Reporting  <span class="fw-300"><i>List</i></span>
+                    Laporan  <span class="fw-300"><i>List</i></span>
                 </h2>
                 <div class="panel-toolbar">
                     <a class="nav-link active" href="{{route('pelaporan.create')}}"><i class="fal fa-plus-circle">
                         </i>
-                        <span class="nav-link-text">Add New</span>
+                        <span class="nav-link-text">Tambah Data</span>
                     </a>
                     <button class="btn btn-panel" data-action="panel-fullscreen" data-toggle="tooltip"
                         data-offset="0,10" data-original-title="Fullscreen"></button>
@@ -38,16 +38,16 @@
         <thead>
             <tr>
                 <th>No</th>
-                <th>Date</th>
-                <th>Cinema Category</th>
-                <th>City</th>
-                <th>Cinema Name</th>
-                <th>Movie Name</th>
+                <th>Tanggal</th>
+                <th>Kategori Bioskop</th>
+                <th>Kota</th>
+                <th>Nama Bioskop</th>
+                <th>Nama Film</th>
                 <th>Show</th>
-                <th>Time</th>
-                <th>Ticket Type</th>
-                <th>Price (/pcs)</th>
-                <th>Total Ticket</th>
+                <th>Jam</th>
+                <th>Tipe Tiket</th>
+                <th>Harga</th>
+                <th>Total Tiket</th>
                 <th>Gross</th>
                 <th>Tax</th>
                 <th>Net</th>
@@ -55,7 +55,7 @@
                 <th>Created At</th>
                 <th>Edited By</th>
                 <th>Edited At</th>
-                <th width="120px">Action</th>
+                <th width="120px">Aksi</th>
                 </tr>
                         </thead>
                     </table>
@@ -72,7 +72,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h4 class="modal-title">
-                        Confirmation
+                        Konfirmasi
                         <small class="m-0 text-muted">
                         </small>
                     </h4>
@@ -81,12 +81,12 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    Are you sure want to delete data?
+                    Anda yakin ingin menghapus data?
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary remove-data-from-delete-form"
-                        data-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Delete Data</button>
+                        data-dismiss="modal">Tutup</button>
+                    <button type="submit" class="btn btn-primary">Hapus Data</button>
                 </div>
             </div>
         </div>

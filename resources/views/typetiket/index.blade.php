@@ -1,6 +1,6 @@
 @extends('layouts.page')
 
-@section('title', 'Type Ticket Management')
+@section('title', 'Tipe Tiket Management')
 
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/datagrid/datatables/datatables.bundle.css')}}">
@@ -9,9 +9,9 @@
 @section('content')
 <div class="subheader">
     <h1 class="subheader-title">
-        <i class='subheader-icon fal fa-users'></i> Module: <span class='fw-300'>Type Ticket </span>
+        <i class='subheader-icon fal fa-users'></i> Modul: <span class='fw-300'>Tipe Tiket </span>
         <small>
-            Module for manage Type Ticket.
+            Modul Tipe Tiket.
         </small>
     </h1>
 </div>
@@ -20,12 +20,12 @@
         <div id="panel-1" class="panel">
             <div class="panel-hdr">
             <h2>
-                    Type Ticket  <span class="fw-300"><i>List</i></span>
+                    Tipe Tiket  <span class="fw-300"><i>List</i></span>
                 </h2>
                 <div class="panel-toolbar">
                     <a class="nav-link active" href="{{route('typetiket.create')}}"><i class="fal fa-plus-circle">
                         </i>
-                        <span class="nav-link-text">Add New</span>
+                        <span class="nav-link-text">Tambah Data</span>
                     </a>
                     <button class="btn btn-panel" data-action="panel-fullscreen" data-toggle="tooltip"
                         data-offset="0,10" data-original-title="Fullscreen"></button>
@@ -38,9 +38,9 @@
         <thead>
             <tr>
                 <th>No</th>
-                <th>Type Ticket</th>
-                <th>Category</th>
-                <th width="120px">Action</th>
+                <th>Tipe Tiket</th>
+                <th>Kategori</th>
+                <th width="120px">Aksi</th>
                 </tr>
                         </thead>
                     </table>
@@ -57,7 +57,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h4 class="modal-title">
-                        Confirmation
+                        Konfirmasi
                         <small class="m-0 text-muted">
                         </small>
                     </h4>
@@ -66,12 +66,12 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    Are you sure want to delete data?
+                    Anda yakin ingin menghapus data?
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary remove-data-from-delete-form"
-                        data-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Delete Data</button>
+                        data-dismiss="modal">Tutup</button>
+                    <button type="submit" class="btn btn-primary">Hapus Data</button>
                 </div>
             </div>
         </div>

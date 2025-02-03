@@ -12,21 +12,21 @@
         </a>
         <ul>
             <li>
-                <a href="{{route('kategoribioskop.index')}}" title="Category Cinema" data-filter-tags="Category Cinema">
+                <a href="{{route('kategoribioskop.index')}}" title="Kategori Bioskop" data-filter-tags="Kategori Bioskop">
                     {{-- <i class="fal fa-project-diagram"></i> --}}
-                    <span class="nav-link-text">Master Category Cinema</span>
+                    <span class="nav-link-text">Master Kategori Bioskop</span>
                 </a>
             </li>
             <li>
-                <a href="{{route('masterbioskop.index')}}" title="Cinema Name" data-filter-tags="Cinema Name">
+                <a href="{{route('masterbioskop.index')}}" title="Nama Bioskop" data-filter-tags="Nama Bioskop">
                     {{-- <i class="fal fa-landmark"></i> --}}
-                    <span class="nav-link-text">Master Cinema Name</span>
+                    <span class="nav-link-text">Master Nama Bioskop</span>
                 </a>
             </li>
             <li>
-                <a href="{{route('typetiket.index')}}" title="Type Ticket" data-filter-tags="Type Ticket">
+                <a href="{{route('typetiket.index')}}" title="Tipe Tiket" data-filter-tags="Tipe Tiket">
                     {{-- <i class="fal fa-ticket-alt"></i> --}}
-                    <span class="nav-link-text">Master Type Ticket</span>
+                    <span class="nav-link-text">Master Tipe Tiket</span>
                 </a>
             </li>
             <li>
@@ -39,15 +39,15 @@
     </li>
 
     <li>
-        <a href="{{route('pelaporan.index')}}" title="Reporting" data-filter-tags="Reporting">
+        <a href="{{route('pelaporan.index')}}" title="Laporan" data-filter-tags="Laporan">
             <i class="fal fa-clipboard-list"></i>
-            <span class="nav-link-text">Reporting</span>
+            <span class="nav-link-text">Laporan</span>
         </a>
     </li>
     <li>
-        <a href="{{route('laporan.index')}}" title="Resume Report" data-filter-tags="Resume Report">
+        <a href="{{route('laporan.index')}}" title="Rekap Laporan" data-filter-tags="Rekap Laporan">
             <i class="fal fa-clipboard-list"></i>
-            <span class="nav-link-text">Resume Report</span>
+            <span class="nav-link-text">Rekap Laporan</span>
         </a>
     </li>
     @hasrole('superadmin')

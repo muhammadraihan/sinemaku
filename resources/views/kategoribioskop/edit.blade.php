@@ -1,6 +1,6 @@
 @extends('layouts.page')
 
-@section('title', 'Category Cinema Edit')
+@section('title', 'Kategori Bioskop Edit')
 
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/formplugins/select2/select2.bundle.css')}}">
@@ -12,11 +12,11 @@
 <div class="col-xxl">
     <div id="panel-1" class="panel">
         <div class="panel-hdr">
-        <h2>Edit <span class="fw-300"><i>Category Cinema</i></span></h2>
+        <h2>Edit <span class="fw-300"><i>Kategori Bioskop</i></span></h2>
             <div class="panel-toolbar">
                 <a class="nav-link active" href="{{route('kategoribioskop.index')}}"><i class="fal fa-arrow-alt-left">
                     </i>
-                    <span class="nav-link-text">Back</span>
+                    <span class="nav-link-text">Kembali</span>
                 </a>
                 <button class="btn btn-panel" data-action="panel-fullscreen" data-toggle="tooltip"
                     data-offset="0,10" data-original-title="Fullscreen"></button>
@@ -25,7 +25,7 @@
         <div class="panel-container show">
             <div class="panel-content">
                 <div class="panel-tag">
-                    Form with <code>*</code> can not be empty.
+                    Field dengan <code>*</code> tidak boleh kosong.
                 </div>
                 @if (count($errors) > 0)
                         <div class="alert alert-danger">
@@ -39,8 +39,8 @@
                 {!! Form::open(['route' => ['kategoribioskop.update',$kategori_bioskop->uuid],'method' => 'PUT','class' =>
                 'needs-validation','novalidate', 'enctype' => 'multipart/form-data']) !!}
                 <div class="form-group col-md-4 mb-3">
-                    {{ Form::label('name','Category Cinema Name',['class' => 'required form-label'])}}
-                    {{ Form::text('name',$kategori_bioskop->name,['placeholder' => 'Category Cinema Name','class' => 'form-control '.($errors->has('name') ? 'is-invalid':''),'required', 'style' => 'text-transform: uppercase;'])}}
+                    {{ Form::label('name','Kategori Bioskop',['class' => 'required form-label'])}}
+                    {{ Form::text('name',$kategori_bioskop->name,['placeholder' => 'Kategori Bioskop','class' => 'form-control '.($errors->has('name') ? 'is-invalid':''),'required', 'style' => 'text-transform: uppercase;'])}}
                     @if ($errors->has('name'))
                     <div class="invalid-feedback">{{ $errors->first('name') }}</div>
                     @endif
