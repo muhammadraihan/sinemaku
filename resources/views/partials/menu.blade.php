@@ -29,6 +29,12 @@
                     <span class="nav-link-text">Master Type Ticket</span>
                 </a>
             </li>
+            <li>
+                <a href="{{route('kapasitas.index')}}" title="Kapasitas" data-filter-tags="Kapasitas">
+                    {{-- <i class="fal fa-ticket-alt"></i> --}}
+                    <span class="nav-link-text">Master Kapasitas</span>
+                </a>
+            </li>
         </ul>
     </li>
 
@@ -36,6 +42,12 @@
         <a href="{{route('pelaporan.index')}}" title="Reporting" data-filter-tags="Reporting">
             <i class="fal fa-clipboard-list"></i>
             <span class="nav-link-text">Reporting</span>
+        </a>
+    </li>
+    <li>
+        <a href="{{route('laporan.index')}}" title="Resume Report" data-filter-tags="Resume Report">
+            <i class="fal fa-clipboard-list"></i>
+            <span class="nav-link-text">Resume Report</span>
         </a>
     </li>
     @hasrole('superadmin')

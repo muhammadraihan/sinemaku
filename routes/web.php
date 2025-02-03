@@ -11,6 +11,7 @@
 |
 */
 
+use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\PelaporanController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -45,7 +46,11 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::resource('kategoribioskop', 'KategoriBioskopController');
     Route::resource('typetiket', 'TypeTiketController');
     Route::resource('pelaporan', 'PelaporanController');
+    Route::resource('laporan', 'LaporanController');
+    Route::resource('kapasitas', 'KapasitasController');
     Route::get('get-cinema', [PelaporanController::class,'getCinemaByCategory'])->name('ref.cinema');
+    Route::get('get-kota', [PelaporanController::class,'getCityByCinema'])->name('ref.kota');
     Route::get('get-city', [PelaporanController::class,'getCityByCategory'])->name('ref.city');
     Route::get('get-type', [PelaporanController::class,'getTypeByCategory'])->name('ref.type');
+    Route::get('get-data', [LaporanController::class,'listData'])->name('laporan.search');
 });
