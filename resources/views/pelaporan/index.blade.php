@@ -51,6 +51,10 @@
                 <th>Gross</th>
                 <th>Tax</th>
                 <th>Net</th>
+                <th>Created By</th>
+                <th>Created At</th>
+                <th>Edited By</th>
+                <th>Edited At</th>
                 <th width="120px">Action</th>
                 </tr>
                         </thead>
@@ -129,6 +133,10 @@
             {data: 'gross', name: 'gross'},
             {data: 'tax', name: 'tax'},
             {data: 'net', name: 'net'},
+            {data: 'created_by', name: 'created_by'},
+            {data: 'created_at', name: 'created_at'},
+            {data: 'edited_by', name: 'edited_by'},
+            {data: 'updated_at', name: 'updated_at'},
             {data: 'action', name: 'action', orderable: false, searchable: false},
         ]
     });

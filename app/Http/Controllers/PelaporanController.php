@@ -44,10 +44,27 @@ class PelaporanController extends Controller
                 ->editColumn('jam_tayang', function ($row) {
                     return \Carbon\Carbon::parse($row->jam_tayang)->format('H:i'); // Format hh:mm
                 })
+                ->editColumn('created_by', function($row){
+                    return $row->userCreate->name;
+                })
+                ->editColumn('created_at', function($row){
+                    return \Carbon\Carbon::parse($row->created_at)->format('d-m-Y'); // Format hh:mm
+                })
+                ->editColumn('edited_by', function($row){
+                    return $row->userEdit->name ?? null;
+                })
+                ->editColumn('updated_at', function($row){
+                    return $row->updated_at ? \Carbon\Carbon::parse($row->updated_at)->format('d-m-Y') : '-';
+                })
                 ->addColumn('action', function ($row) {
+                    if (Auth::user()->hasRole(['superadmin', 'superuser'])) {
                     return '
                             <a class="btn btn-success btn-sm btn-icon waves-effect waves-themed" href="' . route('pelaporan.edit', $row->uuid) . '"><i class="fal fa-edit"></i></a>
                             <a class="btn btn-danger btn-sm btn-icon waves-effect waves-themed delete-btn" data-url="' . URL::route('pelaporan.destroy', $row->uuid) . '" data-id="' . $row->uuid . '" data-token="' . csrf_token() . '" data-toggle="modal" data-target="#modal-delete"><i class="fal fa-trash-alt"></i></a>';
+                    }else if(Auth::user()->hasRole(['admin1'])){
+                        return '
+                            <a class="btn btn-success btn-sm btn-icon waves-effect waves-themed" href="' . route('pelaporan.edit', $row->uuid) . '"><i class="fal fa-edit"></i></a>';
+                    }
                 })
                 ->removeColumn('id')
                 ->removeColumn('uuid')
@@ -86,7 +103,7 @@ class PelaporanController extends Controller
             'nama_bioskop' => 'required',
             'nama_film' => 'required',
             'tgl_tayang' => 'required',
-            'jam_tayang' => 'required',
+            // 'jam_tayang' => 'required',
             'show' => 'required',
             'type_tiket' => 'required',
             'harga' => 'required',
@@ -110,8 +127,8 @@ class PelaporanController extends Controller
         $pelaporan->kategori = $request->kategori;
         $pelaporan->kota = $request->kota;
         $pelaporan->nama_bioskop = $request->nama_bioskop;
-        $pelaporan->nama_film = $request->nama_film;
-        $pelaporan->tgl_tayang = $request->tgl_tayang;
+        $pelaporan->nama_film = strtoupper($request->nama_film);
+        $pelaporan->tgl_tayang = \Carbon\Carbon::parse($request->tgl_tayang)->format('Y-m-d');
         $pelaporan->jam_tayang = $request->jam_tayang;
         $pelaporan->show = $request->show;
         $pelaporan->type_tiket = $request->type_tiket;
@@ -120,6 +137,7 @@ class PelaporanController extends Controller
         $pelaporan->gross = $request->gross;
         $pelaporan->tax = $request->tax;
         $pelaporan->net = $request->net;
+        $pelaporan->created_by = Auth::user()->uuid;
         $pelaporan->save();
 
         toastr()->success('New Reporting Added', 'Success');
@@ -168,7 +186,7 @@ class PelaporanController extends Controller
             'nama_bioskop' => 'required',
             'nama_film' => 'required',
             'tgl_tayang' => 'required',
-            'jam_tayang' => 'required',
+            // 'jam_tayang' => 'required',
             'show' => 'required',
             'type_tiket' => 'required',
             'harga' => 'required',
@@ -192,8 +210,8 @@ class PelaporanController extends Controller
         $pelaporan->kategori = $request->kategori;
         $pelaporan->kota = $request->kota;
         $pelaporan->nama_bioskop = $request->nama_bioskop;
-        $pelaporan->nama_film = $request->nama_film;
-        $pelaporan->tgl_tayang = $request->tgl_tayang;
+        $pelaporan->nama_film = strtoupper($request->nama_film);
+        $pelaporan->tgl_tayang = \Carbon\Carbon::parse($request->tgl_tayang)->format('Y-m-d');
         $pelaporan->jam_tayang = $request->jam_tayang;
         $pelaporan->show = $request->show;
         $pelaporan->type_tiket = $request->type_tiket;
@@ -202,6 +220,7 @@ class PelaporanController extends Controller
         $pelaporan->gross = $request->gross;
         $pelaporan->tax = $request->tax;
         $pelaporan->net = $request->net;
+        $pelaporan->edited_by = Auth::user()->uuid;
         $pelaporan->save();
 
         toastr()->success('Reporting Edited', 'Success');
@@ -234,13 +253,24 @@ class PelaporanController extends Controller
         return response()->json($kota);
     }
 
+    public function getCityByCinema(Request $request){
+        $kategori = $request->kategori;
+        $bioskop = $request->bioskop;
+
+        $kota  = MasterBioskop::selectRaw('distinct kota')
+                    ->where('type', $kategori)
+                    ->where('uuid', $bioskop)
+                    ->get()
+                    ->pluck('kota', 'kota');
+
+        return response()->json($kota);
+    }
+
     public function getCinemaByCategory(Request $request){
         $kategori = $request->kategori;
-        $kota = $request->kota;
 
         $cinema = MasterBioskop::select('uuid', 'nama_bioskop')
                     ->where('type', $kategori)
-                    ->where('kota', $kota)
                     ->get()
                     ->pluck('nama_bioskop', 'uuid');
 

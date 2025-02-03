@@ -61,16 +61,6 @@
                         @endif
                     </div>
                     <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('kota','City',['class' => 'required form-label'])}}
-                        {!! Form::select('kota', $kota, '',
-                        ['id'=>'kota','class'
-                        => 'custom-select'.($errors->has('kota') ? 'is-invalid':'') ,'required'
-                        => '', 'placeholder' => 'Choose City ...'])!!}
-                        @if ($errors->has('kota'))
-                        <div class="invalid-feedback">{{ $errors->first('kota') }}</div>
-                        @endif
-                    </div>
-                    <div class="form-group col-md-4 mb-3">
                         {{ Form::label('nama_bioskop','Cinema Name',['class' => 'required form-label'])}}
                         {!! Form::select('nama_bioskop', $nama_bioskop, '',
                         ['id'=>'nama_bioskop','class'
@@ -78,6 +68,16 @@
                         => '', 'placeholder' => 'Choose Cinema Name ...'])!!}
                         @if ($errors->has('nama_bioskop'))
                         <div class="invalid-feedback">{{ $errors->first('nama_bioskop') }}</div>
+                        @endif
+                    </div>
+                    <div class="form-group col-md-4 mb-3">
+                        {{ Form::label('kota','City',['class' => 'required form-label'])}}
+                        {!! Form::select('kota', $kota, '',
+                        ['id'=>'kota','class'
+                        => 'custom-select'.($errors->has('kota') ? 'is-invalid':'') ,'required'
+                        => '', 'placeholder' => 'Choose City ...'])!!}
+                        @if ($errors->has('kota'))
+                        <div class="invalid-feedback">{{ $errors->first('kota') }}</div>
                         @endif
                     </div>
                     <div class="form-group col-md-4 mb-3">
@@ -111,7 +111,7 @@
                         @endif
                     </div>
                     <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('jam_tayang','Time',['class' => 'required form-label'])}}
+                        {{ Form::label('jam_tayang','Time',['class' => 'form-label'])}}
                         {{ Form::time('jam_tayang',null,['placeholder' => 'Time','class' => 'form-control '.($errors->has('jam_tayang') ? 'is-invalid':''),'required'])}}
                         @if ($errors->has('jam_tayang'))
                         <div class="invalid-feedback">{{ $errors->first('jam_tayang') }}</div>
@@ -145,8 +145,8 @@
                 </div>
                 <hr style="border: 1px dashed: color: black">
                 <div class="form-group col-md-4 mb-3">
-                    {{ Form::label('tax','Tax',['class' => 'required form-label'])}}
-                    {{ Form::text('tax',null,['placeholder' => 'Tax','class' => 'form-control '.($errors->has('tax') ? 'is-invalid':''),'required', 'maxlength' => '4'])}}
+                    {{ Form::label('tax','Tax',['class' => 'form-label'])}}
+                    {{ Form::text('tax',null,['placeholder' => 'Tax','class' => 'form-control '.($errors->has('tax') ? 'is-invalid':''),'required'])}}
                     @if ($errors->has('tax'))
                     <div class="invalid-feedback">{{ $errors->first('tax') }}</div>
                     @endif
@@ -185,18 +185,18 @@
             var kategori = $(this).val();
 
             $.ajax({
-                url: "{{ route('ref.city') }}",
+                url: "{{ route('ref.cinema') }}",
                 type: 'GET',
                 data: {
-                    kategori: kategori,
+                    kategori: kategori
                 },
                 success: function(data) {
-                    $("#kota").empty();
+                    $("#nama_bioskop").empty();
 
-                    $("#kota").append('<option value="">Choose City ...</option>');
+                    $("#nama_bioskop").append('<option value="">Choose Cinema Name ...</option>');
 
                     $.each(data, function(key, value) {
-                        $("#kota").append('<option value="' + key + '">' + value + '</option>');
+                        $("#nama_bioskop").append('<option value="' + key + '">' + value + '</option>');
                     });
                 }
             });
@@ -219,24 +219,24 @@
             });
         });
 
-        $('#kota').change(function(){
+        $('#nama_bioskop').change(function(){
             var kategori = $('#kategori').val();
-            var kota = $(this).val();
+            var bioskop = $(this).val();
 
             $.ajax({
-                url: "{{ route('ref.cinema') }}",
+                url: "{{ route('ref.kota') }}",
                 type: 'GET',
                 data: {
                     kategori: kategori,
-                    kota: kota
+                    bioskop: bioskop
                 },
                 success: function(data) {
-                    $("#nama_bioskop").empty();
+                    $("#kota").empty();
 
-                    $("#nama_bioskop").append('<option value="">Choose Cinema Name ...</option>');
+                    $("#kota").append('<option value="">Choose Nama Kota ...</option>');
 
                     $.each(data, function(key, value) {
-                        $("#nama_bioskop").append('<option value="' + key + '">' + value + '</option>');
+                        $("#kota").append('<option value="' + key + '">' + value + '</option>');
                     });
                 }
             });
@@ -247,16 +247,20 @@
             var harga = parseFloat($('#harga').val().replace(/,/g, '')) || 0;
             var jumlah = parseFloat($('#jumlah').val()) || 0;
             var net = parseFloat($('#net').val().replace(/,/g, '')) || 0;
-            var tax = parseFloat($('#tax').val()) || 0;
+            // var tax = parseFloat($('#tax').val()) || 0;
+            var tax = parseFloat($('#tax').val().replace(/,/g, ''));
             var gross = parseFloat($('#gross').val().replace(/,/g, '')) || 0;
+            tax = tax ? parseFloat(tax) : '';
 
             // Hitung gross
             var gross = harga * jumlah;
-            var total = gross - (gross * tax / 100);
+            // var total = gross - (gross * tax / 100);
+            var total = gross && tax ? gross - tax : gross;
             $('#net').val(total.toLocaleString('en-US'));
 
             // Format harga dengan pemisah ribuan
             $('#harga').val(harga.toLocaleString('en-US'));
+            
             
             // Masukkan hasil ke field gross
             $('#gross').val(gross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -283,7 +287,7 @@
 
            $('.tgl_tayang').datepicker({
             orientation: "bottom left",
-            format:'yyyy-mm-dd', // Notice the Extra space at the beginning
+            format:'dd-mm-yyyy', // Notice the Extra space at the beginning
             todayHighlight:'TRUE',
             autoclose: true,
             todayBtn: "linked",
