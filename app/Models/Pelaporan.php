@@ -13,6 +13,7 @@ class Pelaporan extends Model
 
     protected $fillable = [
         'kategori',
+        'provinsi',
         'kota',
         'nama_bioskop',
         'nama_film',
@@ -25,6 +26,7 @@ class Pelaporan extends Model
         'gross',
         'tax',
         'net',
+        'studio',
         'created_by',
         'edited_by'
     ];
@@ -47,5 +49,9 @@ class Pelaporan extends Model
 
     public function TypeTiket(){
         return $this->belongsTo(TypeTiket::class, 'type_tiket', 'uuid');
+    }
+
+    public function Studio(){
+        return $this->belongsTo(Kapasitas::class, 'studio', 'uuid');
     }
 }

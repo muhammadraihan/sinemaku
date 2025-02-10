@@ -8,8 +8,9 @@ use App\Models\Pelaporan;
 use App\Models\TypeTiket;
 use App\Models\KategoriBioskop;
 use App\Models\MasterBioskop;
-
-
+use App\Models\Kapasitas;
+use App\Models\Kota;
+use App\Models\Province;
 use Auth;
 use DataTables;
 use URL;
@@ -40,6 +41,9 @@ class PelaporanController extends Controller
                 })
                 ->editColumn('type_tiket', function ($row){
                     return $row->TypeTiket->name;
+                })
+                ->editColumn('studio', function ($row){
+                    return $row->Studio->studio ?? null;
                 })
                 ->editColumn('jam_tayang', function ($row) {
                     return \Carbon\Carbon::parse($row->jam_tayang)->format('H:i'); // Format hh:mm
@@ -86,7 +90,8 @@ class PelaporanController extends Controller
         $nama_bioskop = MasterBioskop::all()->pluck('nama_bioskop', 'uuid');
         $kota = MasterBioskop::selectRaw('Distinct kota')->pluck('kota', 'kota');
         $type_tiket = TypeTiket::all()->pluck('name', 'uuid');
-        return view('pelaporan.create', compact('bioskop_kategori', 'nama_bioskop', 'kota','type_tiket'));
+        $studio = Kapasitas::all()->pluck('studio', 'uuid');
+        return view('pelaporan.create', compact('bioskop_kategori', 'nama_bioskop', 'kota','type_tiket', 'studio'));
     }
 
     /**
@@ -111,6 +116,8 @@ class PelaporanController extends Controller
             'gross' => 'required',
             // 'tax' => 'required',
             // 'net' => 'required',
+            'studio' => 'required',
+            'provinsi' => 'required'
         ];
 
         $messages = [
@@ -125,10 +132,12 @@ class PelaporanController extends Controller
 
         $pelaporan = new Pelaporan();
         $pelaporan->kategori = $request->kategori;
+        $pelaporan->provinsi = $request->provinsi;
         $pelaporan->kota = $request->kota;
         $pelaporan->nama_bioskop = $request->nama_bioskop;
         $pelaporan->nama_film = strtoupper($request->nama_film);
         $pelaporan->tgl_tayang = \Carbon\Carbon::parse($request->tgl_tayang)->format('Y-m-d');
+        $pelaporan->studio = $request->studio;
         $pelaporan->jam_tayang = $request->jam_tayang;
         $pelaporan->show = $request->show;
         $pelaporan->type_tiket = $request->type_tiket;
@@ -138,6 +147,7 @@ class PelaporanController extends Controller
         $pelaporan->tax = $request->tax;
         $pelaporan->net = $request->net;
         $pelaporan->created_by = Auth::user()->uuid;
+        $pelaporan->updated_at = NULL;
         $pelaporan->save();
 
         toastr()->success('New Reporting Added', 'Success');
@@ -168,7 +178,8 @@ class PelaporanController extends Controller
         $bioskop_kategori = KategoriBioskop::all()->pluck('name', 'uuid');
         $nama_bioskop = MasterBioskop::all()->pluck('nama_bioskop', 'uuid');
         $type_tiket = TypeTiket::all()->pluck('name', 'uuid');
-        return view('pelaporan.edit', compact('pelaporan', 'kota','bioskop_kategori', 'nama_bioskop', 'type_tiket'));
+        $studio = Kapasitas::all()->pluck('studio', 'uuid');
+        return view('pelaporan.edit', compact('pelaporan', 'kota','bioskop_kategori', 'nama_bioskop', 'type_tiket', 'studio'));
     }
 
     /**
@@ -194,6 +205,8 @@ class PelaporanController extends Controller
             'gross' => 'required',
             // 'tax' => 'required',
             // 'net' => 'required',
+            'studio' => 'required',
+            'provinsi' => 'required'
         ];
 
         $messages = [
@@ -208,10 +221,12 @@ class PelaporanController extends Controller
 
         $pelaporan = Pelaporan::uuid($id);
         $pelaporan->kategori = $request->kategori;
+        $pelaporan->provinsi = $request->provinsi;
         $pelaporan->kota = $request->kota;
         $pelaporan->nama_bioskop = $request->nama_bioskop;
         $pelaporan->nama_film = strtoupper($request->nama_film);
         $pelaporan->tgl_tayang = \Carbon\Carbon::parse($request->tgl_tayang)->format('Y-m-d');
+        $pelaporan->studio = $request->studio;
         $pelaporan->jam_tayang = $request->jam_tayang;
         $pelaporan->show = $request->show;
         $pelaporan->type_tiket = $request->type_tiket;
@@ -266,6 +281,24 @@ class PelaporanController extends Controller
         return response()->json($kota);
     }
 
+    public function getProvinsiByCinema(Request $request){
+        $kota = $request->kota;
+
+        $data_kota  = Kota::select('nama', 'provinsi_id')
+                    ->where('nama', 'like', 'Kota '.$kota.'')
+                    ->get();
+
+        if(count($data_kota) > 0){
+            $provinsi = Province::selectRaw('nama')
+                    ->where('uuid', $data_kota[0]->provinsi_id)
+                    ->get();
+        }else{
+            $provinsi = '';
+        }
+
+        return response()->json($provinsi);
+    }
+
     public function getCinemaByCategory(Request $request){
         $kategori = $request->kategori;
 
@@ -284,6 +317,23 @@ class PelaporanController extends Controller
                     ->where('kategori', $kategori)
                     ->get()
                     ->pluck('name', 'uuid');
+
+        return response()->json($type);
+    }
+
+    public function getStudio(Request $request){
+        $kategori = $request->kategori;
+        $bioskop = $request->nama_bioskop;
+        $kota = $request->kota;
+        $type_tiket = $request->type_tiket;
+
+        $type = Kapasitas::select('uuid', 'studio')
+                    ->where('kategori', $kategori)
+                    ->where('nama_bioskop', $bioskop)
+                    ->where('kota', $kota)
+                    ->where('type_tiket', $type_tiket)
+                    ->get()
+                    ->pluck('studio', 'uuid');
 
         return response()->json($type);
     }

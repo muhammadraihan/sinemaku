@@ -40,9 +40,11 @@
                 <th>No</th>
                 <th>Tanggal</th>
                 <th>Kategori Bioskop</th>
+                <th>Provinsi</th>
                 <th>Kota</th>
                 <th>Nama Bioskop</th>
                 <th>Nama Film</th>
+                <th>Studio</th>
                 <th>Show</th>
                 <th>Jam</th>
                 <th>Tipe Tiket</th>
@@ -122,9 +124,11 @@
             {data: 'DT_RowIndex', name: 'DT_RowIndex'},
             {data: 'tgl_tayang', name: 'tgl_tayang'},
             {data: 'kategori', name: 'kategori'},
+            {data: 'provinsi', name: 'provinsi'},
             {data: 'kota', name: 'kota'},
             {data: 'nama_bioskop', name: 'nama_bioskop'},
             {data: 'nama_film', name: 'nama_film'},
+            {data: 'studio', name: 'studio'},
             {data: 'show', name: 'show'},
             {data: 'jam_tayang', name: 'jam_tayang'},
             {data: 'type_tiket', name: 'type_tiket'},

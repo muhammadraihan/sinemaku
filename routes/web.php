@@ -50,7 +50,9 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::resource('kapasitas', 'KapasitasController');
     Route::get('get-cinema', [PelaporanController::class,'getCinemaByCategory'])->name('ref.cinema');
     Route::get('get-kota', [PelaporanController::class,'getCityByCinema'])->name('ref.kota');
+    Route::get('get-provonsi', [PelaporanController::class,'getProvinsiByCinema'])->name('ref.provinsi');
     Route::get('get-city', [PelaporanController::class,'getCityByCategory'])->name('ref.city');
     Route::get('get-type', [PelaporanController::class,'getTypeByCategory'])->name('ref.type');
+    Route::get('get-studio', [PelaporanController::class,'getStudio'])->name('ref.studio');
     Route::get('get-data', [LaporanController::class,'listData'])->name('laporan.search');
 });

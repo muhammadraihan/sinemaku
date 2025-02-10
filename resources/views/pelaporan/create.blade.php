@@ -90,6 +90,23 @@
                         <div class="invalid-feedback">{{ $errors->first('type_tiket') }}</div>
                         @endif
                     </div>
+                    <div class="form-group col-md-4 mb-3">
+                        {{ Form::label('studio','Studio',['class' => 'required form-label'])}}
+                        {!! Form::select('studio', $studio, '',
+                        ['id'=>'studio','class'
+                        => 'custom-select'.($errors->has('studio') ? 'is-invalid':'') ,'required'
+                        => '', 'placeholder' => 'Pilih Studio ...'])!!}
+                        @if ($errors->has('studio'))
+                        <div class="invalid-feedback">{{ $errors->first('studio') }}</div>
+                        @endif
+                    </div>
+                    <div class="form-group col-md-4 mb-3">
+                        {{ Form::label('provinsi','Provinsi',['class' => 'required form-label'])}}
+                        {{ Form::text('provinsi',null,['id' => 'provinsi','placeholder' => 'Provinsi','class' => 'form-control provinsi'.($errors->has('provinsi') ? 'is-invalid':''),'required'])}}
+                        @if ($errors->has('provinsi'))
+                        <div class="invalid-feedback">{{ $errors->first('provinsi') }}</div>
+                        @endif
+                    </div>
                 </div>
                 <hr style="border: 1px dashed: color: black">
                 <div class="row">
@@ -179,9 +196,12 @@
         $('#type_tiket').select2();
         $('#kota').select2();
         $('#show').select2();
+        $('#studio').select2();
 
         $('#kategori').change(function(){
             var kategori = $(this).val();
+            $('#kota').empty();
+            $('#studio').empty();
 
             $.ajax({
                 url: "{{ route('ref.cinema') }}",
@@ -222,6 +242,9 @@
             var kategori = $('#kategori').val();
             var bioskop = $(this).val();
 
+            $('#studio').empty();
+            $('#type_tiket').empty();
+
             $.ajax({
                 url: "{{ route('ref.kota') }}",
                 type: 'GET',
@@ -232,10 +255,77 @@
                 success: function(data) {
                     $("#kota").empty();
 
-                    // $("#kota").append('<option value="">Pilih Nama Kota ...</option>');
+                    $("#kota").append('<option value="">Pilih Nama Kota ...</option>');
 
                     $.each(data, function(key, value) {
                         $("#kota").append('<option value="' + key + '">' + value + '</option>');
+                    });
+                }
+            });
+
+            $.ajax({
+                url: "{{ route('ref.type') }}",
+                type: 'GET',
+                data: {
+                    kategori: kategori,
+                },
+                success: function(data) {
+                    $("#type_tiket").empty();
+
+                    $("#type_tiket").append('<option value="">Pilih Tipe Tiket ...</option>');
+
+                    $.each(data, function(key, value) {
+                        $("#type_tiket").append('<option value="' + key + '">' + value + '</option>');
+                    });
+                }
+            });
+        });
+
+        $('#kota').change(function(){
+            var kota = $(this).val();
+
+            $.ajax({
+                url: "{{ route('ref.provinsi') }}",
+                type: 'GET',
+                data: {
+                    kota : kota
+                },
+                success: function(data) {
+                    console.log(data);
+                    
+                    $("#provinsi").empty();
+
+                    if(data == ''){
+                        $("#provinsi").val('');
+                    }else{
+                        $("#provinsi").val(data[0]['nama']);
+                    }
+                }
+            });
+        });
+
+        $('#type_tiket').change(function(){
+            var kategori = $('#kategori').val();
+            var nama_bioskop = $('#nama_bioskop').val();
+            var kota = $('#kota').val();
+            var type_tiket = $('#type_tiket').val();
+
+            $.ajax({
+                url: "{{ route('ref.studio') }}",
+                type: 'GET',
+                data: {
+                    kategori: kategori,
+                    nama_bioskop: nama_bioskop,
+                    kota: kota,
+                    type_tiket: type_tiket,
+                },
+                success: function(data) {
+                    $("#studio").empty();
+
+                    $("#studio").append('<option value="">Pilih Studio ...</option>');
+
+                    $.each(data, function(key, value) {
+                        $("#studio").append('<option value="' + key + '">' + value + '</option>');
                     });
                 }
             });
