@@ -116,8 +116,8 @@ class PelaporanController extends Controller
             'gross' => 'required',
             // 'tax' => 'required',
             // 'net' => 'required',
-            'studio' => 'required',
-            'provinsi' => 'required'
+            'studio' => 'required'
+            // 'provinsi' => 'required'
         ];
 
         $messages = [
@@ -205,8 +205,8 @@ class PelaporanController extends Controller
             'gross' => 'required',
             // 'tax' => 'required',
             // 'net' => 'required',
-            'studio' => 'required',
-            'provinsi' => 'required'
+            'studio' => 'required'
+            // 'provinsi' => 'required'
         ];
 
         $messages = [

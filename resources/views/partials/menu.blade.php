@@ -12,6 +12,12 @@
         </a>
         <ul>
             <li>
+                <a href="{{route('vendor.index')}}" title="Vendor" data-filter-tags="Vendor">
+                    {{-- <i class="fal fa-project-diagram"></i> --}}
+                    <span class="nav-link-text">Master Vendor</span>
+                </a>
+            </li>
+            <li>
                 <a href="{{route('kategoribioskop.index')}}" title="Kategori Bioskop" data-filter-tags="Kategori Bioskop">
                     {{-- <i class="fal fa-project-diagram"></i> --}}
                     <span class="nav-link-text">Master Kategori Bioskop</span>
@@ -44,12 +50,14 @@
             <span class="nav-link-text">Laporan</span>
         </a>
     </li>
+    @hasrole('superadmin|superuser')
     <li>
         <a href="{{route('laporan.index')}}" title="Rekap Laporan" data-filter-tags="Rekap Laporan">
             <i class="fal fa-clipboard-list"></i>
             <span class="nav-link-text">Rekap Laporan</span>
         </a>
     </li>
+    @endhasrole
     @hasrole('superadmin')
     @isset($menu)
     @foreach ($menu as $parent_menu)

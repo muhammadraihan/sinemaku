@@ -100,7 +100,7 @@
                         @endif
                     </div>
                     <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('provinsi','Provinsi',['class' => 'required form-label'])}}
+                        {{ Form::label('provinsi','Provinsi',['class' => 'form-label'])}}
                         {{ Form::text('provinsi',$pelaporan->provinsi,['id' => 'provinsi','placeholder' => 'Provinsi','class' => 'form-control provinsi'.($errors->has('provinsi') ? 'is-invalid':''),'required'])}}
                         @if ($errors->has('provinsi'))
                         <div class="invalid-feedback">{{ $errors->first('provinsi') }}</div>
