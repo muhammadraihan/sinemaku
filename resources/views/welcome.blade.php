@@ -85,7 +85,7 @@
 
         <div class="content">
             <div class="title m-b-md">
-                {{env('APP_NAME')}}
+                <img src="{{asset('img/sinemaku_full_logo.png')}}" alt="{{env('APP_NAME','')}}" aria-roledescription="logo" style="width: 1000px; height: 1000px">
             </div>
 
             {{-- <div class="links">

@@ -2,8 +2,8 @@
     <div class="page-logo">
         <a href="#" class="page-logo-link press-scale-down d-flex align-items-center position-relative"
             data-toggle="modal" data-target="#modal-shortcut">
-            <img src="{{asset('img/sinemaku.png')}}" alt="{{env('APP_NAME','')}}" aria-roledescription="logo" style="width: 50px; height: 50px">
-            <span class="page-logo-text mr-1">{{env('APP_NAME','')}}</span>
+            <img src="{{asset('img/sinemaku_horizontal.png')}}" alt="{{env('APP_NAME','')}}" aria-roledescription="logo" style="width: 200px; height: 200px">
+            {{-- <span class="page-logo-text mr-1">{{env('APP_NAME','')}}</span> --}}
             <span class="position-absolute text-white opacity-50 small pos-top pos-right mr-2 mt-n2"></span>
             <i class="fal fa-angle-down d-inline-block ml-1 fs-lg color-primary-300"></i>
         </a>
@@ -20,7 +20,7 @@
             </div>
         </div>
         <div class="info-card">
-            <img src="{{asset('img/card-backgrounds/cover-2-lg.png')}}" class="cover" alt="cover">
+            <img src="{{asset('img/foto_sinemaku.jpg')}}" class="cover" alt="cover" style="width: 270px; height: 200px">
             <a href="#" onclick="return false;" class="pull-trigger-btn" data-action="toggle"
                 data-class="list-filter-active" data-target=".page-sidebar" data-focus="nav_filter_input">
                 <i class="fal fa-angle-down"></i>
