@@ -1,6 +1,6 @@
 @extends('layouts.page')
 
-@section('title', 'Reporting Management')
+@section('title', 'Rekap Omset')
 
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/datagrid/datatables/datatables.bundle.css')}}">
@@ -10,9 +10,9 @@
 @section('content')
 <div class="subheader">
     <h1 class="subheader-title">
-        <i class='subheader-icon fal fa-users'></i> Module: <span class='fw-300'>Reporting </span>
+        <i class='subheader-icon fal fa-users'></i> Module: <span class='fw-300'>Rekap Omset </span>
         <small>
-            Module for manage Reporting.
+            Modul untul Rekap Omset.
         </small>
     </h1>
 </div>
@@ -21,7 +21,7 @@
         <div id="panel-1" class="panel">
             <div class="panel-hdr">
             <h2>
-                    Reporting  <span class="fw-300"><i>List</i></span>
+                    Rekap Omset  <span class="fw-300"><i>List</i></span>
                 </h2>
                 <div class="panel-toolbar">
                     {{-- <a class="nav-link active" href="{{route('pelaporan.create')}}"><i class="fal fa-plus-circle">
@@ -40,11 +40,11 @@
                         <div class="row">
                             <!-- Dropdown Nama Film -->
                             <div class="form-group col-md-6 mb-3">
-                                {{ Form::label('nama_film','Film Name',['class' => 'required form-label'])}}
+                                {{ Form::label('nama_film','Nama Film',['class' => 'required form-label'])}}
                                 {!! Form::select('nama_film', $nama_film, '',
                                 ['id'=>'nama_film','class'
                                 => 'custom-select'.($errors->has('nama_film') ? 'is-invalid':'') ,'required'
-                                => '', 'placeholder' => 'Choose Film Name ...'])!!}
+                                => '', 'placeholder' => 'Pilih Nama Film ...'])!!}
                                 @if ($errors->has('nama_film'))
                                 <div class="invalid-feedback">{{ $errors->first('nama_film') }}</div>
                                 @endif
@@ -52,33 +52,33 @@
                         </div>
                         <div class="row">
                             <div class="col-md-3">
-                                {{ Form::label('tanggal_mulai','Start Date',['class' => 'required form-label'])}}
+                                {{ Form::label('tanggal_mulai','Tanggal Mulai',['class' => 'required form-label'])}}
                                 <input type="date" id="tanggal_mulai" class="form-control">
                             </div>
             
                             <div class="col-md-3">
-                                {{ Form::label('tanggal_akhir','End Date',['class' => 'required form-label'])}}
+                                {{ Form::label('tanggal_akhir','Tanggal Akhir',['class' => 'required form-label'])}}
                                 <input type="date" id="tanggal_akhir" class="form-control">
                             </div>
                         </div>
                         <br>
                         <div class="row">
                             <div class="form-group col-md-3 mb-3">
-                                {{ Form::label('bioskop_kategori','Cinema Category',['class' => 'required form-label'])}}
+                                {{ Form::label('bioskop_kategori','Kategori Bioskop',['class' => 'required form-label'])}}
                                 {!! Form::select('bioskop_kategori', $bioskop_kategori, '',
                                 ['id'=>'bioskop_kategori','class'
                                 => 'custom-select'.($errors->has('bioskop_kategori') ? 'is-invalid':'') ,'required'
-                                => '', 'placeholder' => 'Choose Cinema Category ...'])!!}
+                                => '', 'placeholder' => 'Pilih Kategori Bioskop ...'])!!}
                                 @if ($errors->has('bioskop_kategori'))
                                 <div class="invalid-feedback">{{ $errors->first('bioskop_kategori') }}</div>
                                 @endif
                             </div>
                             <div class="form-group col-md-3 mb-3">
-                                {{ Form::label('kota','City',['class' => 'required form-label'])}}
+                                {{ Form::label('kota','Kota',['class' => 'required form-label'])}}
                                 {!! Form::select('kota', $kota, '',
                                 ['id'=>'kota','class'
                                 => 'custom-select'.($errors->has('kota') ? 'is-invalid':'') ,'required'
-                                => '', 'placeholder' => 'Choose City ...'])!!}
+                                => '', 'placeholder' => 'Pilih Kota ...'])!!}
                                 @if ($errors->has('kota'))
                                 <div class="invalid-feedback">{{ $errors->first('kota') }}</div>
                                 @endif
@@ -86,21 +86,21 @@
                         </div>
                         <div class="row">
                             <div class="form-group col-md-3 mb-3">
-                                {{ Form::label('nama_bioskop','Cinema Name',['class' => 'required form-label'])}}
+                                {{ Form::label('nama_bioskop','Nama Bioskop',['class' => 'required form-label'])}}
                                 {!! Form::select('nama_bioskop', $nama_bioskop, '',
                                 ['id'=>'nama_bioskop','class'
                                 => 'custom-select'.($errors->has('nama_bioskop') ? 'is-invalid':'') ,'required'
-                                => '', 'placeholder' => 'Choose Cinema Name ...'])!!}
+                                => '', 'placeholder' => 'Pilih Nama Bioskop ...'])!!}
                                 @if ($errors->has('nama_bioskop'))
                                 <div class="invalid-feedback">{{ $errors->first('nama_bioskop') }}</div>
                                 @endif
                             </div>
                             <div class="form-group col-md-3 mb-3">
-                                {{ Form::label('type_tiket','Type Ticket',['class' => 'required form-label'])}}
+                                {{ Form::label('type_tiket','Tipe Tiket',['class' => 'required form-label'])}}
                                 {!! Form::select('type_tiket', $type_tiket, '',
                                 ['id'=>'type_tiket','class'
                                 => 'custom-select'.($errors->has('type_tiket') ? 'is-invalid':'') ,'required'
-                                => '', 'placeholder' => 'Choose Type Ticket ...'])!!}
+                                => '', 'placeholder' => 'Pilih Tipe Tiket ...'])!!}
                                 @if ($errors->has('type_tiket'))
                                 <div class="invalid-feedback">{{ $errors->first('type_tiket') }}</div>
                                 @endif
@@ -117,16 +117,16 @@
                         <thead>
                             <tr>
                                 <th>No</th>
-                                <th>Date</th>
-                                <th>Cinema Category</th>
-                                <th>City</th>
-                                <th>Cinema Name</th>
-                                <th>Movie Name</th>
+                                <th>Tanggal</th>
+                                <th>Kategori Bioskop</th>
+                                <th>Kota</th>
+                                <th>Nama Bioskop</th>
+                                <th>Nama Film</th>
                                 <th>Show</th>
-                                <th>Time</th>
-                                <th>Ticket Type</th>
-                                <th>Price (/pcs)</th>
-                                <th>Total Ticket</th>
+                                <th>Jam Tayang</th>
+                                <th>Tipe Tiket</th>
+                                <th>Harga (/pcs)</th>
+                                <th>Total Tiket</th>
                                 <th>Gross</th>
                                 <th>Tax</th>
                                 <th>Net</th>
@@ -201,7 +201,7 @@
                 success: function(data) {
                     $("#kota").empty();
 
-                    $("#kota").append('<option value="ALL">ALL ...</option>');
+                    $("#kota").append('<option value="ALL">Semua ...</option>');
 
                     $.each(data, function(key, value) {
                         $("#kota").append('<option value="' + key + '">' + value + '</option>');
@@ -209,7 +209,7 @@
 
                     $("#nama_bioskop").empty();
 
-                    $("#nama_bioskop").append('<option value="ALL">ALL ...</option>');
+                    $("#nama_bioskop").append('<option value="ALL">Semua ...</option>');
                 }
             });
 
@@ -222,7 +222,7 @@
                 success: function(data) {
                     $("#type_tiket").empty();
 
-                    $("#type_tiket").append('<option value="ALL">ALL ...</option>');
+                    $("#type_tiket").append('<option value="ALL">Semua ...</option>');
 
                     $.each(data, function(key, value) {
                         $("#type_tiket").append('<option value="' + key + '">' + value + '</option>');
@@ -245,7 +245,7 @@
                 success: function(data) {
                     $("#nama_bioskop").empty();
 
-                    $("#nama_bioskop").append('<option value="ALL">ALL ...</option>');
+                    $("#nama_bioskop").append('<option value="ALL">Semua ...</option>');
 
                     $.each(data, function(key, value) {
                         $("#nama_bioskop").append('<option value="' + key + '">' + value + '</option>');
