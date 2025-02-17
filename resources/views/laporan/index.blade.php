@@ -134,7 +134,8 @@
                         </thead>
                         <tfoot>
                             <tr>
-                                <th colspan="10">Total</th>
+                                <th colspan="9">Total</th>
+                                <th id="total-tiket"></th>
                                 <th id="total-gross"></th>
                                 <th id="total-tax"></th>
                                 <th id="total-net"></th>
@@ -304,6 +305,12 @@
                 ],
                 "footerCallback": function (row, data, start, end, display) {
                     var api = this.api();
+                    
+                    var totalTiket = api.column(10).data().reduce(function (a, b) {
+                        var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
+                        var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
+                        return valA + valB;
+                    }, 0);
             
                     // Total Gross
                     var totalGross = api.column(11).data().reduce(function (a, b) {
@@ -327,6 +334,7 @@
                     }, 0);
 
                     // Update footer
+                    $(api.column(10).footer()).html(formatCurrency(totalTiket));
                     $(api.column(11).footer()).html(formatCurrency(totalGross));
                     $(api.column(12).footer()).html(formatCurrency(totalTax));
                     $(api.column(13).footer()).html(formatCurrency(totalNet));

@@ -53,8 +53,14 @@
     @hasrole('superadmin|superuser')
     <li>
         <a href="{{route('laporan.index')}}" title="Rekap Laporan" data-filter-tags="Rekap Laporan">
-            <i class="fal fa-clipboard-list"></i>
+            <i class="fal fa-book"></i>
             <span class="nav-link-text">Rekap Laporan</span>
+        </a>
+    </li>
+    <li>
+        <a href="{{route('grafik_kota.index')}}" title="Grafik TOP 20 per Kota" data-filter-tags="Grafik TOP 20 per Kota">
+            <i class="fal fa-chart-bar"></i>
+            <span class="nav-link-text">Grafik TOP 20 per Kota</span>
         </a>
     </li>
     @endhasrole

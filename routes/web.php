@@ -13,6 +13,7 @@
 
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\PelaporanController;
+use App\Http\Controllers\GrafikKotaController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -48,6 +49,8 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::resource('pelaporan', 'PelaporanController');
     Route::resource('laporan', 'LaporanController');
     Route::resource('kapasitas', 'KapasitasController');
+    Route::resource('vendor', 'VendorController');
+    Route::resource('grafik_kota', 'GrafikKotaController');
     Route::get('get-cinema', [PelaporanController::class,'getCinemaByCategory'])->name('ref.cinema');
     Route::get('get-kota', [PelaporanController::class,'getCityByCinema'])->name('ref.kota');
     Route::get('get-provonsi', [PelaporanController::class,'getProvinsiByCinema'])->name('ref.provinsi');
@@ -55,4 +58,5 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::get('get-type', [PelaporanController::class,'getTypeByCategory'])->name('ref.type');
     Route::get('get-studio', [PelaporanController::class,'getStudio'])->name('ref.studio');
     Route::get('get-data', [LaporanController::class,'listData'])->name('laporan.search');
+    Route::get('get-chart-city', [GrafikKotaController::class,'getTopCities'])->name('getTopCities');
 });
