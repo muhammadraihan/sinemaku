@@ -1,6 +1,6 @@
 @extends('layouts.page')
 
-@section('title', 'Reporting Management')
+@section('title', 'TOP 20 Kota dengan Penonton Terbanyak')
 
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/datagrid/datatables/datatables.bundle.css')}}">
@@ -10,10 +10,7 @@
 @section('content')
 <div class="subheader">
     <h1 class="subheader-title">
-        <i class='subheader-icon fal fa-users'></i> Module: <span class='fw-300'>Reporting </span>
-        <small>
-            Module for manage Reporting.
-        </small>
+        <i class='subheader-icon fal fa-users'></i> <span class='fw-300'>TOP 20 Kota dengan Penonton Terbanyak </span>
     </h1>
 </div>
 <div class="row">
@@ -21,7 +18,7 @@
         <div id="panel-1" class="panel">
             <div class="panel-hdr">
             <h2>
-                    Reporting  <span class="fw-300"><i>List</i></span>
+                    TOP 20 Kota dengan Penonton Terbanyak  <span class="fw-300"></span>
                 </h2>
                 <div class="panel-toolbar">
                     {{-- <a class="nav-link active" href="{{route('pelaporan.create')}}"><i class="fal fa-plus-circle">
@@ -40,11 +37,11 @@
                         <div class="row">
                             <!-- Dropdown Nama Film -->
                             <div class="form-group col-md-6 mb-3">
-                                {{ Form::label('nama_film','Film Name',['class' => 'required form-label'])}}
+                                {{ Form::label('nama_film','Nama Film',['class' => 'required form-label'])}}
                                 {!! Form::select('nama_film', $nama_film, '',
                                 ['id'=>'nama_film','class'
                                 => 'custom-select'.($errors->has('nama_film') ? 'is-invalid':'') ,'required'
-                                => '', 'placeholder' => 'Choose Film Name ...'])!!}
+                                => '', 'placeholder' => 'Pilih Nama Film ...'])!!}
                                 @if ($errors->has('nama_film'))
                                 <div class="invalid-feedback">{{ $errors->first('nama_film') }}</div>
                                 @endif
@@ -52,23 +49,23 @@
                         </div>
                         <div class="row">
                             <div class="col-md-3">
-                                {{ Form::label('tanggal_mulai','Start Date',['class' => 'required form-label'])}}
+                                {{ Form::label('tanggal_mulai','Tanggal Mulai',['class' => 'required form-label'])}}
                                 <input type="date" id="tanggal_mulai" class="form-control">
                             </div>
             
                             <div class="col-md-3">
-                                {{ Form::label('tanggal_akhir','End Date',['class' => 'required form-label'])}}
+                                {{ Form::label('tanggal_akhir','Tanggal Akhir',['class' => 'required form-label'])}}
                                 <input type="date" id="tanggal_akhir" class="form-control">
                             </div>
                         </div>
                         <br>
                         <div class="row">
                             <div class="form-group col-md-3 mb-3">
-                                {{ Form::label('bioskop_kategori','Cinema Category',['class' => 'required form-label'])}}
+                                {{ Form::label('bioskop_kategori','Kategori Bioskop',['class' => 'required form-label'])}}
                                 {!! Form::select('bioskop_kategori', $bioskop_kategori, '',
                                 ['id'=>'bioskop_kategori','class'
                                 => 'custom-select'.($errors->has('bioskop_kategori') ? 'is-invalid':'') ,'required'
-                                => '', 'placeholder' => 'Choose Cinema Category ...'])!!}
+                                => '', 'placeholder' => 'Pilih Kategori Bioskop ...'])!!}
                                 @if ($errors->has('bioskop_kategori'))
                                 <div class="invalid-feedback">{{ $errors->first('bioskop_kategori') }}</div>
                                 @endif
