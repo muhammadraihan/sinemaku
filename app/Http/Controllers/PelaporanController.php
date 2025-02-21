@@ -29,7 +29,9 @@ class PelaporanController extends Controller
     {
         $pelaporan = Pelaporan::all();
         if (request()->ajax()) {
-            $data = Pelaporan::get();
+            // $data = Pelaporan::get();
+            $data = Pelaporan::whereBetween('created_at', [Carbon::yesterday()->startOfDay(), Carbon::now()->endOfDay()])
+            ->get();
 
             return Datatables::of($data)
                 ->addIndexColumn()
