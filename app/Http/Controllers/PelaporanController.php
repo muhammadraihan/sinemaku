@@ -30,19 +30,20 @@ class PelaporanController extends Controller
         $pelaporan = Pelaporan::all();
         if (request()->ajax()) {
             // $data = Pelaporan::get();
-            $data = Pelaporan::whereBetween('created_at', [Carbon::yesterday()->startOfDay(), Carbon::now()->endOfDay()])
-            ->get();
+            $data = Pelaporan::limit(1000)
+                ->orderByDesc('created_at')
+                 ->get();
 
             return Datatables::of($data)
                 ->addIndexColumn()
                 ->editColumn('kategori', function ($row){
-                    return $row->Categories->name;
+                    return $row->Categories->name ?? null;
                 })
                 ->editColumn('nama_bioskop', function ($row){
-                    return $row->Cinemas->nama_bioskop;
+                    return $row->Cinemas->nama_bioskop ?? null;
                 })
                 ->editColumn('type_tiket', function ($row){
-                    return $row->TypeTiket->name;
+                    return $row->TypeTiket->name ?? null;
                 })
                 ->editColumn('studio', function ($row){
                     return $row->Studio->studio ?? null;
@@ -51,7 +52,7 @@ class PelaporanController extends Controller
                     return \Carbon\Carbon::parse($row->jam_tayang)->format('H:i'); // Format hh:mm
                 })
                 ->editColumn('created_by', function($row){
-                    return $row->userCreate->name;
+                    return $row->userCreate->name ?? null;
                 })
                 ->editColumn('created_at', function($row){
                     return \Carbon\Carbon::parse($row->created_at)->format('d-m-Y'); // Format hh:mm
@@ -78,7 +79,13 @@ class PelaporanController extends Controller
                 ->make(true);
         }
 
-        return view('pelaporan.index');
+        $bioskop_kategori = KategoriBioskop::all()->pluck('name', 'uuid');
+        $nama_bioskop = MasterBioskop::all()->pluck('nama_bioskop', 'uuid');
+        $kota = MasterBioskop::selectRaw('Distinct kota')->pluck('kota', 'kota');
+        $type_tiket = TypeTiket::all()->pluck('name', 'uuid');
+        $nama_film = Pelaporan::selectRaw('Distinct nama_film')->pluck('nama_film', 'nama_film');
+
+        return view('pelaporan.index',compact('bioskop_kategori', 'nama_bioskop', 'kota','type_tiket', 'nama_film'));
     }
 
     /**
