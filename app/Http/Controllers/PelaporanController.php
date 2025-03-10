@@ -17,6 +17,7 @@ use URL;
 use Helper;
 use Image;
 use Response;
+use Uuid;
 
 class PelaporanController extends Controller
 {
@@ -111,6 +112,7 @@ class PelaporanController extends Controller
      */
     public function store(Request $request)
     {
+        // Validasi
         $rules = [
             'kategori' => 'required',
             'kota' => 'required',
@@ -118,7 +120,7 @@ class PelaporanController extends Controller
             'nama_film' => 'required',
             'tgl_tayang' => 'required',
             // 'jam_tayang' => 'required',
-            'show' => 'required',
+            'show.*' => 'required',
             'type_tiket' => 'required',
             'harga' => 'required',
             'jumlah' => 'required',
@@ -130,38 +132,46 @@ class PelaporanController extends Controller
         ];
 
         $messages = [
-            '*.required' => 'Field :attribute tidak boleh kosong !',
-            '*.min' => 'Nama tidak boleh kurang dari 2 karakter !',
-            '*.image' => 'Field Harus Berupa Foto !',
-            '*.mimes' => 'Foto Harus Berformat JPEG/PNG/JPG'
+            '*.required' => 'Field :attribute tidak boleh kosong!',
+            '*.numeric' => 'Field :attribute harus berupa angka!',
+            '*.integer' => 'Field :attribute harus berupa bilangan bulat!',
         ];
 
         $this->validate($request, $rules, $messages);
-        // dd($request->photo);
 
-        $pelaporan = new Pelaporan();
-        $pelaporan->kategori = $request->kategori;
-        $pelaporan->provinsi = $request->provinsi;
-        $pelaporan->kota = $request->kota;
-        $pelaporan->nama_bioskop = $request->nama_bioskop;
-        $pelaporan->nama_film = strtoupper($request->nama_film);
-        $pelaporan->tgl_tayang = \Carbon\Carbon::parse($request->tgl_tayang)->format('Y-m-d');
-        $pelaporan->studio = $request->studio;
-        $pelaporan->jam_tayang = $request->jam_tayang;
-        $pelaporan->show = $request->show;
-        $pelaporan->type_tiket = $request->type_tiket;
-        $pelaporan->harga = $request->harga;
-        $pelaporan->jumlah = $request->jumlah;
-        $pelaporan->gross = $request->gross;
-        $pelaporan->tax = $request->tax;
-        $pelaporan->net = $request->net;
-        $pelaporan->created_by = Auth::user()->uuid;
-        $pelaporan->updated_at = NULL;
-        $pelaporan->save();
+        // Looping untuk menyimpan multiple data
+        $data = [];
+        foreach ($request->show as $index => $show) {
+            $data[] = [
+                'uuid'         => Uuid::generate(),
+                'kategori'     => $request->kategori,
+                'provinsi'     => $request->provinsi,
+                'kota'         => $request->kota,
+                'nama_bioskop' => $request->nama_bioskop,
+                'nama_film'    => strtoupper($request->nama_film),
+                'tgl_tayang'   => \Carbon\Carbon::parse($request->tgl_tayang)->format('Y-m-d'),
+                'studio'       => $request->studio,
+                'show'         => $show,
+                'jam_tayang'   => $request->jam_tayang[$index],
+                'type_tiket'   => $request->type_tiket[$index],
+                'harga'        => str_replace(',', '', $request->harga[$index]),
+                'jumlah'       => $request->jumlah[$index],
+                'gross'        => str_replace(',', '', $request->gross[$index]),
+                'tax'          => isset($request->tax[$index]) ? str_replace(',', '', $request->tax[$index]) : 0,
+                'net'          => isset($request->net[$index]) ? str_replace(',', '', $request->net[$index]) : 0,
+                'created_by'   => Auth::user()->uuid,
+                'created_at'   => now(),
+                'updated_at'   => null
+            ];
+        }
+
+        // Simpan data ke database dalam satu query (lebih cepat)
+        Pelaporan::insert($data);
 
         toastr()->success('New Reporting Added', 'Success');
         return redirect()->route('pelaporan.index');
     }
+
 
     /**
      * Display the specified resource.

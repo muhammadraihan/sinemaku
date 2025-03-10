@@ -118,62 +118,72 @@
                         @endif
                     </div>
                     <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('show','Show',['class' => 'required form-label'])}}
-                        {!! Form::select('show', array('1' => 'Show - 1', '2' => 'Show - 2', '3' => 'Show - 3', '4' => 'Show - 4', '5' => 'Show - 5', '6' => 'Show - 6', '7' => 'Show - 7', '8' => 'Show - 8'), '',
-                        ['id'=>'show','class'
-                        => 'custom-select'.($errors->has('show') ? 'is-invalid':'') ,'required'
-                        => '', 'placeholder' => 'Pilih Show ...'])!!}
-                        @if ($errors->has('show'))
-                        <div class="invalid-feedback">{{ $errors->first('show') }}</div>
-                        @endif
-                    </div>
-                    <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('jam_tayang','Jam',['class' => 'form-label'])}}
-                        {{ Form::time('jam_tayang',null,['placeholder' => 'Jam','class' => 'form-control '.($errors->has('jam_tayang') ? 'is-invalid':''),'required'])}}
-                        @if ($errors->has('jam_tayang'))
-                        <div class="invalid-feedback">{{ $errors->first('jam_tayang') }}</div>
-                        @endif
+                        <br>
+                        <button type="button" id="addRow" class="btn btn-success ms-2">+</button>
                     </div>
                 </div>
                 <hr style="border: 1px dashed: color: black">
 
-                <div class="row">
-                    <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('harga','Harga',['class' => 'required form-label'])}}
-                        {{ Form::text('harga',null,['placeholder' => 'Harga','class' => 'form-control '.($errors->has('harga') ? 'is-invalid':''),'required'])}}
-                        @if ($errors->has('harga'))
-                        <div class="invalid-feedback">{{ $errors->first('harga') }}</div>
-                        @endif
+                <div id="rowContainer">
+                    <div class="row data-row">
+                        <div class="form-group col-md-4 mb-3">
+                            {{ Form::label('show[]','Show',['class' => 'required form-label'])}}
+                            {!! Form::select('show[]', array('1' => 'Show - 1', '2' => 'Show - 2', '3' => 'Show - 3', '4' => 'Show - 4', '5' => 'Show - 5', '6' => 'Show - 6', '7' => 'Show - 7', '8' => 'Show - 8'), '',
+                            ['id'=>'show','class'
+                            => 'custom-select shows'.($errors->has('show') ? 'is-invalid':'') ,'required'
+                            => '', 'placeholder' => 'Pilih Show ...'])!!}
+                            @if ($errors->has('show'))
+                            <div class="invalid-feedback">{{ $errors->first('show') }}</div>
+                            @endif
+                        </div>
+                        <div class="form-group col-md-4 mb-3">
+                            {{ Form::label('jam_tayang[]','Jam',['class' => 'form-label'])}}
+                            {{ Form::time('jam_tayang[]',null,['placeholder' => 'Jam','class' => 'form-control '.($errors->has('jam_tayang') ? 'is-invalid':''),'required'])}}
+                            @if ($errors->has('jam_tayang'))
+                            <div class="invalid-feedback">{{ $errors->first('jam_tayang') }}</div>
+                            @endif
+                        </div>
+                        <div class="form-group col-md-4 mb-3">
+                            {{ Form::label('harga[]','Harga',['class' => 'required form-label'])}}
+                            {{ Form::text('harga[]',null,['placeholder' => 'Harga','class' => 'form-control harga '.($errors->has('harga') ? 'is-invalid':''),'required'])}}
+                            @if ($errors->has('harga'))
+                            <div class="invalid-feedback">{{ $errors->first('harga') }}</div>
+                            @endif
+                        </div>
+                        <div class="form-group col-md-4 mb-3">
+                            {{ Form::label('jumlah[]','Qty',['class' => 'required form-label'])}}
+                            {{ Form::text('jumlah[]',null,['placeholder' => 'Qty','class' => 'form-control jumlah '.($errors->has('jumlah') ? 'is-invalid':''),'required'])}}
+                            @if ($errors->has('jumlah'))
+                            <div class="invalid-feedback">{{ $errors->first('jumlah') }}</div>
+                            @endif
+                        </div>
+                        <div class="form-group col-md-4 mb-3">
+                            {{ Form::label('gross[]','Gross',['class' => 'required form-label'])}}
+                            {{ Form::text('gross[]',null,['placeholder' => 'Gross','class' => 'form-control gross '.($errors->has('gross') ? 'is-invalid':''),'required', 'readonly' => 'true'])}}
+                            @if ($errors->has('gross'))
+                            <div class="invalid-feedback">{{ $errors->first('gross') }}</div>
+                            @endif
+                        </div>
+                        <hr style="border: 1px dashed: color: black">
+                        <div class="form-group col-md-4 mb-3">
+                            {{ Form::label('tax[]','Tax',['class' => 'form-label'])}}
+                            {{ Form::text('tax[]',null,['placeholder' => 'Tax','class' => 'form-control tax '.($errors->has('tax') ? 'is-invalid':''),'required'])}}
+                            @if ($errors->has('tax'))
+                            <div class="invalid-feedback">{{ $errors->first('tax') }}</div>
+                            @endif
+                        </div>
+                        <div class="form-group col-md-4 mb-3">
+                            {{ Form::label('net[]','Net',['class' => 'required form-label'])}}
+                            {{ Form::text('net[]',null,['placeholder' => 'Net','class' => 'form-control net '.($errors->has('net') ? 'is-invalid':''),'required'])}}
+                            @if ($errors->has('net'))
+                            <div class="invalid-feedback">{{ $errors->first('net') }}</div>
+                            @endif
+                        </div>
+                        <div class="form-group col-md-4 mb-3">
+                            <br>
+                            <button type="button" class="btn btn-danger removeRow">X</button>
+                        </div>
                     </div>
-                    <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('jumlah','Qty',['class' => 'required form-label'])}}
-                        {{ Form::text('jumlah',null,['placeholder' => 'Qty','class' => 'form-control '.($errors->has('jumlah') ? 'is-invalid':''),'required'])}}
-                        @if ($errors->has('jumlah'))
-                        <div class="invalid-feedback">{{ $errors->first('jumlah') }}</div>
-                        @endif
-                    </div>
-                </div>
-                <div class="form-group col-md-4 mb-3">
-                    {{ Form::label('gross','Gross',['class' => 'required form-label'])}}
-                    {{ Form::text('gross',null,['placeholder' => 'Gross','class' => 'form-control '.($errors->has('gross') ? 'is-invalid':''),'required', 'readonly' => 'true'])}}
-                    @if ($errors->has('gross'))
-                    <div class="invalid-feedback">{{ $errors->first('gross') }}</div>
-                    @endif
-                </div>
-                <hr style="border: 1px dashed: color: black">
-                <div class="form-group col-md-4 mb-3">
-                    {{ Form::label('tax','Tax',['class' => 'form-label'])}}
-                    {{ Form::text('tax',null,['placeholder' => 'Tax','class' => 'form-control '.($errors->has('tax') ? 'is-invalid':''),'required'])}}
-                    @if ($errors->has('tax'))
-                    <div class="invalid-feedback">{{ $errors->first('tax') }}</div>
-                    @endif
-                </div>
-                <div class="form-group col-md-4 mb-3">
-                    {{ Form::label('net','Net',['class' => 'required form-label'])}}
-                    {{ Form::text('net',null,['placeholder' => 'Net','class' => 'form-control '.($errors->has('net') ? 'is-invalid':''),'required'])}}
-                    @if ($errors->has('net'))
-                    <div class="invalid-feedback">{{ $errors->first('net') }}</div>
-                    @endif
                 </div>
             <div
                 class="panel-content border-faded border-left-0 border-right-0 border-bottom-0 d-flex flex-row align-items-center">
@@ -195,8 +205,18 @@
         $('#nama_bioskop').select2();
         $('#type_tiket').select2();
         $('#kota').select2();
-        $('#show').select2();
+        // $('.shows').select2();
         $('#studio').select2();
+
+        $("#addRow").click(function () {
+            let newRow = $(".data-row:first").clone(); // Duplikasi row pertama
+            // newRow.find(".shows").select2("destroy"); 
+            newRow.find("input, select").val(""); // Kosongkan nilai input
+            // $("#rowContainer").append(newRow); // Tambahkan ke dalam container
+            newRow.appendTo("#rowContainer");
+
+            newRow.find(".shows").select2();
+        });
 
         $('#kategori').change(function(){
             var kategori = $(this).val();
@@ -331,49 +351,6 @@
             });
         });
 
-        $('#harga, #jumlah, #tax').on('input', function() {
-            // Ambil nilai harga dan jumlah, hilangkan pemisah ribuan
-            var harga = parseFloat($('#harga').val().replace(/,/g, '')) || 0;
-            var jumlah = parseFloat($('#jumlah').val()) || 0;
-            var net = parseFloat($('#net').val().replace(/,/g, '')) || 0;
-            // var tax = parseFloat($('#tax').val()) || 0;
-            var tax = parseFloat($('#tax').val().replace(/,/g, ''));
-            var gross = parseFloat($('#gross').val().replace(/,/g, '')) || 0;
-            tax = tax ? parseFloat(tax) : '';
-
-            // Hitung gross
-            var gross = harga * jumlah;
-            // var total = gross - (gross * tax / 100);
-            var total = gross && tax ? gross - tax : gross;
-            $('#net').val(total.toLocaleString('en-US'));
-
-            // Format harga dengan pemisah ribuan
-            $('#harga').val(harga.toLocaleString('en-US'));
-            
-            
-            // Masukkan hasil ke field gross
-            $('#gross').val(gross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-        });
-
-        // Format ulang harga saat pengguna menginput angka
-        $('#harga').on('blur', function() {
-            var harga = parseFloat($(this).val().replace(/,/g, '')) || 0;
-            $(this).val(harga.toLocaleString('en-US'));
-        });
-
-        $('#photo').change(function(){
-            
-            let reader = new FileReader();
-         
-            reader.onload = (e) => { 
-         
-              $('#preview-image-before-upload').attr('src', e.target.result); 
-            }
-         
-            reader.readAsDataURL(this.files[0]); 
-           
-           });
-
            $('.tgl_tayang').datepicker({
             orientation: "bottom left",
             format:'dd-mm-yyyy', // Notice the Extra space at the beginning
@@ -382,15 +359,40 @@
             todayBtn: "linked",
             clearBtn: true,
         });
-
-        $('.tgl_akhir').datepicker({
-            orientation: "bottom left",
-            format:'yyyy-mm-dd', // Notice the Extra space at the beginning
-            todayHighlight:'TRUE',
-            autoclose: true,
-            todayBtn: "linked",
-            clearBtn: true,
-        });
     });
+    
+    $(document).on("click", ".removeRow", function () {
+        if ($(".data-row").length > 1) {
+            $(this).closest(".data-row").remove();
+        }
+    });
+
+    $(document).on('input', '.harga, .jumlah, .tax', function() {
+    // Cari elemen terdekat dalam baris yang sama
+    var row = $(this).closest('.data-row');
+
+    // Ambil nilai harga dan jumlah, hilangkan pemisah ribuan
+    var harga = parseFloat(row.find('.harga').val().replace(/,/g, '')) || 0;
+    var jumlah = parseFloat(row.find('.jumlah').val()) || 0;
+    var tax = parseFloat(row.find('.tax').val().replace(/,/g, '')) || 0;
+
+    // Hitung gross
+    var gross = harga * jumlah;
+    var total = gross && tax ? gross - tax : gross;
+
+    // Masukkan hasil ke field net & gross
+    row.find('.net').val(total.toLocaleString('en-US'));
+    row.find('.gross').val(gross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+    // Format harga dengan pemisah ribuan
+    row.find('.harga').val(harga.toLocaleString('en-US'));
+    });
+
+    // Format ulang harga saat pengguna menginput angka
+    $(document).on('blur', '.harga', function() {
+        var harga = parseFloat($(this).val().replace(/,/g, '')) || 0;
+        $(this).val(harga.toLocaleString('en-US'));
+    });
+
 </script>
 @endsection
