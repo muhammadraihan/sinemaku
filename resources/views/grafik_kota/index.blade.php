@@ -1,6 +1,6 @@
 @extends('layouts.page')
 
-@section('title', 'TOP 20 Kota dengan Penonton Terbanyak')
+@section('title', 'TOP 10 Kota dengan Penonton Terbanyak')
 
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/datagrid/datatables/datatables.bundle.css')}}">
@@ -10,7 +10,7 @@
 @section('content')
 <div class="subheader">
     <h1 class="subheader-title">
-        <i class='subheader-icon fal fa-users'></i> <span class='fw-300'>TOP 20 Kota dengan Penonton Terbanyak </span>
+        <i class='subheader-icon fal fa-users'></i> <span class='fw-300'>TOP 10 Kota dengan Penonton Terbanyak </span>
     </h1>
 </div>
 <div class="row">
@@ -18,7 +18,7 @@
         <div id="panel-1" class="panel">
             <div class="panel-hdr">
             <h2>
-                    TOP 20 Kota dengan Penonton Terbanyak  <span class="fw-300"></span>
+                    TOP 10 Kota dengan Penonton Terbanyak  <span class="fw-300"></span>
                 </h2>
                 <div class="panel-toolbar">
                     {{-- <a class="nav-link active" href="{{route('pelaporan.create')}}"><i class="fal fa-plus-circle">
@@ -87,7 +87,10 @@
                     <br>
                     <hr style="border: 1px dashed: color: black">
                     <div id="data-summary" style="display: none;">
-                        <h4>📊 List 20 Besar Kota Dengan Penonton Tertinggi</h4>
+                        <h4>📊 List 10 Besar Kota Dengan Penonton Tertinggi</h4>
+                        <button id="download-pdf" class="btn btn-danger mt-3">
+                            <i class="fal fa-file-pdf"></i> Download PDF
+                        </button>
                         <table id="summary-table" class="table table-bordered table-hover table-striped w-100">
                             <thead>
                                 <tr>
@@ -138,6 +141,10 @@
 <script src="{{asset('js/datagrid/datatables/datatables.bundle.js')}}"></script>
 <script src="{{asset('js/formplugins/select2/select2.bundle.js')}}"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
 <script>
     $(document).ready(function(){
         $('#nama_film').select2();
@@ -145,6 +152,71 @@
         $('#kota').select2();
         $('#nama_bioskop').select2();
         $('#type_tiket').select2();
+
+        document.getElementById("download-pdf").addEventListener("click", function () {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF("p", "mm", "a4");
+
+            const chartCanvas = document.getElementById("topCitiesChart");
+
+            const namaFilm = $('#nama_film option:selected').text();
+            const tanggalMulai = $('#tanggal_mulai').val();
+            const tanggalAkhir = $('#tanggal_akhir').val();
+            const kategoriBioskop = $('#bioskop_kategori option:selected').text();
+
+            html2canvas(chartCanvas).then(function (canvas) {
+                const imgData = canvas.toDataURL("image/png");
+                const imgProps = doc.getImageProperties(imgData);
+                const pdfWidth = doc.internal.pageSize.getWidth() - 30;
+                const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                // Title
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(16);
+                doc.setTextColor(33, 37, 41); // Dark grey
+                doc.text("List 10 Besar Kota Dengan Penonton Tertinggi", 15, 20);
+
+                // Subtitle Info
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(11);
+                doc.setTextColor(80, 80, 80); // Soft grey
+                let y = 28;
+                doc.text(`Nama Film         : ${namaFilm}`, 15, y);
+                y += 6;
+                doc.text(`Periode Tanggal   : ${tanggalMulai} s.d. ${tanggalAkhir}`, 15, y);
+                y += 6;
+                doc.text(`Kategori Bioskop  : ${kategoriBioskop}`, 15, y);
+                y += 10;
+
+                // Chart
+                doc.addImage(imgData, 'PNG', 15, y, pdfWidth, imgHeight);
+                const startTableY = y + imgHeight + 12;
+
+                // Tabel
+                doc.autoTable({
+                    html: '#summary-table',
+                    startY: startTableY,
+                    margin: { left: 15, right: 15 },
+                    styles: {
+                        font: 'helvetica',
+                        fontSize: 10,
+                        textColor: [33, 37, 41],
+                    },
+                    headStyles: {
+                        fillColor: [52, 152, 219], // Blue header
+                        textColor: [255, 255, 255],
+                        fontStyle: 'bold',
+                    },
+                    alternateRowStyles: { fillColor: [245, 245, 245] },
+                    tableLineColor: [200, 200, 200],
+                    tableLineWidth: 0.1,
+                    theme: 'grid'
+                });
+
+                doc.save("top10-kota-penonton.pdf");
+            });
+        });
+
 
         $(document).delegate("#search-btn", "click", function (event) {
             event.preventDefault();

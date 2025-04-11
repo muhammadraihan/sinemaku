@@ -51,7 +51,7 @@ class GrafikKotaController extends Controller
 
         $data = $query->groupBy('kota')
             ->orderByDesc('jumlah')
-            ->limit(20)
+            ->limit(10)
             ->get();
 
         return response()->json($data);
