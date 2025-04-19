@@ -111,9 +111,36 @@
                             </div>
                         </div>
                     </form>
+                    <div id="data-summary">
+                        {{-- <h4>📊 List 20 Besar Kota Dengan Penonton Tertinggi</h4> --}}
+                        <table id="summary-table" class="table table-bordered table-hover table-striped w-100" style="display: none;">
+                            <thead>
+                                <tr>
+                                    <th>No</th>
+                                    <th>Kategori</th>
+                                    <th>Jumlah Penonton</th>
+                                    <th>Total Pendapatan</th>
+                                    <th>Pajak</th>
+                                    <th>Net</th>
+                                    <th>Share 50%</th>
+                                </tr>
+                            </thead>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="1">Total</th>
+                                    <th id="total-summary-penonton"></th>
+                                    <th id="total-summary-gross"></th>
+                                    <th id="total-summary-tax"></th>
+                                    <th id="total-summary-net"></th>
+                                    <th id="total-summary-share"></th>
+                                    <th></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                     <hr style="border: 1px dashed: color: black">
                     <!-- datatable start -->
-                    <table id="datatable" class="table table-bordered table-hover table-striped w-100" style="display: none">
+                    {{-- <table id="datatable" class="table table-bordered table-hover table-striped w-100" style="display: none">
                         <thead>
                             <tr>
                                 <th>No</th>
@@ -142,7 +169,7 @@
                                 <th></th>
                             </tr>
                         </tfoot>
-                    </table>
+                    </table> --}}
                 </div>
             </div>
         </div>
@@ -269,13 +296,91 @@
                 $('#datatable').DataTable().destroy();
             }
 
-            var table = $('#datatable').DataTable({
+            if ($.fn.DataTable.isDataTable("#summary-table")) {
+                $('#summary-table').DataTable().destroy();
+            }
+
+            // var table = $('#datatable').DataTable({
+            //     "processing": true,
+            //     "serverSide": true,
+            //     "responsive": true,
+            //     "order": [[ 0, "asc" ]],
+            //     "ajax":{
+            //         url:'{{route('laporan.search')}}',
+            //         type : "GET",
+            //         data: {
+            //             nama_film: nama_film,
+            //             tgl_mulai : tgl_mulai,
+            //             tgl_akhir : tgl_akhir,
+            //             bioskop_kategori : bioskop_kategori,
+            //             kota : kota,
+            //             nama_bioskop : nama_bioskop,
+            //             type_tiket : type_tiket,
+            //         }
+            //     },
+            //         "columns": [
+            //         {data: 'DT_RowIndex', name: 'DT_RowIndex'},
+            //         {data: 'tgl_tayang', name: 'tgl_tayang'},
+            //         {data: 'kategori', name: 'kategori'},
+            //         {data: 'kota', name: 'kota'},
+            //         {data: 'nama_bioskop', name: 'nama_bioskop'},
+            //         {data: 'nama_film', name: 'nama_film'},
+            //         {data: 'show', name: 'show'},
+            //         {data: 'jam_tayang', name: 'jam_tayang'},
+            //         {data: 'type_tiket', name: 'type_tiket'},
+            //         {data: 'harga', name: 'harga'},
+            //         {data: 'jumlah', name: 'jumlah'},
+            //         {data: 'gross', name: 'gross'},
+            //         {data: 'tax', name: 'tax'},
+            //         {data: 'net', name: 'net'}
+            //     ],
+            //     "footerCallback": function (row, data, start, end, display) {
+            //         var api = this.api();
+                    
+            //         var totalTiket = api.column(10).data().reduce(function (a, b) {
+            //             var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
+            //             var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
+            //             return valA + valB;
+            //         }, 0);
+            
+            //         // Total Gross
+            //         var totalGross = api.column(11).data().reduce(function (a, b) {
+            //             var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
+            //             var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
+            //             return valA + valB;
+            //         }, 0);
+
+            //         // Total Tax
+            //         var totalTax = api.column(12).data().reduce(function (a, b) {
+            //             var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
+            //             var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
+            //             return valA + valB;
+            //         }, 0);
+
+            //         // Total Net
+            //         var totalNet = api.column(13).data().reduce(function (a, b) {
+            //             var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
+            //             var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
+            //             return valA + valB;
+            //         }, 0);
+
+            //         // Update footer
+            //         $(api.column(10).footer()).html(formatCurrency(totalTiket));
+            //         $(api.column(11).footer()).html(formatCurrency(totalGross));
+            //         $(api.column(12).footer()).html(formatCurrency(totalTax));
+            //         $(api.column(13).footer()).html(formatCurrency(totalNet));
+            //     }
+            // });
+
+            $('#datatable').show();
+
+            var tableSummary = $('#summary-table').DataTable({
                 "processing": true,
                 "serverSide": true,
                 "responsive": true,
                 "order": [[ 0, "asc" ]],
                 "ajax":{
-                    url:'{{route('laporan.search')}}',
+                    url:'{{route('laporan.summary')}}',
                     type : "GET",
                     data: {
                         nama_film: nama_film,
@@ -289,59 +394,60 @@
                 },
                     "columns": [
                     {data: 'DT_RowIndex', name: 'DT_RowIndex'},
-                    {data: 'tgl_tayang', name: 'tgl_tayang'},
                     {data: 'kategori', name: 'kategori'},
-                    {data: 'kota', name: 'kota'},
-                    {data: 'nama_bioskop', name: 'nama_bioskop'},
-                    {data: 'nama_film', name: 'nama_film'},
-                    {data: 'show', name: 'show'},
-                    {data: 'jam_tayang', name: 'jam_tayang'},
-                    {data: 'type_tiket', name: 'type_tiket'},
-                    {data: 'harga', name: 'harga'},
                     {data: 'jumlah', name: 'jumlah'},
                     {data: 'gross', name: 'gross'},
                     {data: 'tax', name: 'tax'},
-                    {data: 'net', name: 'net'}
+                    {data: 'net', name: 'net'},
+                    {data: 'share', name: 'share'},
                 ],
                 "footerCallback": function (row, data, start, end, display) {
                     var api = this.api();
                     
-                    var totalTiket = api.column(10).data().reduce(function (a, b) {
+                    var totalPenonton = api.column(2).data().reduce(function (a, b) {
                         var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
                         var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
                         return valA + valB;
                     }, 0);
             
                     // Total Gross
-                    var totalGross = api.column(11).data().reduce(function (a, b) {
+                    var totalGross = api.column(3).data().reduce(function (a, b) {
                         var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
                         var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
                         return valA + valB;
                     }, 0);
 
                     // Total Tax
-                    var totalTax = api.column(12).data().reduce(function (a, b) {
+                    var totalTax = api.column(4).data().reduce(function (a, b) {
                         var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
                         var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
                         return valA + valB;
                     }, 0);
 
                     // Total Net
-                    var totalNet = api.column(13).data().reduce(function (a, b) {
+                    var totalNet = api.column(5).data().reduce(function (a, b) {
+                        var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
+                        var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
+                        return valA + valB;
+                    }, 0);
+
+                    // Total Share
+                    var totalShare = api.column(6).data().reduce(function (a, b) {
                         var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
                         var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
                         return valA + valB;
                     }, 0);
 
                     // Update footer
-                    $(api.column(10).footer()).html(formatCurrency(totalTiket));
-                    $(api.column(11).footer()).html(formatCurrency(totalGross));
-                    $(api.column(12).footer()).html(formatCurrency(totalTax));
-                    $(api.column(13).footer()).html(formatCurrency(totalNet));
+                    $(api.column(2).footer()).html(formatCurrency(totalPenonton));
+                    $(api.column(3).footer()).html(formatCurrency(totalGross));
+                    $(api.column(4).footer()).html(formatCurrency(totalTax));
+                    $(api.column(5).footer()).html(formatCurrency(totalNet));
+                    $(api.column(6).footer()).html(formatCurrency(totalShare));
                 }
             });
 
-            $('#datatable').show();
+            $('#summary-table').show();
             
         });
 

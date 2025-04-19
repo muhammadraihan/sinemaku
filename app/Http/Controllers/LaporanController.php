@@ -28,7 +28,8 @@ class LaporanController extends Controller
      */
     public function index()
     {
-        $bioskop_kategori = KategoriBioskop::all()->pluck('name', 'uuid');
+        $bioskop_kategori = KategoriBioskop::all()->pluck('name', 'uuid')->toArray();
+        $bioskop_kategori = ['ALL' => 'Semua ...'] + $bioskop_kategori;
         $nama_bioskop = MasterBioskop::all()->pluck('nama_bioskop', 'uuid');
         $kota = MasterBioskop::selectRaw('Distinct kota')->pluck('kota', 'kota');
         $type_tiket = TypeTiket::all()->pluck('name', 'uuid');
@@ -107,6 +108,8 @@ class LaporanController extends Controller
     // }
 
     public function listData(Request $request) {
+        // dd($request->all());
+
         // Ambil semua data dengan relasi yang dibutuhkan
         $query = Pelaporan::with(['categories', 'cinemas', 'typeTiket']);
     
@@ -137,6 +140,8 @@ class LaporanController extends Controller
     
         // Ambil data setelah filtering
         $data = $query->get();
+
+        // dd($data);
     
         // Kirim data ke Datatables
         return Datatables::of($data)
@@ -153,9 +158,97 @@ class LaporanController extends Controller
             ->editColumn('jam_tayang', function ($row) {
                 return $row->jam_tayang ? \Carbon\Carbon::parse($row->jam_tayang)->format('H:i') : '-';
             })
+            ->editColumn('studio', function ($row){
+                return $row->Studio->studio ?? null;
+            })
+            ->editColumn('created_by', function($row){
+                return $row->userCreate->name;
+            })
+            ->editColumn('created_at', function($row){
+                return \Carbon\Carbon::parse($row->created_at)->format('d-m-Y'); // Format hh:mm
+            })
+            ->editColumn('edited_by', function($row){
+                return $row->userEdit->name ?? null;
+            })
+            ->editColumn('updated_at', function($row){
+                return $row->updated_at ? \Carbon\Carbon::parse($row->updated_at)->format('d-m-Y') : '-';
+            })
+            ->addColumn('action', function ($row) {
+                if (Auth::user()->hasRole(['superadmin', 'superuser'])) {
+                return '
+                        <a class="btn btn-success btn-sm btn-icon waves-effect waves-themed" href="' . route('pelaporan.edit', $row->uuid) . '"><i class="fal fa-edit"></i></a>
+                        <a class="btn btn-danger btn-sm btn-icon waves-effect waves-themed delete-btn" data-url="' . URL::route('pelaporan.destroy', $row->uuid) . '" data-id="' . $row->uuid . '" data-token="' . csrf_token() . '" data-toggle="modal" data-target="#modal-delete"><i class="fal fa-trash-alt"></i></a>';
+                }else if(Auth::user()->hasRole(['admin1'])){
+                    return '
+                        <a class="btn btn-success btn-sm btn-icon waves-effect waves-themed" href="' . route('pelaporan.edit', $row->uuid) . '"><i class="fal fa-edit"></i></a>';
+                }
+            })
             ->removeColumn('id')
             ->removeColumn('uuid')
             ->make(true);
+    }
+
+    public function summaryListData(Request $request){
+        // dd($request->all());
+        $summary = Pelaporan::with(['categories', 'cinemas', 'typeTiket'])
+                    ->select('kategori', DB::raw('SUM(jumlah) as jumlah, SUM(gross) as gross, SUM(tax) as tax, SUM(net) as net, SUM(net/2) as share'));
+    
+        // Filter berdasarkan input user
+        if ($request->nama_film != 'ALL') {
+            $summary->where('nama_film', $request->nama_film);
+        }
+    
+        if (!empty($request->tgl_mulai) && !empty($request->tgl_akhir)) {
+            $summary->whereBetween('tgl_tayang', [$request->tgl_mulai, $request->tgl_akhir]);
+        }
+    
+        if ($request->bioskop_kategori != 'ALL') {
+            $summary->where('kategori', $request->bioskop_kategori);
+        }
+    
+        if ($request->kota != 'ALL') {
+            $summary->where('kota', $request->kota);
+        }
+    
+        if ($request->nama_bioskop != 'ALL') {
+            $summary->where('nama_bioskop', $request->nama_bioskop);
+        }
+    
+        if ($request->type_tiket != 'ALL') {
+            $summary->where('type_tiket', $request->type_tiket);
+        }
+
+        $data_summary = $summary->groupBy('kategori')
+                            ->orderBy('jumlah', 'DESC')
+                            ->get();
+
+        // dd($data_summary);
+
+        // return response()->json($data_summary);
+        return Datatables::of($data_summary)
+        ->addIndexColumn()
+        // ->editColumn('tgl_tayang', function($row){
+        //     return \Carbon\Carbon::parse($row->tgl_tayang)->format('d-m-Y'); // Format hh:mm
+        // })
+        ->editColumn('kategori', function ($row){
+            return $row->Categories->name ?? null;
+        })
+        ->editColumn('jumlah',function($row){
+            return $row->jumlah ? number_format($row->jumlah) : '' ;
+        })
+        ->editColumn('gross',function($row){
+            return $row->gross ? number_format($row->gross) : '' ;
+        })
+        ->editColumn('tax',function($row){
+            return $row->tax ? number_format($row->tax) : '' ;
+        })
+        ->editColumn('net',function($row){
+            return $row->net ? number_format($row->net) : '' ;
+        })
+        ->editColumn('share',function($row){
+            return $row->share ? number_format($row->share) : '' ;
+        })
+        ->make(true);
     }
     
 
