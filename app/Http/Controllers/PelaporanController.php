@@ -646,27 +646,27 @@ class PelaporanController extends Controller
                 '{$user}' AS created_by, -- ganti jika mau pakai Auth::user()->uuid
                 NOW() AS created_at
             FROM (
-                SELECT 'XXI' AS kategori, kota, nama_bioskop, nama_film, report_date AS tgl_tayang, '' AS jam_tayang, '1' AS `show`, 'REGULAR-XXI' AS type_tiket, CAST(harga AS DECIMAL) AS harga, CAST(satu AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-REGULAR-', CAST(studio as DECIMAL)) AS studio, created_by
+                SELECT 'XXI' AS kategori, kota, nama_bioskop, nama_film, report_date AS tgl_tayang, '11:00' AS jam_tayang, '1' AS `show`, 'REGULAR-XXI' AS type_tiket, CAST(harga AS DECIMAL) AS harga, CAST(satu AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-REGULAR-', CAST(studio as DECIMAL)) AS studio, created_by
                 FROM xxi_template WHERE satu != '-'
 
                 UNION ALL
-                SELECT 'XXI', kota, nama_bioskop, nama_film, report_date, '', '2', 'REGULAR-XXI', CAST(harga AS DECIMAL), CAST(dua AS DECIMAL), CONCAT(nama_bioskop, '-REGULAR-', CAST(studio as DECIMAL)), created_by
+                SELECT 'XXI', kota, nama_bioskop, nama_film, report_date, '13:00', '2', 'REGULAR-XXI', CAST(harga AS DECIMAL), CAST(dua AS DECIMAL), CONCAT(nama_bioskop, '-REGULAR-', CAST(studio as DECIMAL)), created_by
                 FROM xxi_template WHERE dua != '-'
 
                 UNION ALL
-                SELECT 'XXI', kota, nama_bioskop, nama_film, report_date, '', '3', 'REGULAR-XXI', CAST(harga AS DECIMAL), CAST(tiga AS DECIMAL), CONCAT(nama_bioskop, '-REGULAR-', CAST(studio as DECIMAL)), created_by
+                SELECT 'XXI', kota, nama_bioskop, nama_film, report_date, '15:00', '3', 'REGULAR-XXI', CAST(harga AS DECIMAL), CAST(tiga AS DECIMAL), CONCAT(nama_bioskop, '-REGULAR-', CAST(studio as DECIMAL)), created_by
                 FROM xxi_template WHERE tiga != '-'
 
                 UNION ALL
-                SELECT 'XXI', kota, nama_bioskop, nama_film, report_date, '', '4', 'REGULAR-XXI', CAST(harga AS DECIMAL), CAST(empat AS DECIMAL), CONCAT(nama_bioskop, '-REGULAR-', CAST(studio as DECIMAL)), created_by
+                SELECT 'XXI', kota, nama_bioskop, nama_film, report_date, '17:00', '4', 'REGULAR-XXI', CAST(harga AS DECIMAL), CAST(empat AS DECIMAL), CONCAT(nama_bioskop, '-REGULAR-', CAST(studio as DECIMAL)), created_by
                 FROM xxi_template WHERE empat != '-'
 
                 UNION ALL
-                SELECT 'XXI', kota, nama_bioskop, nama_film, report_date, '', '5', 'REGULAR-XXI', CAST(harga AS DECIMAL), CAST(lima AS DECIMAL), CONCAT(nama_bioskop, '-REGULAR-', CAST(studio as DECIMAL)), created_by
+                SELECT 'XXI', kota, nama_bioskop, nama_film, report_date, '19:00', '5', 'REGULAR-XXI', CAST(harga AS DECIMAL), CAST(lima AS DECIMAL), CONCAT(nama_bioskop, '-REGULAR-', CAST(studio as DECIMAL)), created_by
                 FROM xxi_template WHERE TRIM(lima) != '-' AND TRIM(lima) != '' AND lima IS NOT NULL
 
                 UNION ALL
-                SELECT 'XXI', kota, nama_bioskop, nama_film, report_date, '', '6', 'REGULAR-XXI', CAST(harga AS DECIMAL), CAST(enam AS DECIMAL), CONCAT(nama_bioskop, '-REGULAR-', CAST(studio as DECIMAL)), created_by
+                SELECT 'XXI', kota, nama_bioskop, nama_film, report_date, '21:00', '6', 'REGULAR-XXI', CAST(harga AS DECIMAL), CAST(enam AS DECIMAL), CONCAT(nama_bioskop, '-REGULAR-', CAST(studio as DECIMAL)), created_by
                 FROM xxi_template WHERE enam != '-'
             ) p
             LEFT JOIN kategori_bioskops kb
@@ -1027,7 +1027,7 @@ class PelaporanController extends Controller
             SELECT
                 UUID() AS uuid,
                 kb.uuid AS kategori,
-                p.kota AS kota,
+                mb.kota AS kota,
                 mb.uuid AS nama_bioskop,
                 p.nama_film AS nama_film,
                 p.tgl_tayang,
@@ -1037,8 +1037,8 @@ class PelaporanController extends Controller
                 p.harga,
                 p.jumlah,
                 (p.harga * p.jumlah) AS gross,
-                0 AS tax,
-                (p.harga * p.jumlah - 0) AS net,
+                0 AS tax,  -- Kalau belum ada tax, bisa isi 0 atau ambil dari sumber lain
+                (p.harga * p.jumlah - 0) AS net,  -- Kurangi dengan tax kalau ada
                 k.uuid AS studio,
                 '{$user}' AS created_by, -- ganti jika mau pakai Auth::user()->uuid
                 NOW() AS created_at
