@@ -14,8 +14,10 @@
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\PelaporanController;
 use App\Http\Controllers\GrafikKotaController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use SebastianBergmann\CodeCoverage\Report\Html\Dashboard;
 
 Route::get('/', function () {
     // check if user is auth then redirect to dashboard page
@@ -30,7 +32,7 @@ Auth::routes(['register' => false]);
 Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     // backoffice
     Route::get('/', 'DashboardController@index');
-    Route::get('dashboard', 'DashboardController@dashboard')->name('backoffice.dashboard');
+    Route::get('dashboard', 'DashboardController@index')->name('backoffice.dashboard');
     // logs
     Route::get('logs', 'ActivityController@index')->name('logs');
     // profile
@@ -68,4 +70,14 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     ->name('pelaporan.upload.cgv');
     Route::get('/pelaporan/upload/cgv/errors/{token}', [PelaporanController::class, 'downloadCgvErrors'])
     ->name('pelaporan.upload.cgv.errors');
+    Route::post('/pelaporan/upload-sams', [PelaporanController::class, 'uploadSAMS'])
+    ->name('pelaporan.upload.sams');
+    Route::get('/pelaporan/upload/sams/errors/{token}', [PelaporanController::class, 'downloadSamsErrors'])
+    ->name('pelaporan.upload.sams.errors');
+    // web.php
+    Route::get('get-chart-audience', [GrafikKotaController::class, 'getCharAudience'])
+        ->name('getCharAudience');
+    Route::get('get-chart-audience-dashboard', [DashboardController::class, 'getCharAudience'])
+        ->name('getCharAudienceDashboard');
+
 });

@@ -136,6 +136,7 @@
                                 <div class="custom-dropdown-menu">
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="XXI">XXI</a>
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="CGV">CGV</a>
+                                    <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="SAMS STUDIOS">SAMS STUDIOS</a>
                                 </div>
                             </div>
                         {{-- </div> --}}
@@ -282,60 +283,6 @@
       <!-- Body -->
       <div class="modal-body">
         <form id="uploadForm" action="{{ route('pelaporan.upload.xxi') }}" method="POST" enctype="multipart/form-data">
-          @csrf
-          <div class="form-group">
-            <label for="uploadFile">Pilih File</label>
-            <input type="file" name="file" id="uploadFile" class="form-control"
-                   accept=".xlsx" required>
-            <small class="form-text text-muted">
-              Format: .xlsx
-            </small>
-          </div>
-        </form>
-
-      <!-- Box status proses -->
-        <div id="upload-status" class="mt-3 d-none">
-          <p class="mb-1"><strong id="status-text">Mengunggah file...</strong></p>
-          <div class="progress">
-            <div id="status-progress" class="progress-bar progress-bar-striped progress-bar-animated" 
-                 role="progressbar" style="width: 0%">0%</div>
-          </div>
-          <small id="status-note" class="text-muted"></small>
-        </div>
-      </div>
-      
-      <!-- Footer -->
-      <div class="modal-footer">
-        {{-- <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button> --}}
-        <button type="button" class="btn btn-secondary btn-close-upload" data-dismiss="modal">Tutup</button>
-        <a href="#" id="btn-download-errors" class="btn btn-outline-danger d-none" target="_blank">
-            Download Excel Error
-        </a>
-        <button type="submit" form="uploadForm" class="btn btn-primary">Upload</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Upload Modal XXI -->
-<div class="modal fade" id="modal-upload" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false" >
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      
-      <!-- Header -->
-      <div class="modal-header">
-        <h4 class="modal-title">
-          Upload File
-          <small class="m-0 text-muted">Pilih file untuk diunggah</small>
-        </h4>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true"><i class="fal fa-times"></i></span>
-        </button>
-      </div>
-      
-      <!-- Body -->
-      <div class="modal-body">
-        <form id="uploadForm" action="#" method="POST" enctype="multipart/form-data">
           @csrf
           <div class="form-group">
             <label for="uploadFile">Pilih File</label>
@@ -535,6 +482,57 @@
             $.ajax({
             // url: $(this).attr('action'),
             url: '{{route('pelaporan.upload.cgv')}}',
+            method: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            })
+            .done(function (res) {
+            stopDummyProgress();
+
+            if (res.status === 'success') {
+                updateProgress(100, 'Berhasil', res.message || 'Import selesai.');
+                setProcessingUI(false);
+
+                // Tutup modal upload
+                $('#modal-upload').modal('hide');
+
+                // Saat modal selesai tertutup, baru tampilkan Swal
+                $('#modal-upload').on('hidden.bs.modal', function () {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil',
+                        text: res.message || 'Import selesai.',
+                        showConfirmButton: true
+                    }).then(() => {
+                        $('#datatable').DataTable().ajax.reload(null, false);
+                    });
+
+                    // Lepas listener biar nggak double kalau diupload lagi
+                    $(this).off('hidden.bs.modal');
+                });
+            } else if (res.status === 'failed') {
+                // gagal karena hasil query > 0
+                updateProgress(currentPct, 'Gagal', res.message || 'Validasi gagal.');
+                if (res.download_url) {
+                $btnDownloadErr.attr('href', res.download_url).removeClass('d-none');
+                }
+                setProcessingUI(false);
+            } else {
+                updateProgress(currentPct, 'Gagal', res.message || 'Terjadi kesalahan.');
+                setProcessingUI(false);
+            }
+            })
+            .fail(function (xhr) {
+            stopDummyProgress();
+            const msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Upload gagal.';
+            updateProgress(currentPct, 'Gagal', msg);
+            setProcessingUI(false);
+            });
+        }else if (bioskop === 'SAMS STUDIOS'){
+            $.ajax({
+            // url: $(this).attr('action'),
+            url: '{{route('pelaporan.upload.sams')}}',
             method: 'POST',
             data: formData,
             contentType: false,

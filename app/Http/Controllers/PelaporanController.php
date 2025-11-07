@@ -161,7 +161,7 @@ class PelaporanController extends Controller
                 'studio'       => $request->studio,
                 'show'         => $show,
                 'jam_tayang'   => $request->jam_tayang[$index],
-                'type_tiket'   => $request->type_tiket[$index],
+                'type_tiket'   => $request->type_tiket,
                 'harga'        => str_replace(',', '', $request->harga[$index]),
                 'jumlah'       => $request->jumlah[$index],
                 'gross'        => str_replace(',', '', $request->gross[$index]),
@@ -257,11 +257,11 @@ class PelaporanController extends Controller
         $pelaporan->jam_tayang = $request->jam_tayang;
         $pelaporan->show = $request->show;
         $pelaporan->type_tiket = $request->type_tiket;
-        $pelaporan->harga = $request->harga;
+        $pelaporan->harga = str_replace(',', '', $request->harga);
         $pelaporan->jumlah = $request->jumlah;
-        $pelaporan->gross = $request->gross;
-        $pelaporan->tax = $request->tax;
-        $pelaporan->net = $request->net;
+        $pelaporan->gross = str_replace(',', '', $request->gross);
+        $pelaporan->tax = isset($request->tax) ? str_replace(',', '', $request->tax) : 0;
+        $pelaporan->net = isset($request->net) ? str_replace(',', '', $request->net) : 0;
         $pelaporan->edited_by = Auth::user()->uuid;
         $pelaporan->save();
 
@@ -513,7 +513,7 @@ class PelaporanController extends Controller
                     LEFT JOIN master_bioskops mb
                         ON mb.nama_bioskop COLLATE {$COLLATE} = p.nama_bioskop COLLATE {$COLLATE}
                         AND mb.type COLLATE {$COLLATE} = kb.uuid COLLATE {$COLLATE}
-                        -- AND mb.kota COLLATE {$COLLATE} = p.kota COLLATE {$COLLATE}
+                        AND mb.kota COLLATE {$COLLATE} = p.kota COLLATE {$COLLATE}
                     WHERE mb.uuid IS NULL
                     SQL;
 
@@ -558,7 +558,7 @@ class PelaporanController extends Controller
                     LEFT JOIN master_bioskops mb
                         ON mb.nama_bioskop COLLATE {$COLLATE} = p.nama_bioskop COLLATE {$COLLATE}
                         AND mb.type COLLATE {$COLLATE} = kb.uuid COLLATE {$COLLATE}
-                        -- AND mb.kota COLLATE {$COLLATE} = p.kota COLLATE {$COLLATE}
+                        AND mb.kota COLLATE {$COLLATE} = p.kota COLLATE {$COLLATE}
                     LEFT JOIN type_tikets tt
                         ON tt.name COLLATE {$COLLATE} = REPLACE(p.type_tiket, '-XXI', '')
                         AND tt.kategori COLLATE {$COLLATE} = (SELECT kbb.uuid FROM kategori_bioskops kbb WHERE kbb.name = 'XXI')
@@ -674,7 +674,7 @@ class PelaporanController extends Controller
             LEFT JOIN master_bioskops mb
                 ON mb.nama_bioskop COLLATE {$COLLATE} = p.nama_bioskop COLLATE {$COLLATE}
                 AND mb.type COLLATE {$COLLATE} = kb.uuid COLLATE {$COLLATE}
-                -- AND mb.kota COLLATE {$COLLATE} = p.kota COLLATE {$COLLATE}
+                AND mb.kota COLLATE {$COLLATE} = p.kota COLLATE {$COLLATE}
             LEFT JOIN type_tikets tt
                 ON tt.name COLLATE {$COLLATE} = SUBSTRING_INDEX(p.type_tiket, '-', 1) COLLATE {$COLLATE}
                 AND tt.kategori COLLATE {$COLLATE} = (SELECT kbb.uuid FROM kategori_bioskops kbb WHERE kbb.name COLLATE {$COLLATE} = 'XXI' COLLATE {$COLLATE})
@@ -1130,6 +1130,326 @@ class PelaporanController extends Controller
 
         // Stream download
         $filename = 'mapping_error_cgv_'.now()->format('Ymd_His').'.xlsx';
+        $writer = new Xlsx($spreadsheet);
+
+        return new StreamedResponse(function () use ($writer) {
+            $writer->save('php://output');
+        }, 200, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control'       => 'max-age=0, no-cache, no-store, must-revalidate',
+            'Pragma'              => 'public',
+        ]);
+    }
+
+    public function uploadSAMS(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls|max:20480',
+        ], [
+            'file.required' => 'File wajib diunggah.',
+            'file.mimes'    => 'Format file harus .xlsx atau .xls.',
+            'file.max'      => 'Ukuran file maksimal 20MB.',
+        ]);
+
+        try {
+            // optional: pastikan tidak timeout/kehabisan memori untuk file besar
+            @set_time_limit(0);
+            @ini_set('memory_limit', '512M');
+
+            $file = $request->file('file');
+
+            // Kamu boleh simpan dulu, tapi untuk sinkron cukup load dari tmp path
+            $spreadsheet = IOFactory::load($file->getPathname());
+            $sheet       = $spreadsheet->getActiveSheet();
+            // toArray(null, true, true, true) => key kolom: 'A','B',dst
+            $rows        = $sheet->toArray(null, true, true, true);
+
+            if (count($rows) <= 1) {
+                return response()->json([
+                    'status'  => 'failed',
+                    'message' => 'Sheet kosong / header tidak ditemukan.',
+                ], 422);
+            }
+
+            DB::table('sams_template')->truncate();
+
+            $batch     = [];
+            $batchSize = 1000;
+            $inserted  = 0;
+            $today     = now()->format('Y-m-d');
+
+            DB::beginTransaction();
+
+            foreach ($rows as $idx => $cols) {
+                if ($idx === 1) continue; // skip header baris 1
+
+                $namaFilm       = trim((string)($cols['A'] ?? ''));
+                $namaBios       = trim((string)($cols['B'] ?? ''));
+                $studio         = trim((string)($cols['C'] ?? ''));
+                $reportDate     = trim((string)($cols['D'] ?? ''));
+                $jam            = trim((string)($cols['E'] ?? ''));
+                $harga          = trim((string)($cols['F'] ?? ''));
+                $status         = trim((string)($cols['G'] ?? ''));
+                $approval       = trim((string)($cols['H'] ?? ''));
+                $net            = trim((string)($cols['I'] ?? ''));
+                $total          = trim((string)($cols['J'] ?? ''));
+                $total_paid     = trim((string)($cols['K'] ?? ''));
+                $total_voucher  = trim((string)($cols['L'] ?? ''));
+                $total_free     = trim((string)($cols['M'] ?? ''));
+
+                // Normalisasi tanggal
+                try {
+                    if ($reportDate === '') {
+                        $reportDate = $today;
+                    } elseif (is_numeric($reportDate)) {
+                        // Excel serial date → 1899-12-30
+                        $reportDate = \Carbon\Carbon::create(1899,12,30)->addDays((int)$reportDate)->format('Y-m-d');
+                    } else {
+                        $reportDate = \Carbon\Carbon::parse($reportDate)->format('Y-m-d');
+                    }
+                } catch (\Throwable $e) {
+                    $reportDate = $today;
+                }
+
+                // Row minimal: nama_film & nama_bioskop ada
+                if ($namaFilm === '' && $namaBios === '') {
+                    continue;
+                }
+                
+                $batch[] = [
+                    'uuid'          => Uuid::generate(),
+                    'report_date'   => $reportDate,
+                    'nama_film'     => $namaFilm !== '' ? mb_strtoupper($namaFilm) : null,
+                    'nama_bioskop'  => $namaBios !== '' ? mb_strtoupper($namaBios) : null,
+                    'studio'        => $studio !== '' ? $studio : null,
+                    'jam'           => $jam !== '' ? $jam : null,
+                    'total'         => $total !== '' ? $total : null,
+                    'total_paid'    => $total_paid !== '' ? $total_paid : null,
+                    'total_voucher' => $total_voucher !== '' ? $total_voucher : null,
+                    'total_free'    => $total_free !== '' ? $total_free : null,
+                    'harga'         => $harga !== '' ? $harga : null,
+                    'net'           => $net !== '' ? $net : null,
+                    'status'        => $status !== '' ? $status : null,
+                    'approval'      => $approval !== '' ? $approval : null,
+                    'created_by'    => \Auth::user()->uuid ?? null,
+                    'edited_by'     => null,
+                    'created_at'    => now(),
+                    'updated_at'    => null,
+                ];
+
+                if (count($batch) >= $batchSize) {
+                    DB::table('sams_template')->insert($batch);
+                    $inserted += count($batch);
+                    $batch = [];
+                }
+            }
+
+            if (!empty($batch)) {
+                DB::table('sams_template')->insert($batch);
+                $inserted += count($batch);
+            }
+
+            $COLLATE = 'utf8mb4_unicode_ci';
+
+            $cek_bioskop = <<<SQL
+                    SELECT p.nama_bioskop
+                    FROM (
+                        SELECT 'SAMS STUDIOS' AS kategori, nama_bioskop, nama_film, report_date AS tgl_tayang, jam AS jam_tayang, '1' AS `show`, 'REGULAR' AS type_tiket, replace(replace(harga, 'Rp. ', ''), '.', '') AS harga, CAST(total_paid - total_voucher - total_free AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-REGULAR-', replace(studio,'Studio ', '')) AS studio, created_by
+                        FROM sams_template WHERE total_paid != '-'
+
+                        UNION ALL
+                        SELECT 'SAMS STUDIOS', nama_bioskop, nama_film, report_date, jam, '1', 'BOGOF', replace(replace(harga, 'Rp. ', ''), '.', '') as harga, CAST(total_voucher * 2 AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-BOGOF-', replace(studio,'Studio ', '')) AS studio, created_by
+                        FROM sams_template WHERE total_voucher != '-'
+                    ) p
+                    LEFT JOIN kategori_bioskops kb
+                        ON kb.name COLLATE {$COLLATE} = p.kategori COLLATE {$COLLATE}
+                    LEFT JOIN master_bioskops mb
+                        ON mb.nama_bioskop COLLATE {$COLLATE} = p.nama_bioskop COLLATE {$COLLATE}
+                        AND mb.type COLLATE {$COLLATE} = kb.uuid COLLATE {$COLLATE}
+                        -- AND p.kota = mb.kota
+                    WHERE mb.uuid IS NULL
+                    SQL;
+
+            $notMapped_bioskop = DB::select(DB::raw($cek_bioskop));
+
+            $cek_studio = <<<SQL
+                        SELECT
+                        distinct p.studio, kb.uuid AS kategori,
+                        mb.kota AS kota,
+                        mb.uuid AS nama_bioskop,tt.uuid AS type_tiket
+                        FROM (
+                            SELECT 'SAMS STUDIOS' AS kategori, nama_bioskop, nama_film, report_date AS tgl_tayang, jam AS jam_tayang, '1' AS `show`, 'REGULAR' AS type_tiket, replace(replace(harga, 'Rp. ', ''), '.', '') AS harga, CAST(total_paid - total_voucher - total_free AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-REGULAR-', replace(studio,'Studio ', '')) AS studio, created_by
+                            FROM sams_template WHERE total_paid != '-'
+
+                            UNION ALL
+                            SELECT 'SAMS STUDIOS', nama_bioskop, nama_film, report_date, jam, '1', 'BOGOF', replace(replace(harga, 'Rp. ', ''), '.', '') as harga, CAST(total_voucher * 2 AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-BOGOF-', replace(studio,'Studio ', '')) AS studio, created_by
+                            FROM sams_template WHERE total_voucher != '-'
+                        ) p
+                        LEFT JOIN kategori_bioskops kb
+                            ON kb.name COLLATE {$COLLATE} = p.kategori COLLATE {$COLLATE}
+                        LEFT JOIN master_bioskops mb
+                            ON mb.nama_bioskop COLLATE {$COLLATE} = p.nama_bioskop COLLATE {$COLLATE}
+                            AND mb.type COLLATE {$COLLATE} = kb.uuid COLLATE {$COLLATE}
+                            -- AND p.kota = mb.kota
+                        LEFT JOIN type_tikets tt
+                            ON tt.name COLLATE {$COLLATE} = p.type_tiket COLLATE {$COLLATE}
+                            AND tt.kategori COLLATE {$COLLATE} = (SELECT kbb.uuid FROM kategori_bioskops kbb WHERE kbb.name = 'SAMS STUDIOS')
+                        LEFT JOIN kapasitas k
+                            ON k.studio COLLATE {$COLLATE} = SUBSTRING_INDEX(p.studio, '-', -1)
+                            AND k.nama_bioskop COLLATE {$COLLATE} = mb.uuid COLLATE {$COLLATE}
+                            AND k.type_tiket COLLATE {$COLLATE} = tt.uuid COLLATE {$COLLATE} 
+                            AND k.kategori COLLATE {$COLLATE} = kb.uuid COLLATE {$COLLATE}
+                        WHERE k.studio is null
+                    SQL;
+
+            $notMapped_studio = DB::select(DB::raw($cek_studio));
+
+            DB::commit();
+
+            if (count($notMapped_bioskop) > 0) {
+                // 3) Siapkan token & cache data untuk diunduh
+                // $token = (string) Str::uuid();
+                // Cache::put("xxi_err:$token", $notMapped, now()->addMinutes(30));
+
+                // return response()->json([
+                //     'status'       => 'failed',
+                //     'message'      => 'Validasi gagal: ada kota/nama_bioskop yang belum terdaftar di master.',
+                //     'download_url' => route('pelaporan.upload.xxi.errors', ['token' => $token]),
+                //     'count'        => count($notMapped),
+                // ], 200);
+
+                $msgList = [];
+                foreach ($notMapped_bioskop as $row) {
+                    $msgList[] = "{$row->kota} - {$row->nama_bioskop}";
+                }
+
+                // Lempar exception dengan daftar data error
+                throw new \Exception(
+                    "Validasi gagal, berikut bioskop yang belum terdaftar di master:\r\n" . implode("\n", $msgList)
+                );
+            }
+
+            if (count($notMapped_studio) > 0) {
+                // 3) Siapkan token & cache data untuk diunduh
+                // $token = (string) Str::uuid();
+                // Cache::put("xxi_err:$token", $notMapped_studio, now()->addMinutes(30));
+
+                // return response()->json([
+                //     'status'       => 'failed',
+                //     'message'      => 'Validasi gagal: ada studio yang belum terdaftar di master.',
+                //     'download_url' => route('pelaporan.upload.xxi.errors', ['token' => $token]),
+                //     'count'        => count($notMapped_studio),
+                // ], 200);
+
+                $msgList = [];
+                foreach ($notMapped_studio as $row) {
+                    $msgList[] = "{$row->studio} - {$row->kategori} - {$row->kota} - {$row->nama_bioskop} - {$row->type_tiket}";
+                }
+
+                // Lempar exception dengan daftar data error
+                throw new \Exception(
+                    "Validasi gagal, berikut studio yang belum terdaftar di master:\r\n" . implode("\n", $msgList)
+                );
+            }
+
+            $pelaporanTable = (new \App\Models\Pelaporan)->getTable(); // biasanya 'pelaporans'
+            $user = Auth::user()->uuid;
+            $COLLATE = 'utf8mb4_unicode_ci'; // ganti ke 'utf8mb4_0900_ai_ci' jika itu standar DB kamu
+
+            $sqlInsert = <<<SQL
+            INSERT INTO {$pelaporanTable} 
+            (uuid, kategori, kota, nama_bioskop, nama_film, tgl_tayang, jam_tayang, `show`, type_tiket, harga, jumlah, gross, tax, net, studio, created_by, created_at)
+            SELECT
+                UUID() AS uuid,
+                kb.uuid AS kategori,
+                mb.kota AS kota,
+                mb.uuid AS nama_bioskop,
+                p.nama_film AS nama_film,
+                p.tgl_tayang,
+                p.jam_tayang,
+                p.`show`,
+                tt.uuid AS type_tiket,
+                p.harga,
+                p.jumlah,
+                (p.harga * p.jumlah) AS gross,
+                0 AS tax,  -- Kalau belum ada tax, bisa isi 0 atau ambil dari sumber lain
+                (p.harga * p.jumlah - 0) AS net,  -- Kurangi dengan tax kalau ada
+                k.uuid AS studio,
+                '{$user}' AS created_by, -- ganti jika mau pakai Auth::user()->uuid
+                NOW() AS created_at
+            FROM (
+                SELECT 'SAMS STUDIOS' AS kategori, nama_bioskop, nama_film, report_date AS tgl_tayang, jam AS jam_tayang, '1' AS `show`, 'REGULAR' AS type_tiket, replace(replace(harga, 'Rp. ', ''), '.', '') AS harga, CAST(COALESCE(NULLIF(total_paid,    '-'),'0') - COALESCE(NULLIF(total_voucher, '-'),'0') - COALESCE(NULLIF(total_free,    '-'),'0') AS DECIMAL(18,2)) AS jumlah, CONCAT(nama_bioskop, '-REGULAR-', replace(studio,'Studio ', '')) AS studio, created_by
+                FROM sams_template WHERE total_paid != '-'
+
+                UNION ALL
+                SELECT 'SAMS STUDIOS', nama_bioskop, nama_film, report_date, jam, '1', 'BOGOF', replace(replace(harga, 'Rp. ', ''), '.', '') as harga, CAST(COALESCE(NULLIF(total_voucher,    '-'),'0') * 2 AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-BOGOF-', replace(studio,'Studio ', '')) AS studio, created_by
+                FROM sams_template WHERE total_voucher != '-'
+            ) p
+            LEFT JOIN kategori_bioskops kb
+                ON kb.name COLLATE {$COLLATE} = p.kategori COLLATE {$COLLATE}
+            LEFT JOIN master_bioskops mb
+                ON mb.nama_bioskop COLLATE {$COLLATE} = p.nama_bioskop COLLATE {$COLLATE}
+                AND mb.type COLLATE {$COLLATE} = kb.uuid COLLATE {$COLLATE}
+                -- AND mb.kota COLLATE {$COLLATE} = p.kota COLLATE {$COLLATE}
+            LEFT JOIN type_tikets tt
+                ON tt.name COLLATE {$COLLATE} = p.type_tiket COLLATE {$COLLATE}
+                AND tt.kategori COLLATE {$COLLATE} = (SELECT kbb.uuid FROM kategori_bioskops kbb WHERE kbb.name COLLATE {$COLLATE} = 'SAMS STUDIOS' COLLATE {$COLLATE})
+            LEFT JOIN kapasitas k
+                ON CAST(k.studio AS CHAR) COLLATE {$COLLATE} = SUBSTRING_INDEX(p.studio, '-', -1) COLLATE {$COLLATE}
+                AND k.nama_bioskop COLLATE {$COLLATE} = mb.uuid COLLATE {$COLLATE}
+                AND k.type_tiket COLLATE {$COLLATE} = tt.uuid COLLATE {$COLLATE}
+                AND k.kategori COLLATE {$COLLATE} = kb.uuid COLLATE {$COLLATE}
+            order by tgl_tayang
+            SQL;
+
+            // jalankan dan dapatkan jumlah baris yang masuk
+            $affected = DB::affectingStatement(DB::raw($sqlInsert));
+
+            // jika lolos validasi
+            return response()->json([
+                'status'   => 'success',
+                'message'  => "Selesai. {$inserted} baris tersimpan. Validasi mapping master OK.",
+                'inserted' => $inserted,
+            ]);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            report($e);
+            return response()->json([
+                'status'  => 'failed',
+                'message' => 'Import gagal: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function downloadSamsErrors(string $token)
+    {
+        $rows = Cache::get("sams_err:$token");
+        if (!$rows) {
+            abort(404, 'Data error tidak ditemukan atau sudah kedaluwarsa.');
+        }
+
+        // Buat XLSX sederhana: kolom kota, nama_bioskop
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Mapping Error');
+
+        // Header
+        $sheet->setCellValue('A1', 'kota');
+        $sheet->setCellValue('B1', 'nama_bioskop');
+
+        // Data
+        $r = 2;
+        foreach ($rows as $obj) {
+            // $obj adalah stdClass dari DB::select
+            $sheet->setCellValue("A{$r}", $obj->kota ?? '');
+            $sheet->setCellValue("B{$r}", $obj->nama_bioskop ?? '');
+            $r++;
+        }
+
+        // Stream download
+        $filename = 'mapping_error_sams_'.now()->format('Ymd_His').'.xlsx';
         $writer = new Xlsx($spreadsheet);
 
         return new StreamedResponse(function () use ($writer) {
