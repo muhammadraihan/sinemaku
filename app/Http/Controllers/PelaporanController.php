@@ -1255,11 +1255,11 @@ class PelaporanController extends Controller
             $cek_bioskop = <<<SQL
                     SELECT p.nama_bioskop
                     FROM (
-                        SELECT 'SAMS STUDIOS' AS kategori, nama_bioskop, nama_film, report_date AS tgl_tayang, jam AS jam_tayang, '1' AS `show`, 'REGULAR' AS type_tiket, replace(replace(harga, 'Rp. ', ''), '.', '') AS harga, CAST(total_paid - total_voucher - total_free AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-REGULAR-', replace(studio,'Studio ', '')) AS studio, created_by
+                        SELECT 'SAMS STUDIOS' AS kategori, nama_bioskop, nama_film, report_date AS tgl_tayang, jam AS jam_tayang, '1' AS `show`, 'REGULAR' AS type_tiket, replace(replace(harga, 'Rp. ', ''), '.', '') AS harga, CAST(COALESCE(NULLIF(total_paid,    '-'),'0') AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-REGULAR-', replace(studio,'Studio ', '')) AS studio, created_by
                         FROM sams_template WHERE total_paid != '-'
 
                         UNION ALL
-                        SELECT 'SAMS STUDIOS', nama_bioskop, nama_film, report_date, jam, '1', 'BOGOF', replace(replace(harga, 'Rp. ', ''), '.', '') as harga, CAST(total_voucher * 2 AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-BOGOF-', replace(studio,'Studio ', '')) AS studio, created_by
+                        SELECT 'SAMS STUDIOS', nama_bioskop, nama_film, report_date, jam, '1', 'BOGOF', '0' as harga, CAST(COALESCE(NULLIF(total_voucher,    '-'),'0') AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-BOGOF-', replace(studio,'Studio ', '')) AS studio, created_by
                         FROM sams_template WHERE total_voucher != '-'
                     ) p
                     LEFT JOIN kategori_bioskops kb
@@ -1279,11 +1279,11 @@ class PelaporanController extends Controller
                         mb.kota AS kota,
                         mb.uuid AS nama_bioskop,tt.uuid AS type_tiket
                         FROM (
-                            SELECT 'SAMS STUDIOS' AS kategori, nama_bioskop, nama_film, report_date AS tgl_tayang, jam AS jam_tayang, '1' AS `show`, 'REGULAR' AS type_tiket, replace(replace(harga, 'Rp. ', ''), '.', '') AS harga, CAST(total_paid - total_voucher - total_free AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-REGULAR-', replace(studio,'Studio ', '')) AS studio, created_by
+                            SELECT 'SAMS STUDIOS' AS kategori, nama_bioskop, nama_film, report_date AS tgl_tayang, jam AS jam_tayang, '1' AS `show`, 'REGULAR' AS type_tiket, replace(replace(harga, 'Rp. ', ''), '.', '') AS harga, CAST(COALESCE(NULLIF(total_paid,    '-'),'0') AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-REGULAR-', replace(studio,'Studio ', '')) AS studio, created_by
                             FROM sams_template WHERE total_paid != '-'
 
                             UNION ALL
-                            SELECT 'SAMS STUDIOS', nama_bioskop, nama_film, report_date, jam, '1', 'BOGOF', replace(replace(harga, 'Rp. ', ''), '.', '') as harga, CAST(total_voucher * 2 AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-BOGOF-', replace(studio,'Studio ', '')) AS studio, created_by
+                            SELECT 'SAMS STUDIOS', nama_bioskop, nama_film, report_date, jam, '1', 'BOGOF', '0' as harga, CAST(COALESCE(NULLIF(total_voucher,    '-'),'0') AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-BOGOF-', replace(studio,'Studio ', '')) AS studio, created_by
                             FROM sams_template WHERE total_voucher != '-'
                         ) p
                         LEFT JOIN kategori_bioskops kb
@@ -1321,7 +1321,7 @@ class PelaporanController extends Controller
 
                 $msgList = [];
                 foreach ($notMapped_bioskop as $row) {
-                    $msgList[] = "{$row->kota} - {$row->nama_bioskop}";
+                    $msgList[] = "{$row->nama_bioskop}";
                 }
 
                 // Lempar exception dengan daftar data error
@@ -1344,7 +1344,7 @@ class PelaporanController extends Controller
 
                 $msgList = [];
                 foreach ($notMapped_studio as $row) {
-                    $msgList[] = "{$row->studio} - {$row->kategori} - {$row->kota} - {$row->nama_bioskop} - {$row->type_tiket}";
+                    $msgList[] = "{$row->studio} - {$row->nama_bioskop}";
                 }
 
                 // Lempar exception dengan daftar data error
@@ -1379,11 +1379,11 @@ class PelaporanController extends Controller
                 '{$user}' AS created_by, -- ganti jika mau pakai Auth::user()->uuid
                 NOW() AS created_at
             FROM (
-                SELECT 'SAMS STUDIOS' AS kategori, nama_bioskop, nama_film, report_date AS tgl_tayang, jam AS jam_tayang, '1' AS `show`, 'REGULAR' AS type_tiket, replace(replace(harga, 'Rp. ', ''), '.', '') AS harga, CAST(COALESCE(NULLIF(total_paid,    '-'),'0') - COALESCE(NULLIF(total_voucher, '-'),'0') - COALESCE(NULLIF(total_free,    '-'),'0') AS DECIMAL(18,2)) AS jumlah, CONCAT(nama_bioskop, '-REGULAR-', replace(studio,'Studio ', '')) AS studio, created_by
+                SELECT 'SAMS STUDIOS' AS kategori, nama_bioskop, nama_film, report_date AS tgl_tayang, jam AS jam_tayang, '1' AS `show`, 'REGULAR' AS type_tiket, replace(replace(harga, 'Rp. ', ''), '.', '') AS harga, CAST(COALESCE(NULLIF(total_paid,    '-'),'0') AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-REGULAR-', replace(studio,'Studio ', '')) AS studio, created_by
                 FROM sams_template WHERE total_paid != '-'
 
                 UNION ALL
-                SELECT 'SAMS STUDIOS', nama_bioskop, nama_film, report_date, jam, '1', 'BOGOF', replace(replace(harga, 'Rp. ', ''), '.', '') as harga, CAST(COALESCE(NULLIF(total_voucher,    '-'),'0') * 2 AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-BOGOF-', replace(studio,'Studio ', '')) AS studio, created_by
+                SELECT 'SAMS STUDIOS', nama_bioskop, nama_film, report_date, jam, '1', 'BOGOF', '0' as harga, CAST(COALESCE(NULLIF(total_voucher,    '-'),'0') AS DECIMAL) AS jumlah, CONCAT(nama_bioskop, '-BOGOF-', replace(studio,'Studio ', '')) AS studio, created_by
                 FROM sams_template WHERE total_voucher != '-'
             ) p
             LEFT JOIN kategori_bioskops kb
@@ -1436,15 +1436,17 @@ class PelaporanController extends Controller
         $sheet->setTitle('Mapping Error');
 
         // Header
-        $sheet->setCellValue('A1', 'kota');
-        $sheet->setCellValue('B1', 'nama_bioskop');
+        $sheet->setCellValue('A1', 'nama_bioskop');
+        $sheet->setCellValue('B1', 'report_date');
+        $sheet->setCellValue('C1', 'jam');
 
         // Data
         $r = 2;
         foreach ($rows as $obj) {
             // $obj adalah stdClass dari DB::select
-            $sheet->setCellValue("A{$r}", $obj->kota ?? '');
-            $sheet->setCellValue("B{$r}", $obj->nama_bioskop ?? '');
+            $sheet->setCellValue("A{$r}", $obj->nama_bioskop ?? '');
+            $sheet->setCellValue("B{$r}", $obj->report_date ?? '');
+            $sheet->setCellValue("C{$r}", $obj->jam ?? '');
             $r++;
         }
 
