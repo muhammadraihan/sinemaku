@@ -5,6 +5,13 @@
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/datagrid/datatables/datatables.bundle.css')}}">
 <link rel="stylesheet" media="screen, print" href="{{asset('css/formplugins/select2/select2.bundle.css')}}">
+<!-- DataTables core -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+
+<!-- Buttons extension -->
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
 @endsection
 
 @section('content')
@@ -208,6 +215,11 @@
 @section('js')
 <script src="{{asset('js/datagrid/datatables/datatables.bundle.js')}}"></script>
 <script src="{{asset('js/formplugins/select2/select2.bundle.js')}}"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.0/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 <script>
     $(document).ready(function(){
         $('#nama_film').select2();
@@ -376,9 +388,29 @@
 
             var tableSummary = $('#summary-table').DataTable({
                 "processing": true,
-                "serverSide": true,
+                "serverSide": false,
+                "paging": false,
                 "responsive": true,
                 "order": [[ 0, "asc" ]],
+                dom: 'Bfrtip', // <== Tambahkan ini agar tombol tampil
+                buttons: [
+                    {
+                        extend: 'excelHtml5',
+                        text: '<i class="fa fa-file-excel"></i> Excel',
+                        className: 'btn btn-success btn-sm me-2 rounded-pill',
+                        title: 'Laporan Summary',
+                        exportOptions: { columns: ':visible' }
+                    },
+                    {
+                        extend: 'pdfHtml5',
+                        text: '<i class="fa fa-file-pdf"></i> PDF',
+                        className: 'btn btn-danger btn-sm rounded-pill',
+                        title: 'Laporan Summary',
+                        orientation: 'landscape',
+                        pageSize: 'A4',
+                        exportOptions: { columns: ':visible' }
+                    }
+                ],
                 "ajax":{
                     url:'{{route('laporan.summary')}}',
                     type : "GET",
