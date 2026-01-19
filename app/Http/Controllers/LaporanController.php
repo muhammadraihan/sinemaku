@@ -9,7 +9,9 @@ use App\Models\TypeTiket;
 use App\Models\KategoriBioskop;
 use App\Models\MasterBioskop;
 use App\Models\Laporan;
-
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 use Auth;
 use DataTables;
@@ -250,6 +252,163 @@ class LaporanController extends Controller
         })
         ->make(true);
     }
-    
+
+    public function detailExport(Request $request)
+    {
+        $nama_film = $request->query('nama_film', '');
+        $tgl_mulai = $request->query('tgl_mulai', '');
+        $tgl_akhir = $request->query('tgl_akhir', '');
+        $bioskop_kategori = $request->query('bioskop_kategori', '');
+        $kota = $request->query('kota', '');
+        $nama_bioskop = $request->query('nama_bioskop', '');
+        $type_tiket = $request->query('type_tiket', '');
+
+        // Build dynamic WHERE clause with bindings
+        $where = [];
+        $bindings = [];
+
+        if ($nama_film !== '' && strtoupper($nama_film) !== 'ALL') {
+            $where[] = 'p.nama_film = ?';
+            $bindings[] = $nama_film;
+        }
+
+        if ($tgl_mulai !== '' && $tgl_akhir !== '') {
+            $where[] = 'p.tgl_tayang BETWEEN ? AND ?';
+            $bindings[] = $tgl_mulai;
+            $bindings[] = $tgl_akhir;
+        }
+
+        if ($bioskop_kategori !== '' && strtoupper($bioskop_kategori) !== 'ALL') {
+            $where[] = 'p.kategori = ?';
+            $bindings[] = $bioskop_kategori;
+        }
+
+        if ($kota !== '' && strtoupper($kota) !== 'ALL') {
+            $where[] = 'mb.kota = ?';
+            $bindings[] = $kota;
+        }
+
+        if ($nama_bioskop !== '' && strtoupper($nama_bioskop) !== 'ALL') {
+            $where[] = 'p.nama_bioskop = ?';
+            $bindings[] = $nama_bioskop;
+        }
+
+        if ($type_tiket !== '' && strtoupper($type_tiket) !== 'ALL') {
+            $where[] = 'p.type_tiket = ?';
+            $bindings[] = $type_tiket;
+        }
+
+        $whereSql = '';
+        if (!empty($where)) {
+            $whereSql = 'WHERE ' . implode(' AND ', $where);
+        }
+
+        $sql = "
+            SELECT
+                p.tgl_tayang,
+                kb.name,
+                mb.kota,
+                mb.nama_bioskop,
+                k.studio,
+                k.kapasitas,
+                CAST(COALESCE(SUM(CASE WHEN p.show = 1 THEN p.jumlah END), 0) AS UNSIGNED) AS S1,
+                CAST(COALESCE(SUM(CASE WHEN p.show = 2 THEN p.jumlah END), 0) AS UNSIGNED) AS S2,
+                CAST(COALESCE(SUM(CASE WHEN p.show = 3 THEN p.jumlah END), 0) AS UNSIGNED) AS S3,
+                CAST(COALESCE(SUM(CASE WHEN p.show = 4 THEN p.jumlah END), 0) AS UNSIGNED) AS S4,
+                CAST(COALESCE(SUM(CASE WHEN p.show = 5 THEN p.jumlah END), 0) AS UNSIGNED) AS S5,
+                CAST(COALESCE(SUM(CASE WHEN p.show = 6 THEN p.jumlah END), 0) AS UNSIGNED) AS S6,
+                CAST(COALESCE(SUM(CASE WHEN p.show = 7 THEN p.jumlah END), 0) AS UNSIGNED) AS S7,
+                CAST(
+                    COALESCE(SUM(CASE WHEN p.show = 1 THEN p.jumlah END), 0) +
+                    COALESCE(SUM(CASE WHEN p.show = 2 THEN p.jumlah END), 0) +
+                    COALESCE(SUM(CASE WHEN p.show = 3 THEN p.jumlah END), 0) +
+                    COALESCE(SUM(CASE WHEN p.show = 4 THEN p.jumlah END), 0) +
+                    COALESCE(SUM(CASE WHEN p.show = 5 THEN p.jumlah END), 0) +
+                    COALESCE(SUM(CASE WHEN p.show = 6 THEN p.jumlah END), 0) +
+                    COALESCE(SUM(CASE WHEN p.show = 7 THEN p.jumlah END), 0)
+                AS UNSIGNED) AS Total,
+                FORMAT(p.harga, 2) AS harga,
+                FORMAT(
+                    (
+                        COALESCE(SUM(CASE WHEN p.show = 1 THEN p.jumlah END), 0) +
+                        COALESCE(SUM(CASE WHEN p.show = 2 THEN p.jumlah END), 0) +
+                        COALESCE(SUM(CASE WHEN p.show = 3 THEN p.jumlah END), 0) +
+                        COALESCE(SUM(CASE WHEN p.show = 4 THEN p.jumlah END), 0) +
+                        COALESCE(SUM(CASE WHEN p.show = 5 THEN p.jumlah END), 0) +
+                        COALESCE(SUM(CASE WHEN p.show = 6 THEN p.jumlah END), 0) +
+                        COALESCE(SUM(CASE WHEN p.show = 7 THEN p.jumlah END), 0)
+                    ) * p.harga, 2
+                ) AS gross
+            FROM pelaporans p
+            LEFT JOIN kategori_bioskops kb ON kb.uuid = p.kategori
+            LEFT JOIN kapasitas k ON k.uuid = p.studio AND k.type_tiket = p.type_tiket
+            LEFT JOIN type_tikets tt ON tt.uuid = p.type_tiket
+            LEFT JOIN master_bioskops mb ON mb.uuid = p.nama_bioskop
+            {$whereSql}
+            GROUP BY
+                p.tgl_tayang,
+                kb.name,
+                mb.kota,
+                mb.nama_bioskop,
+                k.studio,
+                k.kapasitas,
+                p.type_tiket,
+                p.harga
+            ORDER BY
+                kb.name,
+                p.tgl_tayang,
+                mb.kota,
+                mb.nama_bioskop
+            ";
+
+
+
+        $rows = DB::select($sql, $bindings);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $headers = [
+            'Tanggal', 'Kategori', 'Kota', 'Nama Bioskop', 'Studio', 'Kapasitas',
+            'S1','S2','S3','S4','S5','S6','S7','Total','Harga','Gross'
+        ];
+
+        $sheet->fromArray($headers, null, 'A1');
+
+        $rowNum = 2;
+        foreach ($rows as $r) {
+            $sheet->setCellValue('A' . $rowNum, $r->tgl_tayang);
+            $sheet->setCellValue('B' . $rowNum, $r->name);
+            $sheet->setCellValue('C' . $rowNum, $r->kota);
+            $sheet->setCellValue('D' . $rowNum, $r->nama_bioskop);
+            $sheet->setCellValue('E' . $rowNum, $r->studio);
+            $sheet->setCellValue('F' . $rowNum, $r->kapasitas);
+            $sheet->setCellValue('G' . $rowNum, $r->S1);
+            $sheet->setCellValue('H' . $rowNum, $r->S2);
+            $sheet->setCellValue('I' . $rowNum, $r->S3);
+            $sheet->setCellValue('J' . $rowNum, $r->S4);
+            $sheet->setCellValue('K' . $rowNum, $r->S5);
+            $sheet->setCellValue('L' . $rowNum, $r->S6);
+            $sheet->setCellValue('M' . $rowNum, $r->S7);
+            $sheet->setCellValue('N' . $rowNum, $r->Total);
+            $sheet->setCellValue('O' . $rowNum, $r->harga);
+            $sheet->setCellValue('P' . $rowNum, $r->gross);
+            $rowNum++;
+        }
+
+        $filename = 'laporan-detail-' . date('YmdHis') . '.xlsx';
+
+        $writer = new Xlsx($spreadsheet);
+
+        return new StreamedResponse(function () use ($writer) {
+            $writer->save('php://output');
+        }, 200, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control'       => 'max-age=0, no-cache, no-store, must-revalidate',
+            'Pragma'              => 'public',
+        ]);
+    }
+
 
 }

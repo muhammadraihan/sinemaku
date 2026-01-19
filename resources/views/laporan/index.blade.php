@@ -395,6 +395,22 @@
                 dom: 'Bfrtip', // <== Tambahkan ini agar tombol tampil
                 buttons: [
                     {
+                        text: '<i class="fa fa-file-excel"></i> Detail',
+                        className: 'btn btn-info btn-sm rounded-pill',
+                        action: function (e, dt, node, config) {
+                            var params = $.param({
+                                nama_film: nama_film,
+                                tgl_mulai: tgl_mulai,
+                                tgl_akhir: tgl_akhir,
+                                bioskop_kategori: bioskop_kategori,
+                                kota: kota,
+                                nama_bioskop: nama_bioskop,
+                                type_tiket: type_tiket
+                            });
+                            window.location.href = '{{ route('laporan.detailExport') }}' + '?' + params;
+                        }
+                    },
+                    {
                         extend: 'excelHtml5',
                         text: '<i class="fa fa-file-excel"></i> Excel',
                         className: 'btn btn-success btn-sm me-2 rounded-pill',

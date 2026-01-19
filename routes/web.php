@@ -61,6 +61,7 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::get('get-studio', [PelaporanController::class,'getStudio'])->name('ref.studio');
     Route::get('get-data', [LaporanController::class,'listData'])->name('laporan.search');
     Route::get('get-summary', [LaporanController::class,'summaryListData'])->name('laporan.summary');
+    Route::get('detail-export', [LaporanController::class, 'detailExport'])->name('laporan.detailExport');
     Route::get('get-chart-city', [GrafikKotaController::class,'getTopCities'])->name('getTopCities');
     Route::post('/pelaporan/upload-xxi', [PelaporanController::class, 'uploadXXI'])
     ->name('pelaporan.upload.xxi');
