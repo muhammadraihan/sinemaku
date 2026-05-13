@@ -1,6 +1,6 @@
 @extends('layouts.page')
 
-@section('title', 'TOP 10 Kota dengan Penonton Terbanyak')
+@section('title', 'TOP 20 Kota dengan Penonton Terbanyak')
 
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/datagrid/datatables/datatables.bundle.css')}}">
@@ -10,7 +10,7 @@
 @section('content')
 <div class="subheader">
     <h1 class="subheader-title">
-        <i class='subheader-icon fal fa-users'></i> <span class='fw-300'>TOP 10 Kota dengan Penonton Terbanyak </span>
+        <i class='subheader-icon fal fa-users'></i> <span class='fw-300'>TOP 20 Kota dengan Penonton Terbanyak </span>
     </h1>
 </div>
 <div class="row">
@@ -18,7 +18,7 @@
         <div id="panel-1" class="panel">
             <div class="panel-hdr">
             <h2>
-                    TOP 10 Kota dengan Penonton Terbanyak  <span class="fw-300"></span>
+                    TOP 20 Kota dengan Penonton Terbanyak  <span class="fw-300"></span>
                 </h2>
                 <div class="panel-toolbar">
                     {{-- <a class="nav-link active" href="{{route('pelaporan.create')}}"><i class="fal fa-plus-circle">
@@ -87,9 +87,12 @@
                     <br>
                     <hr style="border: 1px dashed: color: black">
                     <div id="data-summary" style="display: none;">
-                        <h4>📊 List 10 Besar Kota Dengan Penonton Tertinggi</h4>
+                        <h4>📊 List 20 Besar Kota Dengan Penonton Tertinggi</h4>
                         <button id="download-pdf" class="btn btn-danger mt-3">
                             <i class="fal fa-file-pdf"></i> Download PDF
+                        </button>
+                        <button id="download-excel" class="btn btn-success mt-3">
+                            <i class="fal fa-file-excel"></i> Download Excel
                         </button>
                         <table id="summary-table" class="table table-bordered table-hover table-striped w-100">
                             <thead>
@@ -144,6 +147,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
 <script>
     $(document).ready(function(){
@@ -271,6 +276,105 @@
         $('.remove-data-from-delete-form').on('click',function() {
             $('body').find('.delete-form').find("input").remove();
         });
+        
+        document.getElementById("download-excel").addEventListener("click", async function () {
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("Top Kota");
+    
+        const namaFilm = $('#nama_film option:selected').text();
+        const tanggalMulai = $('#tanggal_mulai').val();
+        const tanggalAkhir = $('#tanggal_akhir').val();
+        const kategoriBioskop = $('#bioskop_kategori option:selected').text();
+    
+        // ===== TITLE =====
+        worksheet.mergeCells('A1:C1');
+        worksheet.getCell('A1').value = 'TOP 20 Kota Dengan Penonton Terbanyak';
+        worksheet.getCell('A1').font = {
+            size: 16,
+            bold: true
+        };
+    
+        worksheet.addRow([]);
+        worksheet.addRow(['Nama Film', namaFilm]);
+        worksheet.addRow(['Periode', tanggalMulai + ' s.d. ' + tanggalAkhir]);
+        worksheet.addRow(['Kategori Bioskop', kategoriBioskop]);
+    
+        worksheet.addRow([]);
+    
+        // ===== TABLE HEADER =====
+        let headerRow = worksheet.addRow([
+            'Rank',
+            'Kota',
+            'Penonton'
+        ]);
+    
+        headerRow.eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: '4472C4' }
+            };
+        });
+    
+        // ===== TABLE DATA =====
+        $('#summary-table tbody tr').each(function () {
+    
+            const rank = $(this).find('td:eq(0)').text();
+            const kota = $(this).find('td:eq(1)').text();
+            const penonton = $(this).find('td:eq(2)').text();
+    
+            worksheet.addRow([
+                rank,
+                kota,
+                parseInt(penonton.replace(/,/g, ''))
+            ]);
+        });
+    
+        // ===== AUTO WIDTH =====
+        worksheet.columns.forEach(column => {
+            let maxLength = 0;
+    
+            column.eachCell({ includeEmpty: true }, function(cell) {
+                const columnLength = cell.value ? cell.value.toString().length : 10;
+    
+                if (columnLength > maxLength) {
+                    maxLength = columnLength;
+                }
+            });
+    
+            column.width = maxLength + 5;
+        });
+    
+        // ===== ADD CHART IMAGE =====
+        const canvas = document.getElementById("topCitiesChart");
+    
+        if (canvas) {
+    
+            const imageBase64 = canvas.toDataURL("image/png");
+    
+            const imageId = workbook.addImage({
+                base64: imageBase64,
+                extension: 'png',
+            });
+    
+            worksheet.addImage(imageId, {
+                tl: { col: 4, row: 1 },
+                ext: { width: 600, height: 300 }
+            });
+        }
+    
+        // ===== EXPORT =====
+        const buffer = await workbook.xlsx.writeBuffer();
+    
+        saveAs(
+            new Blob([buffer], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }),
+            "top20-kota-penonton.xlsx"
+        );
+    });
     });
 
     function loadChart(nama_film, tgl_mulai, tgl_akhir, bioskop_kategori) {
