@@ -72,7 +72,7 @@ class DashboardController extends Controller
 
         $data = $query->groupBy('kota')
             ->orderByDesc('jumlah')
-            ->limit(10)
+            ->limit(20)
             ->get();
 
         return response()->json($data);
@@ -134,7 +134,7 @@ class DashboardController extends Controller
                 ->select('kota', DB::raw('SUM(jumlah) AS jumlah'))
                 ->groupBy('kota')
                 ->orderByDesc('jumlah')
-                ->limit(10)
+                ->limit(20)
                 ->get()
                 ->map(fn($r) => ['kota' => (string)$r->kota, 'jumlah' => (int)$r->jumlah])
                 ->values();
@@ -185,7 +185,7 @@ class DashboardController extends Controller
                 ')
                 ->groupBy('pelaporans.nama_bioskop', 'mb.nama_bioskop')
                 ->orderByDesc('penonton')
-                ->limit(10)
+                ->limit(20)
                 ->get()
                 ->map(fn($r) => [
                     'bioskop'  => (string)$r->bioskop_nama,
@@ -200,7 +200,7 @@ class DashboardController extends Controller
                 ->groupBy('kota')
                 ->havingRaw('SUM(jumlah) > 0')
                 ->orderBy('penonton', 'asc')
-                ->limit(10)
+                ->limit(20)
                 ->get()
                 ->map(fn($r) => ['kota' => (string)$r->kota, 'penonton' => (int)$r->penonton])
                 ->values();
@@ -216,7 +216,7 @@ class DashboardController extends Controller
                 ->groupBy('pelaporans.nama_bioskop', 'mb.nama_bioskop') // aman utk ONLY_FULL_GROUP_BY
                 ->havingRaw('SUM(jumlah) > 0')
                 ->orderBy('penonton', 'asc')
-                ->limit(10)
+                ->limit(20)
                 ->get()
                 ->map(fn($r) => ['nama_bioskop' => (string)$r->bioskop_nama, 'penonton' => (int)$r->penonton])
                 ->values();

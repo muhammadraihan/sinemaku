@@ -380,7 +380,7 @@ class LaporanController extends Controller
             $sheet->setCellValue('A' . $rowNum, $r->tgl_tayang);
             $sheet->setCellValue('B' . $rowNum, $r->name);
             $sheet->setCellValue('C' . $rowNum, $r->kota);
-            $sheet->setCellValue('D' . $rowNum, $r->nama_bioskop);
+            $sheet->setCellValue('D' . $rowNum, strtoupper($r->nama_bioskop));
             $sheet->setCellValue('E' . $rowNum, $r->studio);
             $sheet->setCellValue('F' . $rowNum, $r->kapasitas);
             $sheet->setCellValue('G' . $rowNum, $r->S1);

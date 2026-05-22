@@ -105,7 +105,7 @@
 
                     <section class="chart" style="display: none">
                         <div class="chart-container mt-4">
-                            <h4 class="mb-2">TOP 10 Kota</h4>
+                            <h4 class="mb-2">TOP 20 Kota</h4>
                             <canvas id="topCitiesChart"></canvas>
                         </div>
 
@@ -132,7 +132,7 @@
                         <div class="row g-3 mt-4">
                             <div class="col-12 col-lg-6">
                                 <div class="chart-container h-100">
-                                    <h4 class="mb-2">TOP 10 Bioskop</h4>
+                                    <h4 class="mb-2">TOP 20 Bioskop</h4>
                                     <div class="chart-fixed">
                                         <canvas id="topCinemasChart"></canvas>
                                     </div>
@@ -297,37 +297,21 @@
 
         document.getElementById("download-pdf").addEventListener("click", function () {
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF("p", "mm", "a4");
+            const doc = new jsPDF("l", "mm", "a4");
 
             // --- layout constants ---
-            const marginX = 15;
-            const marginTop = 18;
-            const gutter = 6; // jarak antar kolom
+            const marginX = 10;
+            const marginTop = 10;
+            const gutter = 5; // jarak antar kolom
             const pageW = doc.internal.pageSize.getWidth();
             const pageH = doc.internal.pageSize.getHeight();
             const usableW = pageW - marginX * 2;
             const colW = (usableW - gutter) / 2;  // lebar tiap kolom
-            let y = marginTop;
-
-            // === SISIPKAN LOGO DI KANAN ATAS ===
-            const logoEl = document.getElementById('report-logo');
-            if (logoEl && logoEl.complete) {
-                // lebar logo di PDF (mm)
-                const logoW = 28; // atur sesuai kebutuhan (20–35mm biasanya pas)
-                const logoH = (logoEl.naturalHeight / logoEl.naturalWidth) * logoW;
-                const logoX = pageW - marginX - logoW;
-                const logoY = marginTop - 10; // sedikit naik agar sejajar dengan judul (atur saja)
-
-                // jsPDF bisa langsung terima HTMLImageElement
-                doc.addImage(logoEl, 'PNG', logoX, logoY, logoW, logoH, undefined, 'FAST');
-            }
-
-            // === Header teks (judul + info) di kiri ===
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(16);
-            doc.setTextColor(33, 37, 41);
-            // doc.text("Laporan Grafik Penonton", marginX, y); 
-            y += 8;
+            const chartStartY = 34;
+            const chartGapY = 4;
+            const topChartH = 50;
+            const remainingH = pageH - chartStartY - topChartH - (chartGapY * 3) - marginTop;
+            const compactChartH = remainingH / 3;
 
             // info header
             const namaFilm = $('#nama_film option:selected').text();
@@ -336,63 +320,48 @@
             const kategoriBioskop = $('#bioskop_kategori option:selected').text();
 
             // helpers
-            function ensureSpace(needH) {
-                if (y + needH > pageH - 12) { doc.addPage(); y = marginTop; }
-            }
             function addTitle(text) {
                 doc.setFont("helvetica", "bold");
-                doc.setFontSize(13);
+                doc.setFontSize(9);
                 doc.setTextColor(33,37,41);
-                ensureSpace(8);
-                doc.text(text, marginX, y);
-                y += 6;
             }
             function fitImageSize(imgProps, maxW, maxH) {
                 const r = Math.min(maxW / imgProps.width, maxH / imgProps.height);
                 return { w: imgProps.width * r, h: imgProps.height * r };
             }
-            function addChartFull(title, dataURL, maxH=90) {
+            function addChartBox(title, dataURL, x, y, boxW, boxH) {
                 if (!dataURL) return;
                 addTitle(title);
-                const imgProps = doc.getImageProperties(dataURL);
-                const size = fitImageSize(imgProps, usableW, maxH);
-                ensureSpace(size.h + 6);
-                doc.addImage(dataURL, 'PNG', marginX, y, size.w, size.h);
-                y += size.h + 8;
-            }
-            function addChartRow(titleLeft, urlLeft, titleRight, urlRight, maxH=70) {
-                // judul baris (kiri & kanan)
-                const titleH = 6 + 6; // judul + spacing kecil
-                ensureSpace(titleH + maxH); // pastikan cukup 1 baris
-                // kiri
-                doc.setFont("helvetica","bold"); doc.setFontSize(12);
-                doc.text(titleLeft, marginX, y);
-                // kanan
-                doc.text(titleRight, marginX + colW + gutter, y);
-                y += 6;
+                doc.text(title, x, y + 4);
 
-                // gambar kiri
-                if (urlLeft) {
-                const pL = doc.getImageProperties(urlLeft);
-                const sL = fitImageSize(pL, colW, maxH);
-                doc.addImage(urlLeft, 'PNG', marginX, y, sL.w, sL.h);
-                }
-                // gambar kanan
-                if (urlRight) {
-                const pR = doc.getImageProperties(urlRight);
-                const sR = fitImageSize(pR, colW, maxH);
-                doc.addImage(urlRight, 'PNG', marginX + colW + gutter, y, sR.w, sR.h);
-                }
-                y += maxH + 8; // lanjut baris berikutnya
+                const titleH = 6;
+                const innerY = y + titleH;
+                const innerH = boxH - titleH;
+                const imgProps = doc.getImageProperties(dataURL);
+                const size = fitImageSize(imgProps, boxW, innerH);
+                const imgX = x + (boxW - size.w) / 2;
+                const imgY = innerY + (innerH - size.h) / 2;
+                doc.addImage(dataURL, 'PNG', imgX, imgY, size.w, size.h, undefined, 'FAST');
             }
 
             // ===== Header dokumen =====
-            doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(33,37,41);
-            doc.text("Laporan Grafik Penonton", marginX, y); y += 8;
-            doc.setFont("helvetica","normal"); doc.setFontSize(11); doc.setTextColor(80,80,80);
-            doc.text(`Nama Film        : ${namaFilm}`, marginX, y); y += 6;
-            doc.text(`Periode Tanggal  : ${tanggalMulai} s.d. ${tanggalAkhir}`, marginX, y); y += 6;
-            doc.text(`Kategori Bioskop : ${kategoriBioskop}`, marginX, y); y += 8;
+            doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(33,37,41);
+            doc.text("Laporan Grafik Penonton", marginX, marginTop + 4);
+            doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor(80,80,80);
+            doc.text(`Nama Film : ${namaFilm}`, marginX, marginTop + 12);
+            doc.text(`Periode : ${tanggalMulai} s.d. ${tanggalAkhir}`, marginX, marginTop + 18);
+            doc.text(`Kategori Bioskop : ${kategoriBioskop}`, marginX + (usableW / 2), marginTop + 12);
+
+            // === SISIPKAN LOGO DI KANAN ATAS ===
+            const logoEl = document.getElementById('report-logo');
+            if (logoEl && logoEl.complete) {
+                const logoW = 28;
+                const logoH = (logoEl.naturalHeight / logoEl.naturalWidth) * logoW;
+                const logoX = pageW - marginX - logoW;
+                const logoY = marginTop - 4;
+
+                doc.addImage(logoEl, 'PNG', logoX, logoY, logoW, logoH, undefined, 'FAST');
+            }
 
             // ambil dataURL dari chart instances (fallback ke canvas kalau perlu)
             const imgTopCities  = chartInstances.topCities    ? chartInstances.topCities.toBase64Image()    : document.getElementById('topCitiesChart')?.toDataURL();
@@ -403,22 +372,27 @@
             const imgUnderCin   = chartInstances.underCinemas ? chartInstances.underCinemas.toBase64Image() : document.getElementById('underperfCinemasChart')?.toDataURL();
 
             // ===== Susun sesuai layout di Blade =====
-            // 1) TOP 10 Kota (full width)
-            addChartFull("TOP 10 Kota", imgTopCities, 90);
+            // 1) TOP 20 Kota (full width)
+            addChartBox("TOP 20 Kota", imgTopCities, marginX, chartStartY, usableW, topChartH);
 
             // 2) Row 1: Shows (kiri) + Viewers by Cinema (kanan)
-            addChartRow("Grafik Show (Per Tanggal)", imgShows, "Penonton per Bioskop", imgViewCinema, 70);
+            const row1Y = chartStartY + topChartH + chartGapY;
+            addChartBox("Grafik Show (Per Tanggal)", imgShows, marginX, row1Y, colW, compactChartH);
+            addChartBox("Penonton per Bioskop", imgViewCinema, marginX + colW + gutter, row1Y, colW, compactChartH);
 
-            // 3) Row 2: Top 10 Bioskop (kiri) + Underperforming Kota (kanan)
-            addChartRow("TOP 10 Bioskop", imgTopCinemas, "Underperforming Kota", imgUnderCity, 70);
+            // 3) Row 2: TOP 20 Bioskop (kiri) + Underperforming Kota (kanan)
+            const row2Y = row1Y + compactChartH + chartGapY;
+            addChartBox("TOP 20 Bioskop", imgTopCinemas, marginX, row2Y, colW, compactChartH);
+            addChartBox("Underperforming Kota", imgUnderCity, marginX + colW + gutter, row2Y, colW, compactChartH);
 
             // 4) Row 3: Underperforming Bioskop (full width)
-            addChartFull("Underperforming Bioskop", imgUnderCin, 90);
+            const row3Y = row2Y + compactChartH + chartGapY;
+            addChartBox("Underperforming Bioskop", imgUnderCin, marginX, row3Y, usableW, compactChartH);
 
-            // ===== Tabel TOP 10 Kota =====
+            // ===== Tabel TOP 20 Kota =====
             // if (y + 20 > pageH - 12) { doc.addPage(); y = marginTop; }
             // doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(33,37,41);
-            // doc.text("Daftar TOP 10 Kota", marginX, y); y += 4;
+            // doc.text("Daftar TOP 20 Kota", marginX, y); y += 4;
 
             // doc.autoTable({
             //     html: '#summary-table',
@@ -524,7 +498,7 @@
           payload = { top_cities: payload };
         }
 
-        // ---------- TOP 10 KOTA (chart + tabel yang sudah ada) ----------
+        // ---------- TOP 20 KOTA (chart + tabel yang sudah ada) ----------
         const topCities = payload.top_cities || [];
         $('#summary-table tbody').empty();
         $("#topCitiesChart").remove();
@@ -637,8 +611,8 @@
           }
         );
 
-        // ---------- TOP 10 BIOSKOP ----------
-        const topC = (payload.top_cinemas || []).slice(0, 10);
+        // ---------- TOP 20 BIOSKOP ----------
+        const topC = (payload.top_cinemas || []).slice(0, 20);
         const topCLabels = topC.map(x => x.bioskop);
         const topCValues = topC.map(x => Number(x.penonton || 0));
 
