@@ -55,6 +55,7 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::resource('grafik_kota', 'GrafikKotaController');
     Route::get('get-cinema', [PelaporanController::class,'getCinemaByCategory'])->name('ref.cinema');
     Route::get('get-kota', [PelaporanController::class,'getCityByCinema'])->name('ref.kota');
+    Route::get('get-pajak', [PelaporanController::class,'getTaxByCinema'])->name('ref.pajak');
     Route::get('get-provonsi', [PelaporanController::class,'getProvinsiByCinema'])->name('ref.provinsi');
     Route::get('get-city', [PelaporanController::class,'getCityByCategory'])->name('ref.city');
     Route::get('get-type', [PelaporanController::class,'getTypeByCategory'])->name('ref.type');

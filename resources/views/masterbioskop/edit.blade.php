@@ -63,6 +63,13 @@
                     @endif
                 </div>
                 <div class="form-group col-md-4 mb-3">
+                    {{ Form::label('pajak','Pajak',['class' => 'required form-label'])}}
+                    {{ Form::text('pajak',$bioskop->pajak,['placeholder' => 'Pajak','class' => 'form-control '.($errors->has('pajak') ? 'is-invalid':''),'required'])}}
+                    @if ($errors->has('pajak'))
+                    <div class="invalid-feedback">{{ $errors->first('pajak') }}</div>
+                    @endif
+                </div>
+                <div class="form-group col-md-4 mb-3">
                     {{ Form::label('no_telephone','No. Telephone',['class' => 'required form-label'])}}
                     {{ Form::text('no_telephone',$bioskop->no_telephone,['placeholder' => 'No. Telephone','class' => 'form-control '.($errors->has('no_telephone') ? 'is-invalid':''),'required'])}}
                     @if ($errors->has('no_telephone'))

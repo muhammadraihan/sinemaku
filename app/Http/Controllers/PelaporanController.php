@@ -295,6 +295,18 @@ class PelaporanController extends Controller
         return response()->json($kota);
     }
 
+    public function getTaxByCinema(Request $request){
+        $kategori = $request->kategori;
+        $bioskop = $request->bioskop;
+
+        $kota  = MasterBioskop::select('pajak')
+                    ->where('type', $kategori)
+                    ->where('uuid', $bioskop)
+                    ->first();
+
+        return response()->json($kota);
+    }
+
     public function getCityByCinema(Request $request){
         $kategori = $request->kategori;
         $bioskop = $request->bioskop;

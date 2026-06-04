@@ -86,6 +86,8 @@ class MasterBioskopController extends Controller
             $bioskop->nama_bioskop = $request->nama_bioskop;
             $bioskop->kota = $request->kota;
             $bioskop->no_telephone = $request->no_telephone;
+            $bioskop->pajak = $request->pajak;
+            $bioskop->created_by = Auth::user()->uuid;
             $bioskop->save();
 
             toastr()->success('New Bioskop Name Added', 'Success');
@@ -147,6 +149,8 @@ class MasterBioskopController extends Controller
         $bioskop->nama_bioskop = $request->nama_bioskop;
         $bioskop->kota = $request->kota;
         $bioskop->no_telephone = $request->no_telephone;
+        $bioskop->pajak = $request->pajak;
+        $bioskop->edited_by = Auth::user()->uuid;
         $bioskop->save();
 
         toastr()->success('Bioskop Name Edited', 'Success');

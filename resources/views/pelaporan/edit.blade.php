@@ -167,7 +167,7 @@
                 <hr style="border: 1px dashed: color: black">
                 <div class="form-group col-md-4 mb-3">
                     {{ Form::label('tax','Tax',['class' => 'form-label'])}}
-                    {{ Form::text('tax', $pelaporan->tax,['placeholder' => 'Tax','class' => 'form-control '.($errors->has('tax') ? 'is-invalid':''),'required'])}}
+                    {{ Form::text('tax', $pelaporan->tax,['placeholder' => 'Tax','class' => 'form-control tax'.($errors->has('tax') ? 'is-invalid':''),'required'])}}
                     @if ($errors->has('tax'))
                     <div class="invalid-feedback">{{ $errors->first('tax') }}</div>
                     @endif
@@ -282,6 +282,17 @@
                     });
                 }
             });
+            $.ajax({
+                url: "{{ route('ref.pajak') }}",
+                type: 'GET',
+                data: {
+                    kategori: kategori,
+                    bioskop: bioskop
+                },
+                success: function(data) {
+                    $(".tax").val(data.pajak);
+                }
+            });
         });
 
         $('#kota').change(function(){
@@ -340,15 +351,18 @@
             var jumlah = parseFloat($('#jumlah').val()) || 0;
             var net = parseFloat($('#net').val().replace(/,/g, '')) || 0;
             // var tax = parseFloat($('#tax').val()) || 0;
-            var tax = parseFloat($('#tax').val().replace(/,/g, ''));
+            // var tax = parseFloat($('#tax').val().replace(/,/g, ''));
+            var taxPercent = parseFloat($('.tax').val()) || 0;
             var gross = parseFloat($('#gross').val().replace(/,/g, '')) || 0;
-            tax = tax ? parseFloat(tax) : '';
+            // tax = tax ? parseFloat(tax) : '';
 
             // Hitung gross
             var gross = harga * jumlah;
             // var total = gross - (gross * tax / 100);
-            var total = gross && tax ? gross - tax : gross;
-            $('#net').val(total.toLocaleString('en-US'));
+            // var total = gross && tax ? gross - tax : gross;
+            var taxNominal = gross * (taxPercent / 100);
+            var net = gross - taxNominal;
+            $('#net').val(net.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
             // Format harga dengan pemisah ribuan
             $('#harga').val(harga.toLocaleString('en-US'));

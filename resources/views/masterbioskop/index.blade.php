@@ -41,6 +41,7 @@
                 <th>Bioskop</th>
                 <th>Nama Bioskop</th>
                 <th>Kota</th>
+                <th>Pajak</th>
                 <th>No. Telephone</th>
                 <th width="120px">Aksi</th>
                 </tr>
@@ -110,6 +111,7 @@
             {data: 'type', name: 'type'},
             {data: 'nama_bioskop', name: 'nama_bioskop'},
             {data: 'kota', name: 'kota'},
+            {data: 'pajak', name: 'pajak'},
             {data: 'no_telephone', name: 'no_telephone'},
             {data: 'action', name: 'action', orderable: false, searchable: false},
         ]

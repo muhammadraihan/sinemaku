@@ -208,6 +208,8 @@
         // $('.shows').select2();
         $('#studio').select2();
 
+        var currentTax = 0;
+
         $("#addRow").click(function () {
             let newRow = $(".data-row:first").clone(); // Duplikasi row pertama
             // newRow.find(".shows").select2("destroy"); 
@@ -216,6 +218,10 @@
             newRow.appendTo("#rowContainer");
 
             newRow.find(".shows").select2();
+
+            newRow.find('[id]').removeAttr('id');
+
+            newRow.find(".tax").val(currentTax);
         });
 
         $('#kategori').change(function(){
@@ -299,6 +305,19 @@
                     });
                 }
             });
+
+            $.ajax({
+                url: "{{ route('ref.pajak') }}",
+                type: 'GET',
+                data: {
+                    kategori: kategori,
+                    bioskop: bioskop
+                },
+                success: function(data) {
+                    currentTax = data.pajak;
+                    $(".tax").val(currentTax);
+                }
+            });
         });
 
         $('#kota').change(function(){
@@ -374,15 +393,24 @@
     // Ambil nilai harga dan jumlah, hilangkan pemisah ribuan
     var harga = parseFloat(row.find('.harga').val().replace(/,/g, '')) || 0;
     var jumlah = parseFloat(row.find('.jumlah').val()) || 0;
-    var tax = parseFloat(row.find('.tax').val().replace(/,/g, '')) || 0;
+    // var tax = parseFloat(row.find('.tax').val().replace(/,/g, '')) || 0;
+    var taxPercent = parseFloat(row.find('.tax').val()) || 0;
 
     // Hitung gross
     var gross = harga * jumlah;
-    var total = gross && tax ? gross - tax : gross;
+    // var total = gross && tax ? gross - tax : gross;
+    var taxNominal = gross * (taxPercent / 100);
+    var net = gross - taxNominal;
 
     // Masukkan hasil ke field net & gross
-    row.find('.net').val(total.toLocaleString('en-US'));
+    // row.find('.net').val(total.toLocaleString('en-US'));
+    // row.find('.gross').val(gross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+    // // Format harga dengan pemisah ribuan
+    // row.find('.harga').val(harga.toLocaleString('en-US'));
+
     row.find('.gross').val(gross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    row.find('.net').val(net.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
     // Format harga dengan pemisah ribuan
     row.find('.harga').val(harga.toLocaleString('en-US'));

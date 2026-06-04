@@ -12,7 +12,7 @@ class MasterBioskop extends Model
     use Uuid;
 
     protected $fillable = [
-        'nama_bioskop','kota', 'no_telephone', 'type', 'created_by', 'edited_by'
+        'nama_bioskop','kota', 'no_telephone', 'type', 'created_by', 'edited_by', 'pajak'
     ];
 
     public function Categories(){
