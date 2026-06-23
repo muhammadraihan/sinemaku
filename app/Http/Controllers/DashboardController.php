@@ -42,15 +42,20 @@ class DashboardController extends Controller
                 ->limit(1)
                 ->first();
 
-        $periode = DB::table('pelaporans')
-          ->where('nama_film', $last->nama_film) // pastikan $nama_film sudah ditentukan
-          ->selectRaw('MIN(DATE(tgl_tayang)) AS tgl_awal, MAX(DATE(tgl_tayang)) AS tgl_akhir')
-          ->first();
+        $periode = (object) ['tgl_awal' => null, 'tgl_akhir' => null];
+        $total_penonton = (object) ['penonton' => 0];
 
-        $total_penonton = DB::table('pelaporans')
-          ->where('nama_film', $last->nama_film) // pastikan $nama_film sudah ditentukan
-          ->selectRaw('CAST(COALESCE(SUM(jumlah), 0) AS UNSIGNED) as penonton')
-          ->first();
+        if ($last) {
+            $periode = DB::table('pelaporans')
+              ->where('nama_film', $last->nama_film)
+              ->selectRaw('MIN(DATE(tgl_tayang)) AS tgl_awal, MAX(DATE(tgl_tayang)) AS tgl_akhir')
+              ->first();
+
+            $total_penonton = DB::table('pelaporans')
+              ->where('nama_film', $last->nama_film)
+              ->selectRaw('CAST(COALESCE(SUM(jumlah), 0) AS UNSIGNED) as penonton')
+              ->first();
+        }
         return view('backoffice.dashboard', compact('bioskop_kategori', 'kota', 'nama_film', 'last', 'periode', 'total_penonton'));
     }
 
