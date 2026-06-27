@@ -356,8 +356,6 @@
     $(document).on('click', '.open-upload-modal', function(e){
         e.preventDefault();
         bioskop = $(this).attr("data-bioskop");
-        $(".custom-dropdown-menu").hide();
-        $('#modal-upload').appendTo('body');
         $('#modal-upload').modal('show');
     });
 
@@ -609,9 +607,7 @@
             var table = $('#datatable').DataTable({
                 "processing": true,
                 "serverSide": true,
-                "responsive": false,
-                "scrollX": true,
-                "autoWidth": false,
+                "responsive": true,
                 "order": [[ 0, "asc" ]],
                 "ajax":{
                     url:'{{route('laporan.search')}}',
@@ -686,9 +682,7 @@
         var table = $('#datatable').DataTable({
             "processing": true,
             "serverSide": true,
-            "responsive": false,
-            "scrollX": true,
-            "autoWidth": false,
+            "responsive": true,
             "order": [[ 0, "asc" ]],
             "ajax":{
                 url:'{{route('pelaporan.index')}}',

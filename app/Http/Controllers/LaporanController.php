@@ -356,9 +356,9 @@ class LaporanController extends Controller
                 p.harga
             ORDER BY
                 kb.name,
+                p.tgl_tayang,
                 mb.kota,
-                mb.nama_bioskop,
-                p.tgl_tayang
+                mb.nama_bioskop
             ";
 
 

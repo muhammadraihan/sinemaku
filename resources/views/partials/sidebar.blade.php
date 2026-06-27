@@ -1,31 +1,43 @@
-<aside class="page-sidebar sinemaku-sidebar">
+<aside class="page-sidebar">
     <div class="page-logo">
-        <a href="{{route('backoffice.dashboard')}}" class="sidebar-brand">
-            <span class="sidebar-brand-mark">
-                <img src="{{asset('img/sinemaku.png')}}" alt="{{env('APP_NAME','')}}">
-            </span>
-            <span class="sidebar-brand-text">
-                <strong>{{env('APP_NAME','Sinemaku')}}</strong>
-                <span>Backoffice analytics</span>
-            </span>
+        <a href="#" class="page-logo-link press-scale-down d-flex align-items-center position-relative"
+            data-toggle="modal" data-target="#modal-shortcut">
+            <img src="{{asset('img/sinemaku_horizontal.png')}}" alt="{{env('APP_NAME','')}}" aria-roledescription="logo" style="width: 200px; height: 200px">
+            {{-- <span class="page-logo-text mr-1">{{env('APP_NAME','')}}</span> --}}
+            <span class="position-absolute text-white opacity-50 small pos-top pos-right mr-2 mt-n2"></span>
+            <i class="fal fa-angle-down d-inline-block ml-1 fs-lg color-primary-300"></i>
         </a>
     </div>
-
+    <!-- BEGIN PRIMARY NAVIGATION -->
     <nav id="js-primary-nav" class="primary-nav" role="navigation">
-        @php
-            $menu = Helper::menu()->getData();
-        @endphp
-        @include('partials.menu', ['menu' => $menu])
-
-        <div class="sidebar-profile-card">
-            @if (!is_null(Auth::user()->avatar))
-                <img src="{{asset('img/avatar').'/'.'user'.'/'.Auth::user()->avatar}}" alt="{{Auth::user()->name}}">
-            @else
-                <img src="{{asset('img/foto_sinemaku.jpg')}}" alt="{{Auth::user()->name}}">
-            @endif
-            <strong>{{Auth::user()->name}}</strong>
-            <span>{{Auth::user()->email}}</span>
-            <div class="profile-line"></div>
+        <div class="nav-filter">
+            <div class="position-relative">
+                <input type="text" id="nav_filter_input" placeholder="Filter menu" class="form-control" tabindex="0">
+                <a href="#" onclick="return false;" class="btn-primary btn-search-close js-waves-off"
+                    data-action="toggle" data-class="list-filter-active" data-target=".page-sidebar">
+                    <i class="fal fa-chevron-up"></i>
+                </a>
+            </div>
         </div>
+        <div class="info-card">
+            <img src="{{asset('img/foto_sinemaku.jpg')}}" class="cover" alt="cover" style="width: 270px; height: 200px">
+            <a href="#" onclick="return false;" class="pull-trigger-btn" data-action="toggle"
+                data-class="list-filter-active" data-target=".page-sidebar" data-focus="nav_filter_input">
+                <i class="fal fa-angle-down"></i>
+            </a>
+        </div>
+        @php
+        $menu = Helper::menu()->getData();
+        @endphp
+        @include('partials.menu',['menu '=> $menu])
     </nav>
+    <!-- END PRIMARY NAVIGATION -->
+    <!-- NAV FOOTER -->
+    <div class="nav-footer shadow-top">
+        <a href="#" onclick="return false;" data-action="toggle" data-class="nav-function-minify"
+            class="hidden-md-down">
+            <i class="ni ni-chevron-right"></i>
+            <i class="ni ni-chevron-right"></i>
+        </a>
+    </div> <!-- END NAV FOOTER -->
 </aside>

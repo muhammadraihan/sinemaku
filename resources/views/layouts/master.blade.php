@@ -16,14 +16,10 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{env('APP_NAME','')}} | @yield('title')</title>
     <!-- base css -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" media="screen, print" href="{{asset('css/vendors.bundle.css')}}">
     <link rel="stylesheet" media="screen, print" href="{{asset('css/app.bundle.css')}}">
     <link rel="stylesheet" media="screen, print" href="{{asset('css/notifications/toastr/toastr.css')}}">
     @yield('themes_css')
-    <link rel="stylesheet" media="screen, print" href="{{asset('css/sinemaku-modern.css')}}">
     <!-- Place favicon.ico in the root directory -->
     <link rel="apple-touch-icon" sizes="180x180" href="{{asset('img/favicon/apple-touch-icon.png')}}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{asset('img/favicon/favicon-32x32.png')}}">
@@ -40,7 +36,6 @@
         'use strict';
 
         var classHolder = document.getElementsByTagName("BODY")[0],
-            baseBodyClass = classHolder.className,
             /** 
              * Load from localstorage
              **/
@@ -53,12 +48,7 @@
          **/
         if (themeSettings.themeOptions)
         {
-            var savedThemeOptions = themeSettings.themeOptions;
-            if (baseBodyClass.indexOf('sinemaku-modern-shell') !== -1)
-            {
-                savedThemeOptions = savedThemeOptions.replace(/\b(nav-function-minify|nav-function-hidden|nav-function-top|mod-hide-nav-icons)\b/g, '');
-            }
-            classHolder.className = (baseBodyClass + ' ' + savedThemeOptions).trim();
+            classHolder.className = themeSettings.themeOptions;
             console.log("%c✔ Theme settings loaded", "color: #148f32");
         }
         else
@@ -101,20 +91,6 @@
     <script src="{{asset('js/vendors.bundle.js')}}"></script>
     <script src="{{asset('js/app.bundle.js')}}"></script>
     <script src="{{asset('js/notifications/toastr/toastr.js')}}"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            if (!document.body.classList.contains('sinemaku-modern-shell')) {
-                return;
-            }
-
-            document.querySelectorAll('.nav-menu a > i[class*="fa-"]').forEach(function (icon) {
-                var beforeContent = window.getComputedStyle(icon, ':before').getPropertyValue('content');
-                if (!beforeContent || beforeContent === 'none' || beforeContent === 'normal' || beforeContent === '""') {
-                    icon.className = 'fal fa-circle';
-                }
-            });
-        });
-    </script>
     @toastr_render
     @yield('themes_js')
 </body>
