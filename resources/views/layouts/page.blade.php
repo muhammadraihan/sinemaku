@@ -1,5 +1,7 @@
 @extends('layouts.master')
 
+@section('body_class', 'sinemaku-modern-shell')
+
 @section('themes_css')
 @stack('css')
 <!-- Custom CSS for this page only -->
