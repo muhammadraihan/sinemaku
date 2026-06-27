@@ -1,4 +1,7 @@
 <aside class="page-sidebar sinemaku-sidebar">
+    <a href="#" class="sinemaku-sidebar-close d-none" data-action="toggle" data-class="mobile-nav-on" aria-label="Tutup menu">
+        <i class="fal fa-times"></i>
+    </a>
     <div class="page-logo">
         <a href="{{route('backoffice.dashboard')}}" class="sidebar-brand">
             <span class="sidebar-brand-mark">

@@ -128,6 +128,30 @@ body.sinemaku-modern-shell .page-sidebar {
     overflow: hidden;
 }
 
+/* Sidebar close button — hidden on desktop, shown on mobile via media query */
+body.sinemaku-modern-shell .sinemaku-sidebar-close {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 10;
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    color: var(--sinemaku-muted);
+    background: #f2f7fc;
+    border: 1px solid #e3edf7;
+    text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+body.sinemaku-modern-shell .sinemaku-sidebar-close:hover {
+    color: #ffffff;
+    background: var(--sinemaku-blue);
+}
+
 body.sinemaku-modern-shell .page-sidebar .page-logo {
     height: auto;
     min-height: 126px;
@@ -384,8 +408,12 @@ body.sinemaku-modern-shell .page-header .page-logo,
 body.sinemaku-modern-shell .page-header .dropdown-icon-menu,
 body.sinemaku-modern-shell .page-header [data-target=".js-modal-settings"],
 body.sinemaku-modern-shell .page-header [data-class="nav-function-hidden"],
-body.sinemaku-modern-shell .page-header [data-class="nav-function-minify"],
-body.sinemaku-modern-shell .page-header [data-class="mobile-nav-on"] {
+body.sinemaku-modern-shell .page-header [data-class="nav-function-minify"] {
+    display: none !important;
+}
+
+/* Hide hamburger by default on desktop, show on mobile via media query */
+body.sinemaku-modern-shell .page-header .sinemaku-hamburger {
     display: none !important;
 }
 
@@ -1333,19 +1361,29 @@ body.sinemaku-login-shell .login-forgot-link {
         border-radius: 0;
     }
 
+    /* Sidebar: hidden off-screen by default on mobile */
     body.sinemaku-modern-shell .page-sidebar {
         position: fixed;
         top: 12px;
         bottom: 12px;
         left: 12px;
-        width: 238px;
-        min-width: 238px;
+        width: 280px;
+        min-width: 280px;
         border-radius: 24px;
+        transform: translateX(calc(-100% - 24px));
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 1050;
     }
 
+    /* Sidebar slides in when mobile-nav-on is active */
+    body.sinemaku-modern-shell.mobile-nav-on .page-sidebar {
+        transform: translateX(0);
+    }
+
+    /* Content takes full width */
     body.sinemaku-modern-shell .page-content-wrapper {
         min-height: 100vh;
-        margin-left: 264px;
+        margin-left: 0;
         border-radius: 0;
     }
 
@@ -1353,8 +1391,32 @@ body.sinemaku-login-shell .login-forgot-link {
         padding: 18px;
     }
 
+    /* Show hamburger menu button on mobile */
+    body.sinemaku-modern-shell .page-header .sinemaku-hamburger {
+        display: block !important;
+    }
+
     body.sinemaku-modern-shell .page-header .search {
         display: none;
+    }
+
+    /* Overlay backdrop when sidebar is open */
+    body.sinemaku-modern-shell .page-content-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 1045;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.28s ease, visibility 0.28s ease;
+    }
+
+    body.sinemaku-modern-shell.mobile-nav-on .page-content-overlay {
+        opacity: 1;
+        visibility: visible;
     }
 
     body.sinemaku-modern-shell .dashboard-hero {
@@ -1373,6 +1435,40 @@ body.sinemaku-login-shell .login-forgot-link {
     body.sinemaku-login-shell .login-visual {
         min-height: 280px;
     }
+
+    /* Sidebar close button on mobile */
+    body.sinemaku-modern-shell .page-sidebar .sinemaku-sidebar-close {
+        display: flex;
+    }
+
+    /* Metric cards: smaller on tablet */
+    body.sinemaku-modern-shell .metric-card {
+        min-height: 96px;
+        padding: 14px;
+        gap: 12px;
+    }
+
+    body.sinemaku-modern-shell .metric-icon {
+        width: 46px;
+        height: 46px;
+        flex: 0 0 46px;
+        font-size: 1.05rem;
+    }
+
+    body.sinemaku-modern-shell .metric-card h3 {
+        font-size: 1.1rem;
+    }
+
+    /* Tables: allow horizontal scroll */
+    body.sinemaku-modern-shell .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Header: reduce height on mobile */
+    body.sinemaku-modern-shell .page-header {
+        height: 64px;
+        padding: 10px 18px;
+    }
 }
 
 @media (max-width: 575.98px) {
@@ -1380,19 +1476,27 @@ body.sinemaku-login-shell .login-forgot-link {
         padding: 0;
     }
 
+    /* Sidebar: slide-in overlay on small mobile */
     body.sinemaku-modern-shell .page-sidebar {
-        position: relative;
-        top: auto;
-        bottom: auto;
-        left: auto;
-        width: auto;
-        min-width: 0;
-        margin: 12px;
-        border-radius: 24px;
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 280px;
+        min-width: 280px;
+        margin: 0;
+        border-radius: 0 24px 24px 0;
+        transform: translateX(-100%);
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 1050;
+    }
+
+    body.sinemaku-modern-shell.mobile-nav-on .page-sidebar {
+        transform: translateX(0);
     }
 
     body.sinemaku-modern-shell .primary-nav {
-        height: auto;
+        height: calc(100vh - 160px);
         max-height: none;
     }
 
@@ -1421,8 +1525,59 @@ body.sinemaku-login-shell .login-forgot-link {
 
     body.sinemaku-modern-shell .chart-container,
     body.sinemaku-modern-shell .chart-fixed {
-        min-height: 320px;
-        height: 320px;
+        min-height: 280px;
+        height: 280px;
+    }
+
+    /* Metric cards: stack vertically on small mobile */
+    body.sinemaku-modern-shell .metric-card {
+        min-height: 80px;
+        padding: 12px;
+        gap: 10px;
+        border-radius: 18px;
+    }
+
+    body.sinemaku-modern-shell .metric-icon {
+        width: 40px;
+        height: 40px;
+        flex: 0 0 40px;
+        border-radius: 14px;
+        font-size: 0.95rem;
+    }
+
+    body.sinemaku-modern-shell .metric-card h3 {
+        font-size: 1rem;
+    }
+
+    body.sinemaku-modern-shell .metric-card p {
+        font-size: 0.76rem;
+    }
+
+    /* Hero section compact */
+    body.sinemaku-modern-shell .dashboard-hero h1 {
+        font-size: 1.35rem;
+    }
+
+    body.sinemaku-modern-shell .dashboard-hero p {
+        font-size: 0.86rem;
+    }
+
+    /* Header: compact on small mobile */
+    body.sinemaku-modern-shell .page-header {
+        height: 58px;
+        padding: 8px 14px;
+    }
+
+    body.sinemaku-modern-shell .page-header .header-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+    }
+
+    /* Filter form inputs full width */
+    body.sinemaku-modern-shell .modern-filter-card .form-group {
+        padding-left: 8px;
+        padding-right: 8px;
     }
 
     body.sinemaku-login-shell .sinemaku-login-page {

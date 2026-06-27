@@ -1,4 +1,9 @@
 <header class="page-header" role="banner">
+    <div class="sinemaku-hamburger d-none">
+        <a href="#" class="header-icon" data-action="toggle" data-class="mobile-nav-on" title="Menu">
+            <i class="fal fa-bars"></i>
+        </a>
+    </div>
     <div class="page-logo">
         <a href="#" class="page-logo-link press-scale-down d-flex align-items-center position-relative"
             data-toggle="modal" data-target="#modal-shortcut">
