@@ -62,13 +62,13 @@
         </a>
     </li>
 
-    @hasrole('superadmin|superuser')
     <li class="{{request()->routeIs('laporan.*') ? 'active' : ''}}">
         <a href="{{route('laporan.index')}}" title="Rekap Laporan" data-filter-tags="rekap laporan">
             <i class="fal fa-chart-line"></i>
             <span class="nav-link-text">Rekap Omset</span>
         </a>
     </li>
+    @hasrole('superadmin|superuser')
     <li class="{{request()->routeIs('grafik_kota.*') ? 'active' : ''}}">
         <a href="{{route('grafik_kota.index')}}" title="Grafik TOP 20 per Kota" data-filter-tags="grafik top kota">
             <i class="fal fa-chart-bar"></i>
