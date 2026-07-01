@@ -652,8 +652,8 @@ class PelaporanController extends Controller
                 p.harga,
                 p.jumlah,
                 (p.harga * p.jumlah) AS gross,
-                0 AS tax,
-                (p.harga * p.jumlah - 0) AS net,
+                mb.pajak AS tax,
+                (p.harga * p.jumlah) - ((p.harga * p.jumlah) * mb.pajak / 100) AS net,
                 k.uuid AS studio,
                 '{$user}' AS created_by, -- ganti jika mau pakai Auth::user()->uuid
                 NOW() AS created_at
@@ -1049,8 +1049,8 @@ class PelaporanController extends Controller
                 p.harga,
                 p.jumlah,
                 (p.harga * p.jumlah) AS gross,
-                0 AS tax,  -- Kalau belum ada tax, bisa isi 0 atau ambil dari sumber lain
-                (p.harga * p.jumlah - 0) AS net,  -- Kurangi dengan tax kalau ada
+                mb.pajak AS tax,  -- Kalau belum ada tax, bisa isi 0 atau ambil dari sumber lain
+                (p.harga * p.jumlah) - ((p.harga * p.jumlah) * mb.pajak / 100) AS net,
                 k.uuid AS studio,
                 '{$user}' AS created_by, -- ganti jika mau pakai Auth::user()->uuid
                 NOW() AS created_at
@@ -1385,8 +1385,8 @@ class PelaporanController extends Controller
                 p.harga,
                 p.jumlah,
                 (p.harga * p.jumlah) AS gross,
-                0 AS tax,  -- Kalau belum ada tax, bisa isi 0 atau ambil dari sumber lain
-                (p.harga * p.jumlah - 0) AS net,  -- Kurangi dengan tax kalau ada
+                mb.pajak AS tax,  -- Kalau belum ada tax, bisa isi 0 atau ambil dari sumber lain
+                (p.harga * p.jumlah) - ((p.harga * p.jumlah) * mb.pajak / 100) AS net,
                 k.uuid AS studio,
                 '{$user}' AS created_by, -- ganti jika mau pakai Auth::user()->uuid
                 NOW() AS created_at
