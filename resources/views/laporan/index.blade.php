@@ -127,9 +127,11 @@
                                     <th>Kategori</th>
                                     <th>Jumlah Penonton</th>
                                     <th>Total Pendapatan</th>
-                                    <th>Pajak</th>
+                                    {{-- <th>Pajak</th> --}}
                                     <th>Net</th>
                                     <th>Share 50%</th>
+                                    <th>Royalty (1.5%)</th>
+                                    <th>Total</th>
                                 </tr>
                             </thead>
                             <tfoot>
@@ -137,9 +139,11 @@
                                     <th colspan="1">Total</th>
                                     <th id="total-summary-penonton"></th>
                                     <th id="total-summary-gross"></th>
-                                    <th id="total-summary-tax"></th>
+                                    {{-- <th id="total-summary-tax"></th> --}}
                                     <th id="total-summary-net"></th>
                                     <th id="total-summary-share"></th>
+                                    <th></th>
+                                    <th id="total-summary-total"></th>
                                     <th></th>
                                 </tr>
                             </tfoot>
@@ -445,9 +449,11 @@
                     {data: 'kategori', name: 'kategori'},
                     {data: 'jumlah', name: 'jumlah'},
                     {data: 'gross', name: 'gross'},
-                    {data: 'tax', name: 'tax'},
+                    // {data: 'tax', name: 'tax'},
                     {data: 'net', name: 'net'},
                     {data: 'share', name: 'share'},
+                    {data: 'royalty', name: 'royalty'},
+                    {data: 'total', name: 'total'},
                 ],
                 "footerCallback": function (row, data, start, end, display) {
                     var api = this.api();
@@ -466,21 +472,28 @@
                     }, 0);
 
                     // Total Tax
-                    var totalTax = api.column(4).data().reduce(function (a, b) {
-                        var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
-                        var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
-                        return valA + valB;
-                    }, 0);
+                    // var totalTax = api.column(4).data().reduce(function (a, b) {
+                    //     var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
+                    //     var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
+                    //     return valA + valB;
+                    // }, 0);
 
                     // Total Net
-                    var totalNet = api.column(5).data().reduce(function (a, b) {
+                    var totalNet = api.column(4).data().reduce(function (a, b) {
                         var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
                         var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
                         return valA + valB;
                     }, 0);
 
                     // Total Share
-                    var totalShare = api.column(6).data().reduce(function (a, b) {
+                    var totalShare = api.column(5).data().reduce(function (a, b) {
+                        var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
+                        var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
+                        return valA + valB;
+                    }, 0);
+
+                    // Total (Net - Share - Royalty)
+                    var totalFinal = api.column(7).data().reduce(function (a, b) {
                         var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
                         var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
                         return valA + valB;
@@ -489,9 +502,10 @@
                     // Update footer
                     $(api.column(2).footer()).html(formatCurrency(totalPenonton));
                     $(api.column(3).footer()).html(formatCurrency(totalGross));
-                    $(api.column(4).footer()).html(formatCurrency(totalTax));
-                    $(api.column(5).footer()).html(formatCurrency(totalNet));
-                    $(api.column(6).footer()).html(formatCurrency(totalShare));
+                    // $(api.column(4).footer()).html(formatCurrency(totalTax));
+                    $(api.column(4).footer()).html(formatCurrency(totalNet));
+                    $(api.column(5).footer()).html(formatCurrency(totalShare));
+                    $(api.column(7).footer()).html(formatCurrency(totalFinal));
                 }
             });
 

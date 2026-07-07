@@ -250,6 +250,14 @@ class LaporanController extends Controller
         ->editColumn('share',function($row){
             return $row->share ? number_format($row->share) : '' ;
         })
+        ->editColumn('royalty',function(){
+            return '1.5%';
+        })
+        ->editColumn('total',function($row){
+            $royalty = $row->share * 0.015;
+            $total = $row->net - $row->share - $royalty;
+            return $total ? number_format($total) : '' ;
+        })
         ->make(true);
     }
 
@@ -338,7 +346,18 @@ class LaporanController extends Controller
                         COALESCE(SUM(CASE WHEN p.show = 6 THEN p.jumlah END), 0) +
                         COALESCE(SUM(CASE WHEN p.show = 7 THEN p.jumlah END), 0)
                     ) * p.harga, 2
-                ) AS gross
+                ) AS gross,
+                mb.pajak as pajak_persen,
+                FORMAT((COALESCE(SUM(p.gross), 0) * mb.pajak / 100), 2) AS pajak,
+                FORMAT(COALESCE(SUM(p.gross), 0) - (COALESCE(SUM(p.gross), 0) * mb.pajak / 100), 2) AS net,
+                FORMAT((COALESCE(SUM(p.gross), 0) - (COALESCE(SUM(p.gross), 0) * mb.pajak / 100)) / 2, 2) AS share_ph,
+                FORMAT(((COALESCE(SUM(p.gross), 0) - (COALESCE(SUM(p.gross), 0) * mb.pajak / 100)) / 2) * 0.015, 2) AS royalty,
+                FORMAT(
+                    (COALESCE(SUM(p.gross), 0) - (COALESCE(SUM(p.gross), 0) * mb.pajak / 100)) -
+                    ((COALESCE(SUM(p.gross), 0) - (COALESCE(SUM(p.gross), 0) * mb.pajak / 100)) / 2) -
+                    (((COALESCE(SUM(p.gross), 0) - (COALESCE(SUM(p.gross), 0) * mb.pajak / 100)) / 2) * 0.015),
+                    2
+                ) AS total_akhir
             FROM pelaporans p
             LEFT JOIN kategori_bioskops kb ON kb.uuid = p.kategori
             LEFT JOIN kapasitas k ON k.uuid = p.studio AND k.type_tiket = p.type_tiket
@@ -353,7 +372,8 @@ class LaporanController extends Controller
                 k.studio,
                 k.kapasitas,
                 p.type_tiket,
-                p.harga
+                p.harga,
+                mb.pajak
             ORDER BY
                 kb.name,
                 mb.kota,
@@ -370,7 +390,7 @@ class LaporanController extends Controller
 
         $headers = [
             'Tanggal', 'Kategori', 'Kota', 'Nama Bioskop', 'Studio', 'Kapasitas',
-            'S1','S2','S3','S4','S5','S6','S7','Total','Harga','Gross'
+            'S1','S2','S3','S4','S5','S6','S7','Total','Harga','Gross','Pajak %','Pajak','Net','Share','Share PH','Royalty (1.5%)','Total Akhir'
         ];
 
         $sheet->fromArray($headers, null, 'A1');
@@ -393,6 +413,13 @@ class LaporanController extends Controller
             $sheet->setCellValue('N' . $rowNum, $r->Total);
             $sheet->setCellValue('O' . $rowNum, $r->harga);
             $sheet->setCellValue('P' . $rowNum, $r->gross);
+            $sheet->setCellValue('Q' . $rowNum, $r->pajak_persen . '%');
+            $sheet->setCellValue('R' . $rowNum, $r->pajak);
+            $sheet->setCellValue('S' . $rowNum, $r->net);
+            $sheet->setCellValue('T' . $rowNum, '50%');
+            $sheet->setCellValue('U' . $rowNum, $r->share_ph);
+            $sheet->setCellValue('V' . $rowNum, $r->royalty);
+            $sheet->setCellValue('W' . $rowNum, $r->total_akhir);
             $rowNum++;
         }
 
