@@ -225,6 +225,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 <script>
+    var sinemakuLogo = @json(file_exists(public_path('img/sinemaku.png')) ? 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('img/sinemaku.png'))) : null);
+
     $(document).ready(function(){
         $('#nama_film').select2();
         $('#bioskop_kategori').select2();
@@ -307,6 +309,19 @@
             var kota = $('#kota').val();
             var nama_bioskop = $('#nama_bioskop').val();
             var type_tiket = $('#type_tiket').val();
+
+            function selectedText(selector) {
+                var text = $(selector).find('option:selected').text();
+                return text && text.trim() ? text.trim() : '-';
+            }
+
+            function reportPeriod() {
+                if (tgl_mulai && tgl_akhir) {
+                    return tgl_mulai + ' s/d ' + tgl_akhir;
+                }
+
+                return 'Semua Periode';
+            }
 
             if ($.fn.DataTable.isDataTable("#datatable")) {
                 $('#datatable').DataTable().destroy();
@@ -428,7 +443,201 @@
                         title: 'Laporan Summary',
                         orientation: 'landscape',
                         pageSize: 'A4',
-                        exportOptions: { columns: ':visible' }
+                        footer: true,
+                        exportOptions: { columns: ':visible' },
+                        customize: function (doc) {
+                            var generatedAt = new Date().toLocaleString('id-ID', {
+                                day: '2-digit',
+                                month: 'long',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+
+                            var tableNode = doc.content.find(function (node) {
+                                return node.table;
+                            });
+
+                            if (doc.content.length && doc.content[0].text === 'Laporan Summary') {
+                                doc.content.splice(0, 1);
+                            }
+
+                            doc.pageMargins = [30, 96, 30, 52];
+                            doc.defaultStyle = {
+                                fontSize: 8,
+                                color: '#1f2937'
+                            };
+
+                            doc.header = function () {
+                                return {
+                                    margin: [30, 22, 30, 0],
+                                    stack: [
+                                        {
+                                            columns: [
+                                                sinemakuLogo ? {
+                                                    image: sinemakuLogo,
+                                                    width: 48,
+                                                    margin: [0, 0, 12, 0]
+                                                } : {
+                                                    text: 'SINEMAKU',
+                                                    bold: true,
+                                                    color: '#b91c1c',
+                                                    fontSize: 16,
+                                                    margin: [0, 10, 12, 0]
+                                                },
+                                                {
+                                                    width: '*',
+                                                    stack: [
+                                                        { text: 'SINEMAKU PICTURES', style: 'companyName' },
+                                                        { text: 'Laporan Rekap Omset', style: 'reportTitle' },
+                                                        { text: 'Generated: ' + generatedAt, style: 'mutedText' }
+                                                    ]
+                                                },
+                                                {
+                                                    width: 190,
+                                                    stack: [
+                                                        { text: 'ACCOUNTING REPORT', style: 'reportBadge' },
+                                                        { text: 'Summary by Cinema Category', alignment: 'right', style: 'mutedText', margin: [0, 6, 0, 0] }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            canvas: [
+                                                { type: 'line', x1: 0, y1: 12, x2: 782, y2: 12, lineWidth: 1.2, lineColor: '#991b1b' },
+                                                { type: 'line', x1: 0, y1: 15, x2: 782, y2: 15, lineWidth: 0.4, lineColor: '#d1d5db' }
+                                            ]
+                                        }
+                                    ]
+                                };
+                            };
+
+                            doc.footer = function (currentPage, pageCount) {
+                                return {
+                                    margin: [30, 0, 30, 18],
+                                    columns: [
+                                        { text: 'Sinemaku Pictures - Confidential', style: 'footerText' },
+                                        { text: 'Halaman ' + currentPage + ' dari ' + pageCount, alignment: 'right', style: 'footerText' }
+                                    ]
+                                };
+                            };
+
+                            doc.content.unshift({
+                                margin: [0, 0, 0, 14],
+                                table: {
+                                    widths: ['*', '*', '*'],
+                                    body: [
+                                        [
+                                            { text: 'Nama Film\n' + selectedText('#nama_film'), style: 'filterBox' },
+                                            { text: 'Periode\n' + reportPeriod(), style: 'filterBox' },
+                                            { text: 'Kategori Bioskop\n' + selectedText('#bioskop_kategori'), style: 'filterBox' }
+                                        ],
+                                        [
+                                            { text: 'Kota\n' + selectedText('#kota'), style: 'filterBox' },
+                                            { text: 'Nama Bioskop\n' + selectedText('#nama_bioskop'), style: 'filterBox' },
+                                            { text: 'Tipe Tiket\n' + selectedText('#type_tiket'), style: 'filterBox' }
+                                        ]
+                                    ]
+                                },
+                                layout: {
+                                    hLineColor: function () { return '#e5e7eb'; },
+                                    vLineColor: function () { return '#e5e7eb'; },
+                                    fillColor: function () { return '#f9fafb'; },
+                                    paddingLeft: function () { return 8; },
+                                    paddingRight: function () { return 8; },
+                                    paddingTop: function () { return 6; },
+                                    paddingBottom: function () { return 6; }
+                                }
+                            });
+
+                            if (tableNode) {
+                                tableNode.margin = [0, 0, 0, 0];
+                                tableNode.table.widths = [26, '*', 78, 86, 86, 82, 70, 86];
+                                tableNode.layout = {
+                                    hLineWidth: function (i, node) {
+                                        return (i === 0 || i === 1 || i === node.table.body.length) ? 0.8 : 0.35;
+                                    },
+                                    vLineWidth: function () { return 0.35; },
+                                    hLineColor: function (i) {
+                                        return i === 1 ? '#991b1b' : '#d1d5db';
+                                    },
+                                    vLineColor: function () { return '#e5e7eb'; },
+                                    fillColor: function (rowIndex, node) {
+                                        if (rowIndex === 0) {
+                                            return '#2f4558';
+                                        }
+
+                                        if (rowIndex === node.table.body.length - 1) {
+                                            return '#2f4558';
+                                        }
+
+                                        return rowIndex % 2 === 0 ? '#f9fafb' : null;
+                                    },
+                                    paddingLeft: function () { return 6; },
+                                    paddingRight: function () { return 6; },
+                                    paddingTop: function () { return 5; },
+                                    paddingBottom: function () { return 5; }
+                                };
+
+                                tableNode.table.body.forEach(function (row, rowIndex) {
+                                    row.forEach(function (cell, columnIndex) {
+                                        var cellObject = typeof cell === 'object' ? cell : { text: cell };
+
+                                        if (rowIndex === 0) {
+                                            cellObject.color = '#ffffff';
+                                            cellObject.bold = true;
+                                            cellObject.fillColor = '#2f4558';
+                                            cellObject.alignment = columnIndex === 1 ? 'left' : 'center';
+                                            cellObject.fontSize = 8;
+                                        } else {
+                                            cellObject.fontSize = 8;
+                                            cellObject.alignment = columnIndex === 1 ? 'left' : (columnIndex === 6 ? 'center' : 'right');
+
+                                            if (rowIndex === tableNode.table.body.length - 1) {
+                                                cellObject.bold = true;
+                                                cellObject.color = '#ffffff';
+                                                cellObject.fillColor = '#2f4558';
+                                            }
+                                        }
+
+                                        row[columnIndex] = cellObject;
+                                    });
+                                });
+                            }
+
+                            doc.styles = $.extend(true, {}, doc.styles, {
+                                companyName: {
+                                    fontSize: 15,
+                                    bold: true,
+                                    color: '#111827'
+                                },
+                                reportTitle: {
+                                    fontSize: 10,
+                                    bold: true,
+                                    color: '#991b1b',
+                                    margin: [0, 2, 0, 1]
+                                },
+                                reportBadge: {
+                                    alignment: 'right',
+                                    color: '#991b1b',
+                                    bold: true,
+                                    fontSize: 9
+                                },
+                                mutedText: {
+                                    fontSize: 7,
+                                    color: '#6b7280'
+                                },
+                                filterBox: {
+                                    fontSize: 8,
+                                    color: '#374151',
+                                    lineHeight: 1.25
+                                },
+                                footerText: {
+                                    fontSize: 7,
+                                    color: '#6b7280'
+                                }
+                            });
+                        }
                     }
                 ],
                 "ajax":{
