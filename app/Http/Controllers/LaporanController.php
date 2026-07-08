@@ -192,35 +192,47 @@ class LaporanController extends Controller
 
     public function summaryListData(Request $request){
         // dd($request->all());
+        $gross = "CAST(REPLACE(COALESCE(NULLIF(pelaporans.gross, ''), '0'), ',', '') AS DECIMAL(20,2))";
+        $pajak = "CAST(REPLACE(COALESCE(NULLIF(mb.pajak, ''), '0'), ',', '') AS DECIMAL(10,2))";
+        $tax = "($gross * $pajak / 100)";
+        $net = "($gross - $tax)";
+
         $summary = Pelaporan::with(['categories', 'cinemas', 'typeTiket'])
-                    ->select('kategori', DB::raw('SUM(jumlah) as jumlah, SUM(gross) as gross, SUM(tax) as tax, SUM(net) as net, SUM(net/2) as share'));
+                    ->leftJoin('master_bioskops as mb', 'mb.uuid', '=', 'pelaporans.nama_bioskop')
+                    ->select('pelaporans.kategori', DB::raw("
+                        SUM(COALESCE(pelaporans.jumlah, 0)) as jumlah,
+                        SUM($gross) as gross,
+                        SUM($tax) as tax,
+                        SUM($net) as net,
+                        SUM($net / 2) as share
+                    "));
     
         // Filter berdasarkan input user
         if ($request->nama_film != 'ALL') {
-            $summary->where('nama_film', $request->nama_film);
+            $summary->where('pelaporans.nama_film', $request->nama_film);
         }
     
         if (!empty($request->tgl_mulai) && !empty($request->tgl_akhir)) {
-            $summary->whereBetween('tgl_tayang', [$request->tgl_mulai, $request->tgl_akhir]);
+            $summary->whereBetween('pelaporans.tgl_tayang', [$request->tgl_mulai, $request->tgl_akhir]);
         }
     
         if ($request->bioskop_kategori != 'ALL') {
-            $summary->where('kategori', $request->bioskop_kategori);
+            $summary->where('pelaporans.kategori', $request->bioskop_kategori);
         }
     
         if ($request->kota != 'ALL') {
-            $summary->where('kota', $request->kota);
+            $summary->where('pelaporans.kota', $request->kota);
         }
     
         if ($request->nama_bioskop != 'ALL') {
-            $summary->where('nama_bioskop', $request->nama_bioskop);
+            $summary->where('pelaporans.nama_bioskop', $request->nama_bioskop);
         }
     
         if ($request->type_tiket != 'ALL') {
-            $summary->where('type_tiket', $request->type_tiket);
+            $summary->where('pelaporans.type_tiket', $request->type_tiket);
         }
 
-        $data_summary = $summary->groupBy('kategori')
+        $data_summary = $summary->groupBy('pelaporans.kategori')
                             ->orderBy('jumlah', 'DESC')
                             ->get();
 
