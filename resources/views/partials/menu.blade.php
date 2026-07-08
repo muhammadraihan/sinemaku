@@ -68,6 +68,20 @@
             <span class="nav-link-text">Rekap Omset</span>
         </a>
     </li>
+
+    <li class="{{request()->routeIs('finance-insight.*') ? 'active' : ''}}">
+        <a href="{{route('finance-insight.index')}}" title="Finance Insight" data-filter-tags="finance insight executive summary">
+            <i class="fal fa-analytics"></i>
+            <span class="nav-link-text">Finance Insight</span>
+        </a>
+    </li>
+
+    <li class="{{request()->routeIs('trend-analysis.*') ? 'active' : ''}}">
+        <a href="{{route('trend-analysis.index')}}" title="Trend Analysis" data-filter-tags="trend analysis movement daily performance">
+            <i class="fal fa-chart-area"></i>
+            <span class="nav-link-text">Trend Analysis</span>
+        </a>
+    </li>
     @hasrole('superadmin|superuser')
     <li class="{{request()->routeIs('grafik_kota.*') ? 'active' : ''}}">
         <a href="{{route('grafik_kota.index')}}" title="Grafik TOP 20 per Kota" data-filter-tags="grafik top kota">

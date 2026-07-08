@@ -53,6 +53,10 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::resource('kapasitas', 'KapasitasController');
     Route::resource('vendor', 'VendorController');
     Route::resource('grafik_kota', 'GrafikKotaController');
+    Route::get('finance-insight', [LaporanController::class, 'financeInsight'])->name('finance-insight.index');
+    Route::get('finance-insight-data', [LaporanController::class, 'financeInsightData'])->name('finance-insight.data');
+    Route::get('trend-analysis', [LaporanController::class, 'trendAnalysis'])->name('trend-analysis.index');
+    Route::get('trend-analysis-data', [LaporanController::class, 'trendAnalysisData'])->name('trend-analysis.data');
     Route::get('get-cinema', [PelaporanController::class,'getCinemaByCategory'])->name('ref.cinema');
     Route::get('get-kota', [PelaporanController::class,'getCityByCinema'])->name('ref.kota');
     Route::get('get-pajak', [PelaporanController::class,'getTaxByCinema'])->name('ref.pajak');
@@ -62,6 +66,8 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::get('get-studio', [PelaporanController::class,'getStudio'])->name('ref.studio');
     Route::get('get-data', [LaporanController::class,'listData'])->name('laporan.search');
     Route::get('get-summary', [LaporanController::class,'summaryListData'])->name('laporan.summary');
+    Route::get('get-performance', [LaporanController::class,'performanceListData'])->name('laporan.performance');
+    Route::get('get-audit-checks', [LaporanController::class,'auditCheckListData'])->name('laporan.audit');
     Route::get('detail-export', [LaporanController::class, 'detailExport'])->name('laporan.detailExport');
     Route::get('get-chart-city', [GrafikKotaController::class,'getTopCities'])->name('getTopCities');
     Route::post('/pelaporan/upload-xxi', [PelaporanController::class, 'uploadXXI'])
