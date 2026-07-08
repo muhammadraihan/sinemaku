@@ -407,8 +407,44 @@ class LaporanController extends Controller
 
         $sheet->fromArray($headers, null, 'A1');
 
+        $toNumber = function ($value) {
+            return (float) str_replace(',', '', $value ?? 0);
+        };
+
+        $totals = [
+            'S1' => 0,
+            'S2' => 0,
+            'S3' => 0,
+            'S4' => 0,
+            'S5' => 0,
+            'S6' => 0,
+            'S7' => 0,
+            'Total' => 0,
+            'gross' => 0,
+            'pajak' => 0,
+            'net' => 0,
+            'share_ph' => 0,
+            'royalty' => 0,
+            'total_akhir' => 0,
+        ];
+
         $rowNum = 2;
         foreach ($rows as $r) {
+            $totals['S1'] += $toNumber($r->S1);
+            $totals['S2'] += $toNumber($r->S2);
+            $totals['S3'] += $toNumber($r->S3);
+            $totals['S4'] += $toNumber($r->S4);
+            $totals['S5'] += $toNumber($r->S5);
+            $totals['S6'] += $toNumber($r->S6);
+            $totals['S7'] += $toNumber($r->S7);
+            $totals['Total'] += $toNumber($r->Total);
+            $totals['gross'] += $toNumber($r->gross);
+            $totals['pajak'] += $toNumber($r->pajak);
+            $totals['net'] += $toNumber($r->net);
+            $totals['share_ph'] += $toNumber($r->share_ph);
+            $totals['royalty'] += $toNumber($r->royalty);
+            $totals['total_akhir'] += $toNumber($r->total_akhir);
+
             $sheet->setCellValue('A' . $rowNum, $r->tgl_tayang);
             $sheet->setCellValue('B' . $rowNum, $r->name);
             $sheet->setCellValue('C' . $rowNum, $r->kota);
@@ -434,6 +470,24 @@ class LaporanController extends Controller
             $sheet->setCellValue('W' . $rowNum, $r->total_akhir);
             $rowNum++;
         }
+
+        $sheet->setCellValue('A' . $rowNum, 'TOTAL');
+        $sheet->mergeCells('A' . $rowNum . ':F' . $rowNum);
+        $sheet->setCellValue('G' . $rowNum, $totals['S1']);
+        $sheet->setCellValue('H' . $rowNum, $totals['S2']);
+        $sheet->setCellValue('I' . $rowNum, $totals['S3']);
+        $sheet->setCellValue('J' . $rowNum, $totals['S4']);
+        $sheet->setCellValue('K' . $rowNum, $totals['S5']);
+        $sheet->setCellValue('L' . $rowNum, $totals['S6']);
+        $sheet->setCellValue('M' . $rowNum, $totals['S7']);
+        $sheet->setCellValue('N' . $rowNum, $totals['Total']);
+        $sheet->setCellValue('P' . $rowNum, number_format($totals['gross'], 2));
+        $sheet->setCellValue('R' . $rowNum, number_format($totals['pajak'], 2));
+        $sheet->setCellValue('S' . $rowNum, number_format($totals['net'], 2));
+        $sheet->setCellValue('U' . $rowNum, number_format($totals['share_ph'], 2));
+        $sheet->setCellValue('V' . $rowNum, number_format($totals['royalty'], 2));
+        $sheet->setCellValue('W' . $rowNum, number_format($totals['total_akhir'], 2));
+        $sheet->getStyle('A' . $rowNum . ':W' . $rowNum)->getFont()->setBold(true);
 
         $filename = 'laporan-detail-' . date('YmdHis') . '.xlsx';
 
