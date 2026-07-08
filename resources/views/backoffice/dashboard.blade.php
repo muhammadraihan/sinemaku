@@ -28,7 +28,7 @@
             <button id="download-pdf" class="btn btn-danger">
                 <i class="fal fa-file-pdf mr-1"></i> Download PDF
             </button>
-            <img id="report-logo" src="{{ asset('img/sinemaku_full_logo.png') }}" alt="logo" style="display:none">
+            <img id="report-logo" src="{{ asset('img/sinemaku.png') }}" alt="logo" style="display:none">
         </section>
     </div>
     <div class="col-xl-4">
@@ -320,60 +320,161 @@
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF("l", "mm", "a4");
 
-        const marginX = 10;
-        const marginTop = 10;
-        const gutter = 5;
+        const marginX = 14;
         const pageW = doc.internal.pageSize.getWidth();
         const pageH = doc.internal.pageSize.getHeight();
         const usableW = pageW - marginX * 2;
-        const colW = (usableW - gutter) / 2;
-        const chartStartY = 34;
-        const chartGapY = 4;
-        const topChartH = 50;
-        const remainingH = pageH - chartStartY - topChartH - (chartGapY * 3) - marginTop;
-        const compactChartH = remainingH / 3;
+        const brandColor = [47, 69, 88];
+        const accentColor = [153, 27, 27];
+        const softRed = [254, 242, 242];
+        const textColor = [31, 41, 55];
+        const mutedColor = [107, 114, 128];
+        const generatedAt = new Date().toLocaleString('id-ID', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
 
         const namaFilm = $('#nama_film option:selected').text() || '{{ $lastFilm }}';
         const tanggalMulai = $('#tanggal_mulai').val() || '-';
         const tanggalAkhir = $('#tanggal_akhir').val() || '-';
         const kategoriBioskop = $('#bioskop_kategori option:selected').text() || 'Semua';
+        const reportPeriod = tanggalMulai !== '-' && tanggalAkhir !== '-' ? `${tanggalMulai} s.d. ${tanggalAkhir}` : '{{ $periodeText }}';
+        const metricCities = $('#metric-cities').text() || '-';
+        const metricShows = $('#metric-shows').text() || '-';
+        const metricCinemas = $('#metric-cinemas').text() || '-';
+        const cityRows = $('#summary-table tbody tr').toArray().map(function (row) {
+            const cells = $(row).find('td');
+            return [
+                $(cells[0]).text(),
+                $(cells[1]).text(),
+                $(cells[2]).text()
+            ];
+        });
+        const top20Audience = cityRows.reduce(function (total, row) {
+            return total + Number(String(row[2] || '0').replace(/,/g, ''));
+        }, 0);
+        const topCityRows = cityRows.slice(0, 12);
 
         function fitImageSize(imgProps, maxW, maxH) {
             const r = Math.min(maxW / imgProps.width, maxH / imgProps.height);
             return { w: imgProps.width * r, h: imgProps.height * r };
         }
 
-        function addChartBox(title, dataURL, x, y, boxW, boxH) {
-            if (!dataURL) return;
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(9);
-            doc.setTextColor(33,37,41);
-            doc.text(title, x, y + 4);
+        function addLogo(x, y, size) {
+            const logoEl = document.getElementById('report-logo');
+            if (logoEl && logoEl.complete) {
+                doc.addImage(logoEl, 'PNG', x, y, size, size, undefined, 'FAST');
+            }
+        }
 
-            const titleH = 6;
+        function addHeader(subtitle) {
+            addLogo(marginX, 8, 14);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(13);
+            doc.setTextColor(...textColor);
+            doc.text("SINEMAKU PICTURES", marginX + 18, 13);
+            doc.setFontSize(8.5);
+            doc.setTextColor(...accentColor);
+            doc.text("Audience Analytics Dashboard", marginX + 18, 18);
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7.5);
+            doc.setTextColor(...mutedColor);
+            doc.text(subtitle || "Executive Report", pageW - marginX, 13, { align: "right" });
+            doc.text("Generated: " + generatedAt, pageW - marginX, 18, { align: "right" });
+
+            doc.setDrawColor(...accentColor);
+            doc.setLineWidth(0.45);
+            doc.line(marginX, 25, pageW - marginX, 25);
+            doc.setDrawColor(209, 213, 219);
+            doc.setLineWidth(0.15);
+            doc.line(marginX, 27, pageW - marginX, 27);
+        }
+
+        function addFooter() {
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setDrawColor(229, 231, 235);
+                doc.line(marginX, pageH - 13, pageW - marginX, pageH - 13);
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(7);
+                doc.setTextColor(...mutedColor);
+                doc.text("Sinemaku Pictures - Confidential Analytics Report", marginX, pageH - 8);
+                doc.text(`Halaman ${i} dari ${pageCount}`, pageW - marginX, pageH - 8, { align: "right" });
+            }
+        }
+
+        function addFilterBox() {
+            const y = 33;
+            doc.setFillColor(249, 250, 251);
+            doc.setDrawColor(229, 231, 235);
+            doc.roundedRect(marginX, y, usableW, 22, 2, 2, "FD");
+
+            const items = [
+                ["Nama Film", namaFilm],
+                ["Periode", reportPeriod],
+                ["Kategori Bioskop", kategoriBioskop]
+            ];
+            const colW = usableW / 3;
+            items.forEach(function (item, index) {
+                const x = marginX + (colW * index) + 5;
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(7);
+                doc.setTextColor(...mutedColor);
+                doc.text(item[0].toUpperCase(), x, y + 8);
+                doc.setFontSize(9);
+                doc.setTextColor(...textColor);
+                doc.text(String(item[1]), x, y + 15, { maxWidth: colW - 10 });
+            });
+        }
+
+        function addMetricCard(label, value, x, y, w, h, color) {
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(229, 231, 235);
+            doc.roundedRect(x, y, w, h, 2, 2, "FD");
+            doc.setFillColor(...color);
+            doc.roundedRect(x, y, 3, h, 1.5, 1.5, "F");
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.setTextColor(...textColor);
+            doc.text(String(value), x + 8, y + 11);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7.5);
+            doc.setTextColor(...mutedColor);
+            doc.text(label, x + 8, y + 17);
+        }
+
+        function addSectionTitle(title, subtitle, y) {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10.5);
+            doc.setTextColor(...textColor);
+            doc.text(title, marginX, y);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7.5);
+            doc.setTextColor(...mutedColor);
+            doc.text(subtitle, marginX, y + 5);
+        }
+
+        function addChartPanel(title, dataURL, x, y, boxW, boxH) {
+            if (!dataURL) return;
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(229, 231, 235);
+            doc.roundedRect(x, y, boxW, boxH, 2, 2, "FD");
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8.8);
+            doc.setTextColor(...textColor);
+            doc.text(title, x + 4, y + 7);
+
+            const titleH = 11;
             const imgProps = doc.getImageProperties(dataURL);
-            const size = fitImageSize(imgProps, boxW, boxH - titleH);
+            const size = fitImageSize(imgProps, boxW - 8, boxH - titleH - 4);
             const imgX = x + (boxW - size.w) / 2;
             const imgY = y + titleH + ((boxH - titleH - size.h) / 2);
             doc.addImage(dataURL, 'PNG', imgX, imgY, size.w, size.h, undefined, 'FAST');
-        }
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(15);
-        doc.setTextColor(33,37,41);
-        doc.text("Laporan Grafik Penonton", marginX, marginTop + 4);
-        doc.setFont("helvetica","normal");
-        doc.setFontSize(9.5);
-        doc.setTextColor(80,80,80);
-        doc.text(`Nama Film : ${namaFilm}`, marginX, marginTop + 12);
-        doc.text(`Periode : ${tanggalMulai} s.d. ${tanggalAkhir}`, marginX, marginTop + 18);
-        doc.text(`Kategori Bioskop : ${kategoriBioskop}`, marginX + (usableW / 2), marginTop + 12);
-
-        const logoEl = document.getElementById('report-logo');
-        if (logoEl && logoEl.complete) {
-            const logoW = 28;
-            const logoH = (logoEl.naturalHeight / logoEl.naturalWidth) * logoW;
-            doc.addImage(logoEl, 'PNG', pageW - marginX - logoW, marginTop - 4, logoW, logoH, undefined, 'FAST');
         }
 
         const imgTopCities  = chartInstances.topCities ? chartInstances.topCities.toBase64Image() : null;
@@ -383,15 +484,78 @@
         const imgUnderCity  = chartInstances.underCities ? chartInstances.underCities.toBase64Image() : null;
         const imgUnderCin   = chartInstances.underCinemas ? chartInstances.underCinemas.toBase64Image() : null;
 
-        addChartBox("TOP 20 Kota", imgTopCities, marginX, chartStartY, usableW, topChartH);
-        const row1Y = chartStartY + topChartH + chartGapY;
-        addChartBox("Grafik Show", imgShows, marginX, row1Y, colW, compactChartH);
-        addChartBox("Penonton per Bioskop", imgViewCinema, marginX + colW + gutter, row1Y, colW, compactChartH);
-        const row2Y = row1Y + compactChartH + chartGapY;
-        addChartBox("TOP 20 Bioskop", imgTopCinemas, marginX, row2Y, colW, compactChartH);
-        addChartBox("Underperforming Kota", imgUnderCity, marginX + colW + gutter, row2Y, colW, compactChartH);
-        const row3Y = row2Y + compactChartH + chartGapY;
-        addChartBox("Underperforming Bioskop", imgUnderCin, marginX, row3Y, usableW, compactChartH);
+        addHeader("Executive Summary");
+        addFilterBox();
+
+        const cardY = 62;
+        const cardW = (usableW - 12) / 4;
+        addMetricCard("Top 20 Penonton", top20Audience.toLocaleString('en-US'), marginX, cardY, cardW, 22, accentColor);
+        addMetricCard("Kota Dianalisis", metricCities, marginX + cardW + 4, cardY, cardW, 22, [45, 140, 255]);
+        addMetricCard("Show Terbaca", metricShows, marginX + (cardW + 4) * 2, cardY, cardW, 22, [40, 199, 162]);
+        addMetricCard("Bioskop Teratas", metricCinemas, marginX + (cardW + 4) * 3, cardY, cardW, 22, [141, 124, 255]);
+
+        addSectionTitle("Audience Performance Overview", "Ringkasan visual penonton berdasarkan filter yang sedang aktif.", 94);
+        addChartPanel("TOP 20 Kota - Penonton Terbanyak", imgTopCities, marginX, 103, 170, 76);
+
+        doc.autoTable({
+            startY: 103,
+            margin: { left: marginX + 176, right: marginX },
+            tableWidth: usableW - 176,
+            head: [["Rank", "Kota", "Penonton"]],
+            body: topCityRows,
+            theme: "grid",
+            styles: {
+                font: "helvetica",
+                fontSize: 7.6,
+                cellPadding: 2.2,
+                textColor: textColor
+            },
+            headStyles: {
+                fillColor: brandColor,
+                textColor: [255, 255, 255],
+                fontStyle: "bold"
+            },
+            alternateRowStyles: {
+                fillColor: [249, 250, 251]
+            },
+            columnStyles: {
+                0: { halign: "center", cellWidth: 16 },
+                1: { cellWidth: "auto" },
+                2: { halign: "right", cellWidth: 30 }
+            },
+            didDrawPage: function () {
+                addHeader("Executive Summary");
+            }
+        });
+
+        doc.setFillColor(...softRed);
+        doc.setDrawColor(254, 202, 202);
+        doc.roundedRect(marginX + 176, 166, usableW - 176, 13, 2, 2, "FD");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.7);
+        doc.setTextColor(...accentColor);
+        doc.text("Catatan", marginX + 181, 171);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...textColor);
+        doc.text("Ranking tabel menampilkan 12 kota teratas agar halaman tetap ringkas dan mudah dibaca.", marginX + 181, 176, { maxWidth: usableW - 186 });
+
+        doc.addPage("a4", "landscape");
+        addHeader("Chart Details");
+
+        const panelGap = 6;
+        const colW = (usableW - panelGap) / 2;
+        const panelH = 48;
+        const y1 = 35;
+        const y2 = y1 + panelH + panelGap;
+        const y3 = y2 + panelH + panelGap;
+
+        addChartPanel("Grafik Show", imgShows, marginX, y1, colW, panelH);
+        addChartPanel("Penonton per Bioskop", imgViewCinema, marginX + colW + panelGap, y1, colW, panelH);
+        addChartPanel("TOP 20 Bioskop", imgTopCinemas, marginX, y2, colW, panelH);
+        addChartPanel("Underperforming Kota", imgUnderCity, marginX + colW + panelGap, y2, colW, panelH);
+        addChartPanel("Underperforming Bioskop", imgUnderCin, marginX, y3, usableW, panelH);
+
+        addFooter();
 
         doc.save("report-charts-dashboard.pdf");
     });
