@@ -639,11 +639,37 @@ class PelaporanController extends Controller
 
             $sqlInsert = <<<SQL
             INSERT INTO {$pelaporanTable} 
-            (uuid, kategori, kota, nama_bioskop, nama_film, tgl_tayang, jam_tayang, `show`, type_tiket, harga, jumlah, gross, tax, net, studio, created_by, created_at)
+            (uuid, kategori, kota, provinsi, nama_bioskop, nama_film, tgl_tayang, jam_tayang, `show`, type_tiket, harga, jumlah, gross, tax, net, studio, created_by, created_at)
             SELECT
                 UUID() AS uuid,
                 kb.uuid AS kategori,
                 p.kota AS kota,
+                (
+                    SELECT
+                        CASE
+                            WHEN COUNT(DISTINCT ko.provinsi_id) = 1 THEN MAX(pr.nama)
+                            ELSE ''
+                        END
+                    FROM kotas ko
+                    LEFT JOIN provinces pr
+                        ON pr.uuid COLLATE {$COLLATE} = ko.provinsi_id COLLATE {$COLLATE}
+                    WHERE (
+                            TRIM(ko.nama) COLLATE {$COLLATE} = TRIM(mb.kota) COLLATE {$COLLATE}
+                            OR TRIM(ko.nama) COLLATE {$COLLATE} = CONCAT('Kota ', TRIM(mb.kota)) COLLATE {$COLLATE}
+                            OR TRIM(ko.nama) COLLATE {$COLLATE} = CONCAT('Kabupaten ', TRIM(mb.kota)) COLLATE {$COLLATE}
+                        )
+                        OR (
+                            NOT EXISTS (
+                                SELECT 1
+                                FROM kotas ko_exact
+                                WHERE TRIM(ko_exact.nama) COLLATE {$COLLATE} = TRIM(mb.kota) COLLATE {$COLLATE}
+                                    OR TRIM(ko_exact.nama) COLLATE {$COLLATE} = CONCAT('Kota ', TRIM(mb.kota)) COLLATE {$COLLATE}
+                                    OR TRIM(ko_exact.nama) COLLATE {$COLLATE} = CONCAT('Kabupaten ', TRIM(mb.kota)) COLLATE {$COLLATE}
+                            )
+                            AND CONCAT(' ', REPLACE(REPLACE(REPLACE(TRIM(ko.nama), '.', ' '), '-', ' '), ',', ' '), ' ') COLLATE {$COLLATE}
+                                LIKE CONCAT('% ', REPLACE(REPLACE(REPLACE(TRIM(mb.kota), '.', ' '), '-', ' '), ',', ' '), ' %') COLLATE {$COLLATE}
+                        )
+                ) AS provinsi,
                 mb.uuid AS nama_bioskop,
                 p.nama_film AS nama_film,
                 p.tgl_tayang,
@@ -1036,11 +1062,37 @@ class PelaporanController extends Controller
 
             $sqlInsert = <<<SQL
             INSERT INTO {$pelaporanTable} 
-            (uuid, kategori, kota, nama_bioskop, nama_film, tgl_tayang, jam_tayang, `show`, type_tiket, harga, jumlah, gross, tax, net, studio, created_by, created_at)
+            (uuid, kategori, kota, provinsi, nama_bioskop, nama_film, tgl_tayang, jam_tayang, `show`, type_tiket, harga, jumlah, gross, tax, net, studio, created_by, created_at)
             SELECT
                 UUID() AS uuid,
                 kb.uuid AS kategori,
                 mb.kota AS kota,
+                (
+                    SELECT
+                        CASE
+                            WHEN COUNT(DISTINCT ko.provinsi_id) = 1 THEN MAX(pr.nama)
+                            ELSE ''
+                        END
+                    FROM kotas ko
+                    LEFT JOIN provinces pr
+                        ON pr.uuid COLLATE {$COLLATE} = ko.provinsi_id COLLATE {$COLLATE}
+                    WHERE (
+                            TRIM(ko.nama) COLLATE {$COLLATE} = TRIM(mb.kota) COLLATE {$COLLATE}
+                            OR TRIM(ko.nama) COLLATE {$COLLATE} = CONCAT('Kota ', TRIM(mb.kota)) COLLATE {$COLLATE}
+                            OR TRIM(ko.nama) COLLATE {$COLLATE} = CONCAT('Kabupaten ', TRIM(mb.kota)) COLLATE {$COLLATE}
+                        )
+                        OR (
+                            NOT EXISTS (
+                                SELECT 1
+                                FROM kotas ko_exact
+                                WHERE TRIM(ko_exact.nama) COLLATE {$COLLATE} = TRIM(mb.kota) COLLATE {$COLLATE}
+                                    OR TRIM(ko_exact.nama) COLLATE {$COLLATE} = CONCAT('Kota ', TRIM(mb.kota)) COLLATE {$COLLATE}
+                                    OR TRIM(ko_exact.nama) COLLATE {$COLLATE} = CONCAT('Kabupaten ', TRIM(mb.kota)) COLLATE {$COLLATE}
+                            )
+                            AND CONCAT(' ', REPLACE(REPLACE(REPLACE(TRIM(ko.nama), '.', ' '), '-', ' '), ',', ' '), ' ') COLLATE {$COLLATE}
+                                LIKE CONCAT('% ', REPLACE(REPLACE(REPLACE(TRIM(mb.kota), '.', ' '), '-', ' '), ',', ' '), ' %') COLLATE {$COLLATE}
+                        )
+                ) AS provinsi,
                 mb.uuid AS nama_bioskop,
                 p.nama_film AS nama_film,
                 p.tgl_tayang,
@@ -1372,11 +1424,37 @@ class PelaporanController extends Controller
 
             $sqlInsert = <<<SQL
             INSERT INTO {$pelaporanTable} 
-            (uuid, kategori, kota, nama_bioskop, nama_film, tgl_tayang, jam_tayang, `show`, type_tiket, harga, jumlah, gross, tax, net, studio, created_by, created_at)
+            (uuid, kategori, kota, provinsi, nama_bioskop, nama_film, tgl_tayang, jam_tayang, `show`, type_tiket, harga, jumlah, gross, tax, net, studio, created_by, created_at)
             SELECT
                 UUID() AS uuid,
                 kb.uuid AS kategori,
                 mb.kota AS kota,
+                (
+                    SELECT
+                        CASE
+                            WHEN COUNT(DISTINCT ko.provinsi_id) = 1 THEN MAX(pr.nama)
+                            ELSE ''
+                        END
+                    FROM kotas ko
+                    LEFT JOIN provinces pr
+                        ON pr.uuid COLLATE {$COLLATE} = ko.provinsi_id COLLATE {$COLLATE}
+                    WHERE (
+                            TRIM(ko.nama) COLLATE {$COLLATE} = TRIM(mb.kota) COLLATE {$COLLATE}
+                            OR TRIM(ko.nama) COLLATE {$COLLATE} = CONCAT('Kota ', TRIM(mb.kota)) COLLATE {$COLLATE}
+                            OR TRIM(ko.nama) COLLATE {$COLLATE} = CONCAT('Kabupaten ', TRIM(mb.kota)) COLLATE {$COLLATE}
+                        )
+                        OR (
+                            NOT EXISTS (
+                                SELECT 1
+                                FROM kotas ko_exact
+                                WHERE TRIM(ko_exact.nama) COLLATE {$COLLATE} = TRIM(mb.kota) COLLATE {$COLLATE}
+                                    OR TRIM(ko_exact.nama) COLLATE {$COLLATE} = CONCAT('Kota ', TRIM(mb.kota)) COLLATE {$COLLATE}
+                                    OR TRIM(ko_exact.nama) COLLATE {$COLLATE} = CONCAT('Kabupaten ', TRIM(mb.kota)) COLLATE {$COLLATE}
+                            )
+                            AND CONCAT(' ', REPLACE(REPLACE(REPLACE(TRIM(ko.nama), '.', ' '), '-', ' '), ',', ' '), ' ') COLLATE {$COLLATE}
+                                LIKE CONCAT('% ', REPLACE(REPLACE(REPLACE(TRIM(mb.kota), '.', ' '), '-', ' '), ',', ' '), ' %') COLLATE {$COLLATE}
+                        )
+                ) AS provinsi,
                 mb.uuid AS nama_bioskop,
                 p.nama_film AS nama_film,
                 p.tgl_tayang,
