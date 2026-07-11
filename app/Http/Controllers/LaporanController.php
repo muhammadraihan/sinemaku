@@ -152,7 +152,7 @@ class LaporanController extends Controller
             SUM($gross) as gross,
             SUM($totalPh) as total_ph
         ")
-        ->groupByRaw("COALESCE(NULLIF(TRIM(pelaporans.provinsi), ''), 'Belum Terpetakan')")
+        ->groupBy('pelaporans.provinsi')
         ->orderByDesc('total_ph')
         ->first();
 
@@ -192,7 +192,7 @@ class LaporanController extends Controller
             CASE WHEN SUM($kapasitas) > 0 THEN (SUM($jumlah) / SUM($kapasitas)) * 100 ELSE 0 END as occupancy_rate,
             SUM($totalPh) as total_ph
         ")
-        ->groupByRaw("COALESCE(NULLIF(TRIM(pelaporans.provinsi), ''), 'Belum Terpetakan')")
+        ->groupBy('pelaporans.provinsi')
         ->orderByDesc('total_ph')
         ->limit(5)
         ->get();
@@ -837,7 +837,7 @@ class LaporanController extends Controller
             $province->where('pelaporans.type_tiket', $request->type_tiket);
         }
 
-        $data_province = $province->groupByRaw($provinceLabel)
+        $data_province = $province->groupBy('pelaporans.provinsi')
                                 ->orderByDesc('total_ph')
                                 ->get();
 
