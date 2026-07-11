@@ -102,6 +102,7 @@ class LaporanController extends Controller
             COUNT(*) as row_count,
             COUNT(DISTINCT pelaporans.nama_bioskop) as cinema_count,
             COUNT(DISTINCT pelaporans.kota) as city_count,
+            COUNT(DISTINCT NULLIF(TRIM(pelaporans.provinsi), '')) as province_count,
             SUM($jumlah) as audience,
             SUM($kapasitas) as seats_available,
             SUM($gross) as gross,
@@ -143,6 +144,18 @@ class LaporanController extends Controller
         ->orderByDesc('total_ph')
         ->first();
 
+        $topProvince = (clone $base)->selectRaw("
+            COALESCE(NULLIF(TRIM(pelaporans.provinsi), ''), 'Belum Terpetakan') as label,
+            COUNT(DISTINCT pelaporans.kota) as city_count,
+            COUNT(DISTINCT pelaporans.nama_bioskop) as cinema_count,
+            SUM($jumlah) as audience,
+            SUM($gross) as gross,
+            SUM($totalPh) as total_ph
+        ")
+        ->groupByRaw("COALESCE(NULLIF(TRIM(pelaporans.provinsi), ''), 'Belum Terpetakan')")
+        ->orderByDesc('total_ph')
+        ->first();
+
         $topOccupancy = (clone $base)->selectRaw("
             COALESCE(mb.nama_bioskop, pelaporans.nama_bioskop) as label,
             COALESCE(mb.kota, pelaporans.kota) as kota,
@@ -165,6 +178,21 @@ class LaporanController extends Controller
             SUM($totalPh) as total_ph
         ")
         ->groupBy('pelaporans.nama_bioskop', 'pelaporans.kota', 'mb.nama_bioskop', 'mb.kota')
+        ->orderByDesc('total_ph')
+        ->limit(5)
+        ->get();
+
+        $provinceLeaderboard = (clone $base)->selectRaw("
+            COALESCE(NULLIF(TRIM(pelaporans.provinsi), ''), 'Belum Terpetakan') as provinsi,
+            COUNT(DISTINCT pelaporans.kota) as city_count,
+            COUNT(DISTINCT pelaporans.nama_bioskop) as cinema_count,
+            SUM($jumlah) as audience,
+            SUM($gross) as gross,
+            CASE WHEN SUM($jumlah) > 0 THEN SUM($gross) / SUM($jumlah) ELSE 0 END as atp,
+            CASE WHEN SUM($kapasitas) > 0 THEN (SUM($jumlah) / SUM($kapasitas)) * 100 ELSE 0 END as occupancy_rate,
+            SUM($totalPh) as total_ph
+        ")
+        ->groupByRaw("COALESCE(NULLIF(TRIM(pelaporans.provinsi), ''), 'Belum Terpetakan')")
         ->orderByDesc('total_ph')
         ->limit(5)
         ->get();
@@ -200,6 +228,9 @@ class LaporanController extends Controller
         if ($topCategory) {
             $notes[] = 'Kategori terkuat pada filter ini adalah ' . $topCategory->label . '.';
         }
+        if ($topProvince) {
+            $notes[] = 'Provinsi dengan kontribusi Total PH terbesar adalah ' . $topProvince->label . '.';
+        }
         if ($occupancyRate >= 75) {
             $notes[] = 'Occupancy agregat berada di level kuat, menandakan kapasitas show dimanfaatkan dengan baik.';
         } elseif ($occupancyRate > 0) {
@@ -216,6 +247,7 @@ class LaporanController extends Controller
                 'row_count' => (int) ($summary->row_count ?? 0),
                 'cinema_count' => (int) ($summary->cinema_count ?? 0),
                 'city_count' => (int) ($summary->city_count ?? 0),
+                'province_count' => (int) ($summary->province_count ?? 0),
                 'audience' => $audience,
                 'seats_available' => $seatsAvailable,
                 'gross' => $grossTotal,
@@ -232,8 +264,10 @@ class LaporanController extends Controller
             'top_category' => $topCategory,
             'top_cinema' => $topCinema,
             'top_city' => $topCity,
+            'top_province' => $topProvince,
             'top_occupancy' => $topOccupancy,
             'leaderboard' => $leaderboard,
+            'province_leaderboard' => $provinceLeaderboard,
             'audit' => $audit,
             'notes' => $notes,
         ]);
@@ -719,6 +753,102 @@ class LaporanController extends Controller
 
         return Datatables::of($data_performance)
         ->addIndexColumn()
+        ->editColumn('jumlah',function($row){
+            return $row->jumlah ? number_format($row->jumlah) : '' ;
+        })
+        ->editColumn('seats_available',function($row){
+            return $row->seats_available ? number_format($row->seats_available) : '' ;
+        })
+        ->editColumn('occupancy_rate',function($row){
+            return $row->occupancy_rate ? number_format($row->occupancy_rate, 2) . '%' : '0.00%' ;
+        })
+        ->editColumn('gross',function($row){
+            return $row->gross ? number_format($row->gross) : '' ;
+        })
+        ->editColumn('atp',function($row){
+            return $row->atp ? number_format($row->atp, 2) : '' ;
+        })
+        ->editColumn('effective_tax_rate',function($row){
+            return $row->effective_tax_rate ? number_format($row->effective_tax_rate, 2) . '%' : '0.00%' ;
+        })
+        ->editColumn('net',function($row){
+            return $row->net ? number_format($row->net) : '' ;
+        })
+        ->editColumn('total_ph',function($row){
+            return $row->total_ph ? number_format($row->total_ph) : '' ;
+        })
+        ->make(true);
+    }
+
+    public function provinceListData(Request $request){
+        $jumlah = "CAST(REPLACE(COALESCE(NULLIF(pelaporans.jumlah, ''), '0'), ',', '') AS DECIMAL(20,2))";
+        $gross = "CAST(REPLACE(COALESCE(NULLIF(pelaporans.gross, ''), '0'), ',', '') AS DECIMAL(20,2))";
+        $pajak = "CAST(REPLACE(COALESCE(NULLIF(mb.pajak, ''), '0'), ',', '') AS DECIMAL(10,2))";
+        $kapasitas = "CAST(REPLACE(COALESCE(NULLIF(k.kapasitas, ''), '0'), ',', '') AS DECIMAL(20,2))";
+        $tax = "($gross * $pajak / 100)";
+        $net = "($gross - $tax)";
+        $share = "($net / 2)";
+        $royalty = "($share * 0.015)";
+        $totalPh = "($net - $share - $royalty)";
+        $provinceLabel = "COALESCE(NULLIF(TRIM(pelaporans.provinsi), ''), 'Belum Terpetakan')";
+
+        $province = Pelaporan::query()
+            ->leftJoin('master_bioskops as mb', 'mb.uuid', '=', 'pelaporans.nama_bioskop')
+            ->leftJoin('kapasitas as k', function ($join) {
+                $join->on('k.uuid', '=', 'pelaporans.studio')
+                     ->on('k.type_tiket', '=', 'pelaporans.type_tiket');
+            })
+            ->selectRaw("
+                $provinceLabel as provinsi,
+                COUNT(DISTINCT pelaporans.kota) as city_count,
+                COUNT(DISTINCT pelaporans.nama_bioskop) as cinema_count,
+                SUM($jumlah) as jumlah,
+                SUM($kapasitas) as seats_available,
+                CASE WHEN SUM($kapasitas) > 0 THEN (SUM($jumlah) / SUM($kapasitas)) * 100 ELSE 0 END as occupancy_rate,
+                SUM($gross) as gross,
+                CASE WHEN SUM($jumlah) > 0 THEN SUM($gross) / SUM($jumlah) ELSE 0 END as atp,
+                SUM($tax) as tax,
+                CASE WHEN SUM($gross) > 0 THEN (SUM($tax) / SUM($gross)) * 100 ELSE 0 END as effective_tax_rate,
+                SUM($net) as net,
+                SUM($totalPh) as total_ph
+            ");
+
+        if ($request->nama_film != 'ALL') {
+            $province->where('pelaporans.nama_film', $request->nama_film);
+        }
+    
+        if (!empty($request->tgl_mulai) && !empty($request->tgl_akhir)) {
+            $province->whereBetween('pelaporans.tgl_tayang', [$request->tgl_mulai, $request->tgl_akhir]);
+        }
+    
+        if ($request->bioskop_kategori != 'ALL') {
+            $province->where('pelaporans.kategori', $request->bioskop_kategori);
+        }
+    
+        if ($request->kota != 'ALL') {
+            $province->where('pelaporans.kota', $request->kota);
+        }
+    
+        if ($request->nama_bioskop != 'ALL') {
+            $province->where('pelaporans.nama_bioskop', $request->nama_bioskop);
+        }
+    
+        if ($request->type_tiket != 'ALL') {
+            $province->where('pelaporans.type_tiket', $request->type_tiket);
+        }
+
+        $data_province = $province->groupByRaw($provinceLabel)
+                                ->orderByDesc('total_ph')
+                                ->get();
+
+        return Datatables::of($data_province)
+        ->addIndexColumn()
+        ->editColumn('city_count',function($row){
+            return $row->city_count ? number_format($row->city_count) : '0' ;
+        })
+        ->editColumn('cinema_count',function($row){
+            return $row->cinema_count ? number_format($row->cinema_count) : '0' ;
+        })
         ->editColumn('jumlah',function($row){
             return $row->jumlah ? number_format($row->jumlah) : '' ;
         })

@@ -401,6 +401,9 @@
                                 <a class="nav-link" id="leaderboard-tab" data-toggle="tab" href="#leaderboard-pane" role="tab" aria-controls="leaderboard-pane" aria-selected="false">Cinema Leaderboard</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link" id="province-tab" data-toggle="tab" href="#province-pane" role="tab" aria-controls="province-pane" aria-selected="false">Provinsi Leaderboard</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link" id="audit-tab" data-toggle="tab" href="#audit-pane" role="tab" aria-controls="audit-pane" aria-selected="false">Audit Checks</a>
                             </li>
                         </ul>
@@ -474,6 +477,42 @@
                                             <th id="total-performance-atp"></th>
                                             <th id="total-performance-net"></th>
                                             <th id="total-performance-ph"></th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            <div class="tab-pane fade" id="province-pane" role="tabpanel" aria-labelledby="province-tab">
+                                <table id="province-table" class="table table-bordered table-hover table-striped w-100">
+                                    <thead>
+                                        <tr>
+                                            <th>Rank</th>
+                                            <th>Provinsi</th>
+                                            <th>Kota Covered</th>
+                                            <th>Bioskop</th>
+                                            <th>Penonton</th>
+                                            <th>Kapasitas Tersedia</th>
+                                            <th>Occupancy</th>
+                                            <th>Gross</th>
+                                            <th>ATP</th>
+                                            <th>Effective Tax Rate</th>
+                                            <th>Net</th>
+                                            <th>Total PH</th>
+                                        </tr>
+                                    </thead>
+                                    <tfoot>
+                                        <tr>
+                                            <th>Total</th>
+                                            <th></th>
+                                            <th id="total-province-city"></th>
+                                            <th id="total-province-cinema"></th>
+                                            <th id="total-province-penonton"></th>
+                                            <th id="total-province-seats"></th>
+                                            <th id="total-province-occupancy"></th>
+                                            <th id="total-province-gross"></th>
+                                            <th id="total-province-atp"></th>
+                                            <th id="total-province-etr"></th>
+                                            <th id="total-province-net"></th>
+                                            <th id="total-province-ph"></th>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -690,6 +729,10 @@
                 $('#performance-table').DataTable().destroy();
             }
 
+            if ($.fn.DataTable.isDataTable("#province-table")) {
+                $('#province-table').DataTable().destroy();
+            }
+
             if ($.fn.DataTable.isDataTable("#audit-table")) {
                 $('#audit-table').DataTable().destroy();
             }
@@ -871,6 +914,122 @@
                     var performanceApi = this.api();
                     if ($('#leaderboard-pane').hasClass('active')) {
                         performanceApi.columns.adjust();
+                    }
+                }
+            });
+
+            var tableProvince = $('#province-table').DataTable({
+                "processing": true,
+                "serverSide": false,
+                "paging": true,
+                "pageLength": 10,
+                "lengthChange": false,
+                "searching": false,
+                "responsive": false,
+                "scrollX": true,
+                "autoWidth": false,
+                "order": [],
+                dom: 'Bfrtip',
+                buttons: [
+                    {
+                        extend: 'excelHtml5',
+                        text: '<i class="fa fa-file-excel"></i> Excel Provinsi',
+                        className: 'btn btn-success btn-sm me-2 rounded-pill',
+                        title: 'Provinsi Leaderboard',
+                        exportOptions: { columns: ':visible' }
+                    },
+                    {
+                        extend: 'pdfHtml5',
+                        text: '<i class="fa fa-file-pdf"></i> PDF Provinsi',
+                        className: 'btn btn-danger btn-sm rounded-pill',
+                        title: 'Provinsi Leaderboard',
+                        orientation: 'landscape',
+                        pageSize: 'A4',
+                        footer: true,
+                        exportOptions: { columns: ':visible' }
+                    }
+                ],
+                "ajax":{
+                    url:'{{route('laporan.province')}}',
+                    type : "GET",
+                    data: {
+                        nama_film: nama_film,
+                        tgl_mulai : tgl_mulai,
+                        tgl_akhir : tgl_akhir,
+                        bioskop_kategori : bioskop_kategori,
+                        kota : kota,
+                        nama_bioskop : nama_bioskop,
+                        type_tiket : type_tiket,
+                    }
+                },
+                "columns": [
+                    {data: 'DT_RowIndex', name: 'DT_RowIndex'},
+                    {data: 'provinsi', name: 'provinsi'},
+                    {data: 'city_count', name: 'city_count'},
+                    {data: 'cinema_count', name: 'cinema_count'},
+                    {data: 'jumlah', name: 'jumlah'},
+                    {data: 'seats_available', name: 'seats_available'},
+                    {data: 'occupancy_rate', name: 'occupancy_rate'},
+                    {data: 'gross', name: 'gross'},
+                    {data: 'atp', name: 'atp'},
+                    {data: 'effective_tax_rate', name: 'effective_tax_rate'},
+                    {data: 'net', name: 'net'},
+                    {data: 'total_ph', name: 'total_ph'},
+                ],
+                "footerCallback": function (row, data, start, end, display) {
+                    var api = this.api();
+
+                    var totalCity = data.reduce(function (total, item) {
+                        return total + parseNumber(item.city_count);
+                    }, 0);
+
+                    var totalCinema = data.reduce(function (total, item) {
+                        return total + parseNumber(item.cinema_count);
+                    }, 0);
+
+                    var totalPenonton = data.reduce(function (total, item) {
+                        return total + parseNumber(item.jumlah);
+                    }, 0);
+
+                    var totalSeats = data.reduce(function (total, item) {
+                        return total + parseNumber(item.seats_available);
+                    }, 0);
+
+                    var totalGross = data.reduce(function (total, item) {
+                        return total + parseNumber(item.gross);
+                    }, 0);
+
+                    var totalTax = data.reduce(function (total, item) {
+                        return total + parseNumber(item.tax);
+                    }, 0);
+
+                    var totalNet = data.reduce(function (total, item) {
+                        return total + parseNumber(item.net);
+                    }, 0);
+
+                    var totalPh = data.reduce(function (total, item) {
+                        return total + parseNumber(item.total_ph);
+                    }, 0);
+
+                    var occupancyRate = totalSeats ? (totalPenonton / totalSeats) * 100 : 0;
+                    var totalAtp = totalPenonton ? totalGross / totalPenonton : 0;
+                    var effectiveTaxRate = totalGross ? (totalTax / totalGross) * 100 : 0;
+
+                    $(api.column(2).footer()).html(formatNumber(totalCity));
+                    $(api.column(3).footer()).html(formatNumber(totalCinema));
+                    $(api.column(4).footer()).html(formatNumber(totalPenonton));
+                    $(api.column(5).footer()).html(formatNumber(totalSeats));
+                    $(api.column(6).footer()).html(formatPercent(occupancyRate));
+                    $(api.column(7).footer()).html(formatCurrency(totalGross));
+                    $(api.column(8).footer()).html(formatCurrency(totalAtp));
+                    $(api.column(9).footer()).html(formatPercent(effectiveTaxRate));
+                    $(api.column(10).footer()).html(formatCurrency(totalNet));
+                    $(api.column(11).footer()).html(formatCurrency(totalPh));
+                },
+                "initComplete": function () {
+                    var provinceApi = this.api();
+                    if ($('#province-pane').hasClass('active')) {
+                        provinceApi.columns.adjust();
                     }
                 }
             });
@@ -1305,6 +1464,8 @@
 
             if (tabTarget === '#leaderboard-pane') {
                 activeTable = '#performance-table';
+            } else if (tabTarget === '#province-pane') {
+                activeTable = '#province-table';
             } else if (tabTarget === '#audit-pane') {
                 activeTable = '#audit-table';
             }
@@ -1342,6 +1503,10 @@
     }
 
     // Helper function to format number with commas (e.g., 1000 -> 1,000)
+    function formatNumber(value) {
+        return value.toFixed(0).replace(/\d(?=(\d{3})+$)/g, '$&,');
+    }
+
     function formatCurrency(value) {
         return value.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
     }

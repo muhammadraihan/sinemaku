@@ -67,6 +67,7 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::get('get-data', [LaporanController::class,'listData'])->name('laporan.search');
     Route::get('get-summary', [LaporanController::class,'summaryListData'])->name('laporan.summary');
     Route::get('get-performance', [LaporanController::class,'performanceListData'])->name('laporan.performance');
+    Route::get('get-province-performance', [LaporanController::class,'provinceListData'])->name('laporan.province');
     Route::get('get-audit-checks', [LaporanController::class,'auditCheckListData'])->name('laporan.audit');
     Route::get('detail-export', [LaporanController::class, 'detailExport'])->name('laporan.detailExport');
     Route::get('get-chart-city', [GrafikKotaController::class,'getTopCities'])->name('getTopCities');

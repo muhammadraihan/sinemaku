@@ -306,7 +306,7 @@
             <strong id="kpi-tax-rate">0.00%</strong>
         </div>
         <div class="insight-kpi">
-            <small>Bioskop / Kota</small>
+            <small>Bioskop / Kota / Provinsi</small>
             <strong id="kpi-coverage">0 / 0</strong>
         </div>
         <div class="insight-kpi insight-kpi--risk">
@@ -332,6 +332,11 @@
             <span id="top-city-detail">-</span>
         </div>
         <div class="performer-card">
+            <small>Top Province</small>
+            <strong id="top-province">-</strong>
+            <span id="top-province-detail">-</span>
+        </div>
+        <div class="performer-card">
             <small>Highest Occupancy</small>
             <strong id="top-occupancy">-</strong>
             <span id="top-occupancy-detail">-</span>
@@ -353,6 +358,28 @@
     </div>
 
     <div class="insight-card">
+        <h4>Top 5 Provinsi by Total PH</h4>
+        <div class="table-responsive">
+            <table class="table table-hover table-striped insight-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Provinsi</th>
+                        <th>Kota</th>
+                        <th>Bioskop</th>
+                        <th>Penonton</th>
+                        <th>Gross</th>
+                        <th>ATP</th>
+                        <th>Occupancy</th>
+                        <th>Total PH</th>
+                    </tr>
+                </thead>
+                <tbody id="province-leaderboard-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="insight-card mt-3">
         <h4>Top 5 Cinema by Total PH</h4>
         <div class="table-responsive">
             <table class="table table-hover table-striped insight-table">
@@ -434,12 +461,13 @@
         $('#kpi-atp').text(formatCurrency(summary.atp));
         $('#kpi-occupancy').text(formatPercent(summary.occupancy_rate));
         $('#kpi-tax-rate').text(formatPercent(summary.effective_tax_rate));
-        $('#kpi-coverage').text(formatNumber(summary.cinema_count) + ' / ' + formatNumber(summary.city_count));
+        $('#kpi-coverage').text(formatNumber(summary.cinema_count) + ' / ' + formatNumber(summary.city_count) + ' / ' + formatNumber(summary.province_count));
         $('#kpi-audit').text(formatNumber(summary.audit_issues));
 
         renderTopCard(data.top_category, '#top-category', '#top-category-detail');
         renderTopCard(data.top_cinema, '#top-cinema', '#top-cinema-detail');
         renderTopCard(data.top_city, '#top-city', '#top-city-detail');
+        renderTopCard(data.top_province, '#top-province', '#top-province-detail');
         renderOccupancyCard(data.top_occupancy);
 
         $('#risk-capacity').text(formatNumber(audit.capacity_issues || 0));
@@ -451,6 +479,24 @@
             return '<li>' + escapeHtml(note) + '</li>';
         }).join('');
         $('#insight-notes').html(notes || '<li>Tidak ada catatan khusus.</li>');
+
+        var provinceRows = (data.province_leaderboard || []).map(function (row, index) {
+            return [
+                '<tr>',
+                    '<td>' + (index + 1) + '</td>',
+                    '<td>' + escapeHtml(row.provinsi || '-') + '</td>',
+                    '<td class="text-right">' + formatNumber(row.city_count) + '</td>',
+                    '<td class="text-right">' + formatNumber(row.cinema_count) + '</td>',
+                    '<td class="text-right">' + formatNumber(row.audience) + '</td>',
+                    '<td class="text-right">' + formatCurrency(row.gross) + '</td>',
+                    '<td class="text-right">' + formatCurrency(row.atp) + '</td>',
+                    '<td class="text-right">' + formatPercent(row.occupancy_rate) + '</td>',
+                    '<td class="text-right">' + formatCurrency(row.total_ph) + '</td>',
+                '</tr>'
+            ].join('');
+        }).join('');
+
+        $('#province-leaderboard-body').html(provinceRows || '<tr><td colspan="9" class="text-center">Tidak ada data.</td></tr>');
 
         var rows = (data.leaderboard || []).map(function (row, index) {
             return [
