@@ -39,6 +39,8 @@
             <tr>
                 <th>No</th>
                 <th>Nama Kategori</th>
+                <th>Nama Perusahaan</th>
+                <th>Email</th>
                 <th>PIC</th>
                 <th>No. Handphone</th>
                 <th>Alamat</th>
@@ -108,6 +110,8 @@
             "columns": [
             {data: 'DT_RowIndex', name: 'DT_RowIndex'},
             {data: 'name', name: 'name'},
+            {data: 'nama_perusahaan', name: 'nama_perusahaan'},
+            {data: 'email', name: 'email'},
             {data: 'pic', name: 'pic'},
             {data: 'no_handphone', name: 'no_handphone'},
             {data: 'alamat', name: 'alamat'},

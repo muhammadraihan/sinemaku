@@ -48,6 +48,22 @@
                         @endif
                     </div>
                     <div class="form-group col-md-4 mb-3">
+                        {{ Form::label('nama_perusahaan','Nama Perusahaan',['class' => 'required form-label'])}}
+                        {{ Form::text('nama_perusahaan',null,['placeholder' => 'Nama Perusahaan','class' => 'form-control '.($errors->has('nama_perusahaan') ? 'is-invalid':''),'required', 'style' => 'text-transform: uppercase;'])}}
+                        @if ($errors->has('nama_perusahaan'))
+                        <div class="invalid-feedback">{{ $errors->first('nama_perusahaan') }}</div>
+                        @endif
+                    </div>
+                    <div class="form-group col-md-4 mb-3">
+                        {{ Form::label('email','Email',['class' => 'required form-label'])}}
+                        {{ Form::email('email',null,['placeholder' => 'Email','class' => 'form-control '.($errors->has('email') ? 'is-invalid':''),'required'])}}
+                        @if ($errors->has('email'))
+                        <div class="invalid-feedback">{{ $errors->first('email') }}</div>
+                        @endif
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="form-group col-md-4 mb-3">
                         {{ Form::label('pic','Nama PIC',['class' => 'required form-label'])}}
                         {{ Form::text('pic',null,['placeholder' => 'Nama PIC','class' => 'form-control '.($errors->has('pic') ? 'is-invalid':''),'required', 'style' => 'text-transform: uppercase;'])}}
                         @if ($errors->has('pic'))
@@ -62,12 +78,14 @@
                         @endif
                     </div>
                 </div>
-                <div class="form-group col-md-4 mb-3">
-                    {{ Form::label('alamat','alamat',['class' => 'required form-label'])}}
-                    {{ Form::textarea('alamat',null,['placeholder' => 'alamat','class' => 'form-control '.($errors->has('alamat') ? 'is-invalid':''),'required'])}}
-                    @if ($errors->has('alamat'))
-                    <div class="invalid-feedback">{{ $errors->first('alamat') }}</div>
-                    @endif
+                <div class="row">
+                    <div class="form-group col-md-4 mb-3">
+                        {{ Form::label('alamat','alamat',['class' => 'required form-label'])}}
+                        {{ Form::textarea('alamat',null,['placeholder' => 'alamat','class' => 'form-control '.($errors->has('alamat') ? 'is-invalid':''),'required'])}}
+                        @if ($errors->has('alamat'))
+                        <div class="invalid-feedback">{{ $errors->first('alamat') }}</div>
+                        @endif
+                    </div>
                 </div>
             <div
                 class="panel-content border-faded border-left-0 border-right-0 border-bottom-0 d-flex flex-row align-items-center">

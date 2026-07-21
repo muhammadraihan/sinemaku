@@ -61,11 +61,14 @@ class VendorController extends Controller
     public function store(Request $request)
     {
         $rules = [
-            'name' => 'required'
+            'name' => 'required',
+            'nama_perusahaan' => 'required',
+            'email' => 'required|email',
         ];
 
         $messages = [
             '*.required' => 'Field :attribute tidak boleh kosong !',
+            '*.email' => 'Field :attribute harus berupa email yang valid !',
             '*.min' => 'Nama tidak boleh kurang dari 2 karakter !',
             '*.image' => 'Field Harus Berupa Foto !',
             '*.mimes' => 'Foto Harus Berformat JPEG/PNG/JPG'
@@ -76,6 +79,8 @@ class VendorController extends Controller
 
         $vendor = new Vendor();
         $vendor->name = strtoupper($request->name);
+        $vendor->nama_perusahaan = strtoupper($request->nama_perusahaan);
+        $vendor->email = $request->email;
         $vendor->alamat = $request->alamat;
         $vendor->no_handphone = $request->no_handphone;
         $vendor->pic = strtoupper($request->pic);
@@ -118,11 +123,14 @@ class VendorController extends Controller
     public function update(Request $request, $id)
     {
         $rules = [
-            'name' => 'required'
+            'name' => 'required',
+            'nama_perusahaan' => 'required',
+            'email' => 'required|email',
         ];
 
         $messages = [
             '*.required' => 'Field :attribute tidak boleh kosong !',
+            '*.email' => 'Field :attribute harus berupa email yang valid !',
             '*.min' => 'Nama tidak boleh kurang dari 2 karakter !',
             '*.image' => 'Field Harus Berupa Foto !',
             '*.mimes' => 'Foto Harus Berformat JPEG/PNG/JPG'
@@ -133,6 +141,8 @@ class VendorController extends Controller
 
         $vendor = Vendor::uuid($id);
         $vendor->name = strtoupper($request->name);
+        $vendor->nama_perusahaan = strtoupper($request->nama_perusahaan);
+        $vendor->email = $request->email;
         $vendor->alamat = $request->alamat;
         $vendor->no_handphone = $request->no_handphone;
         $vendor->pic = strtoupper($request->pic);
