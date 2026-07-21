@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use App\Models\Vendor;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 use Auth;
 use DataTables;
@@ -50,6 +53,56 @@ class VendorController extends Controller
     public function create()
     {
         return view('vendor.create');
+    }
+
+    public function export()
+    {
+        $vendors = Vendor::orderBy('name')->get();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Vendor');
+
+        $headers = [
+            'No',
+            'Nama Vendor',
+            'Nama Perusahaan',
+            'Email',
+            'PIC',
+            'No. Handphone',
+            'Alamat',
+        ];
+
+        $sheet->fromArray($headers, null, 'A1');
+        $sheet->getStyle('A1:G1')->getFont()->setBold(true);
+
+        $rowNum = 2;
+        foreach ($vendors as $index => $vendor) {
+            $sheet->setCellValue('A' . $rowNum, $index + 1);
+            $sheet->setCellValue('B' . $rowNum, $vendor->name);
+            $sheet->setCellValue('C' . $rowNum, $vendor->nama_perusahaan);
+            $sheet->setCellValue('D' . $rowNum, $vendor->email);
+            $sheet->setCellValue('E' . $rowNum, $vendor->pic);
+            $sheet->setCellValue('F' . $rowNum, $vendor->no_handphone);
+            $sheet->setCellValue('G' . $rowNum, $vendor->alamat);
+            $rowNum++;
+        }
+
+        foreach (range('A', 'G') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $filename = 'vendor-' . date('YmdHis') . '.xlsx';
+        $writer = new Xlsx($spreadsheet);
+
+        return new StreamedResponse(function () use ($writer) {
+            $writer->save('php://output');
+        }, 200, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control'       => 'max-age=0, no-cache, no-store, must-revalidate',
+            'Pragma'              => 'public',
+        ]);
     }
 
     /**

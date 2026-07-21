@@ -51,6 +51,7 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::resource('pelaporan', 'PelaporanController');
     Route::resource('laporan', 'LaporanController');
     Route::resource('kapasitas', 'KapasitasController');
+    Route::get('vendor-export', 'VendorController@export')->name('vendor.export');
     Route::resource('vendor', 'VendorController');
     Route::resource('grafik_kota', 'GrafikKotaController');
     Route::get('finance-insight', [LaporanController::class, 'financeInsight'])->name('finance-insight.index');

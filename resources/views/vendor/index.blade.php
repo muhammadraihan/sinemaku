@@ -4,6 +4,32 @@
 
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/datagrid/datatables/datatables.bundle.css')}}">
+<style>
+    .vendor-toolbar-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    body.sinemaku-modern-shell .vendor-toolbar-actions .vendor-toolbar-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 42px;
+        padding: 0 16px;
+        border-radius: 14px;
+        font-size: 0.875rem;
+        font-weight: 800;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    body.sinemaku-modern-shell .vendor-toolbar-actions .vendor-toolbar-btn i {
+        margin: 0;
+        font-size: 0.95rem;
+    }
+</style>
 @endsection
 
 @section('content')
@@ -23,10 +49,16 @@
                     Vendor  <span class="fw-300"><i>List</i></span>
                 </h2>
                 <div class="panel-toolbar">
-                    <a class="nav-link active" href="{{route('vendor.create')}}"><i class="fal fa-plus-circle">
-                        </i>
-                        <span class="nav-link-text">Tambah Data</span>
-                    </a>
+                    <div class="vendor-toolbar-actions">
+                        <a class="btn btn-success vendor-toolbar-btn" href="{{route('vendor.export')}}">
+                            <i class="fal fa-file-excel"></i>
+                            <span>Export Excel</span>
+                        </a>
+                        <a class="btn btn-primary vendor-toolbar-btn" href="{{route('vendor.create')}}">
+                            <i class="fal fa-plus-circle"></i>
+                            <span>Tambah Data</span>
+                        </a>
+                    </div>
                     <button class="btn btn-panel" data-action="panel-fullscreen" data-toggle="tooltip"
                         data-offset="0,10" data-original-title="Fullscreen"></button>
                 </div>
