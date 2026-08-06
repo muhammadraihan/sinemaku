@@ -8,6 +8,7 @@ use App\Models\Pelaporan;
 use App\Models\TypeTiket;
 use App\Models\KategoriBioskop;
 use App\Models\MasterBioskop;
+use App\Models\MasterFilm;
 use App\Models\Laporan;
 
 
@@ -33,7 +34,7 @@ class DashboardController extends Controller
         // $nama_bioskop = MasterBioskop::all()->pluck('nama_bioskop', 'uuid');
         $kota = MasterBioskop::selectRaw('Distinct kota')->pluck('kota', 'kota');
         // $type_tiket = TypeTiket::all()->pluck('name', 'uuid');
-        $nama_film = Pelaporan::selectRaw('Distinct nama_film')->pluck('nama_film', 'nama_film');
+        $nama_film = MasterFilm::options();
         $last = DB::table('pelaporans')
                 ->select('nama_film')
                 ->when(DB::getSchemaBuilder()->hasColumn('pelaporans', 'created_at'),
@@ -133,6 +134,13 @@ class DashboardController extends Controller
             ->when($nama_film, fn($q) => $q->where('nama_film', $nama_film))
             ->when($bioskop_kategori && $bioskop_kategori !== 'ALL', fn($q) => $q->where('kategori', $bioskop_kategori));
 
+        $metrics = (clone $base)
+            ->selectRaw('COALESCE(SUM(jumlah), 0) AS audience')
+            ->selectRaw('COUNT(DISTINCT kota) AS cities')
+            ->selectRaw('COUNT(DISTINCT `show`) AS shows')
+            ->selectRaw('COUNT(DISTINCT nama_bioskop) AS cinemas')
+            ->first();
+
         // try {
             // ===================== 1) TOP 10 KOTA =====================
             $top_cities = (clone $base)
@@ -228,6 +236,12 @@ class DashboardController extends Controller
 
             // Kembalikan JSON lengkap
             return response()->json([
+                'metrics'             => [
+                    'audience' => (int) ($metrics->audience ?? 0),
+                    'cities'   => (int) ($metrics->cities ?? 0),
+                    'shows'    => (int) ($metrics->shows ?? 0),
+                    'cinemas'  => (int) ($metrics->cinemas ?? 0),
+                ],
                 'top_cities'          => $top_cities,
                 'shows_over_time'     => $shows_over_time,
                 'viewers_by_cinema'   => $viewers_by_cinema,

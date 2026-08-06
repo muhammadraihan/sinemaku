@@ -48,6 +48,7 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::resource('masterbioskop', 'MasterBioskopController');
     Route::resource('kategoribioskop', 'KategoriBioskopController');
     Route::resource('typetiket', 'TypeTiketController');
+    Route::resource('masterfilm', 'MasterFilmController')->except(['show']);
     Route::resource('pelaporan', 'PelaporanController');
     Route::resource('laporan', 'LaporanController');
     Route::resource('kapasitas', 'KapasitasController');
@@ -65,6 +66,7 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::get('get-city', [PelaporanController::class,'getCityByCategory'])->name('ref.city');
     Route::get('get-type', [PelaporanController::class,'getTypeByCategory'])->name('ref.type');
     Route::get('get-studio', [PelaporanController::class,'getStudio'])->name('ref.studio');
+    Route::get('get-film-start-date', [PelaporanController::class, 'getFilmStartDate'])->name('ref.film-start-date');
     Route::get('get-data', [LaporanController::class,'listData'])->name('laporan.search');
     Route::get('get-summary', [LaporanController::class,'summaryListData'])->name('laporan.summary');
     Route::get('get-performance', [LaporanController::class,'performanceListData'])->name('laporan.performance');

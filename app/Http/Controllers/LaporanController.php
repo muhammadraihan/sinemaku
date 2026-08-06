@@ -8,6 +8,7 @@ use App\Models\Pelaporan;
 use App\Models\TypeTiket;
 use App\Models\KategoriBioskop;
 use App\Models\MasterBioskop;
+use App\Models\MasterFilm;
 use App\Models\Laporan;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -35,7 +36,7 @@ class LaporanController extends Controller
         $nama_bioskop = ['ALL' => 'Semua ...'] + MasterBioskop::all()->pluck('nama_bioskop', 'uuid')->toArray();
         $kota = ['ALL' => 'Semua ...'] + MasterBioskop::selectRaw('Distinct kota')->pluck('kota', 'kota')->toArray();
         $type_tiket = ['ALL' => 'Semua ...'] + TypeTiket::all()->pluck('name', 'uuid')->toArray();
-        $nama_film = ['ALL' => 'Semua ...'] + Pelaporan::selectRaw('Distinct nama_film')->pluck('nama_film', 'nama_film')->toArray();
+        $nama_film = ['ALL' => 'Semua ...'] + MasterFilm::options()->toArray();
         return view('laporan.index', compact('bioskop_kategori', 'nama_bioskop', 'kota','type_tiket', 'nama_film'));
     }
 
@@ -46,7 +47,7 @@ class LaporanController extends Controller
         $nama_bioskop = ['ALL' => 'Semua ...'] + MasterBioskop::all()->pluck('nama_bioskop', 'uuid')->toArray();
         $kota = ['ALL' => 'Semua ...'] + MasterBioskop::selectRaw('Distinct kota')->pluck('kota', 'kota')->toArray();
         $type_tiket = ['ALL' => 'Semua ...'] + TypeTiket::all()->pluck('name', 'uuid')->toArray();
-        $nama_film = ['ALL' => 'Semua ...'] + Pelaporan::selectRaw('Distinct nama_film')->pluck('nama_film', 'nama_film')->toArray();
+        $nama_film = ['ALL' => 'Semua ...'] + MasterFilm::options()->toArray();
 
         return view('laporan.finance_insight', compact('bioskop_kategori', 'nama_bioskop', 'kota','type_tiket', 'nama_film'));
     }
@@ -280,7 +281,7 @@ class LaporanController extends Controller
         $nama_bioskop = ['ALL' => 'Semua ...'] + MasterBioskop::all()->pluck('nama_bioskop', 'uuid')->toArray();
         $kota = ['ALL' => 'Semua ...'] + MasterBioskop::selectRaw('Distinct kota')->pluck('kota', 'kota')->toArray();
         $type_tiket = ['ALL' => 'Semua ...'] + TypeTiket::all()->pluck('name', 'uuid')->toArray();
-        $nama_film = ['ALL' => 'Semua ...'] + Pelaporan::selectRaw('Distinct nama_film')->pluck('nama_film', 'nama_film')->toArray();
+        $nama_film = ['ALL' => 'Semua ...'] + MasterFilm::options()->toArray();
 
         return view('laporan.trend_analysis', compact('bioskop_kategori', 'nama_bioskop', 'kota','type_tiket', 'nama_film'));
     }

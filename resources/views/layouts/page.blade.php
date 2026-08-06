@@ -78,4 +78,134 @@
 @stack('js')
 <!-- Custom JS for this page only -->
 @yield('js')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var filmInput = document.getElementById('nama_film');
+        var startDateInput = document.getElementById('tanggal_mulai') || document.getElementById('tgl_mulai');
+
+        if (!filmInput || !startDateInput || filmInput.tagName !== 'SELECT') {
+            return;
+        }
+
+        var filmFieldGroup = filmInput.closest('.form-group');
+        if (!filmFieldGroup) {
+            return;
+        }
+
+        var filmFilterRow = filmFieldGroup ? filmFieldGroup.closest('.row') : null;
+        var filterColumns = filmFilterRow
+            ? Array.prototype.filter.call(filmFilterRow.children, function (child) {
+                return child.classList.contains('form-group');
+            })
+            : [];
+        var isInlineFilter = filterColumns.length > 1;
+
+        var filmDateInfo = document.createElement('small');
+        filmDateInfo.id = 'film-screening-date-info';
+        filmDateInfo.className = 'film-screening-date-badge d-none';
+        filmDateInfo.setAttribute('aria-live', 'polite');
+        filmFieldGroup.appendChild(filmDateInfo);
+
+        if (isInlineFilter) {
+            filmFieldGroup.classList.add('film-date-field-group');
+        }
+
+        var showFilmDateInfo = function (message, isWarning) {
+            filmDateInfo.classList.remove('d-none', 'is-warning');
+            if (isWarning) {
+                filmDateInfo.classList.add('is-warning');
+            }
+            if (isInlineFilter) {
+                filmFilterRow.classList.add('has-film-date-badge');
+            }
+            filmDateInfo.innerHTML = '<i class="fal fa-calendar-check mr-1"></i>' + message;
+        };
+
+        var hideFilmDateInfo = function () {
+            filmDateInfo.classList.add('d-none');
+            filmDateInfo.textContent = '';
+            if (isInlineFilter) {
+                filmFilterRow.classList.remove('has-film-date-badge');
+            }
+        };
+
+        var formatFilmDate = function (dateValue) {
+            var parts = dateValue.split('-');
+            var date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+
+            return new Intl.DateTimeFormat('id-ID', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric'
+            }).format(date);
+        };
+
+        var requestSequence = 0;
+        var updateFilmStartDate = function () {
+            var filmName = filmInput.value;
+            var currentRequest = ++requestSequence;
+
+            if (!filmName || filmName === 'ALL') {
+                startDateInput.value = '';
+                hideFilmDateInfo();
+                return;
+            }
+
+            showFilmDateInfo('Memuat tanggal tayang...', false);
+
+            var url = new URL(@json(route('ref.film-start-date')), window.location.origin);
+            url.searchParams.set('nama_film', filmName);
+
+            fetch(url.toString(), {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Gagal mengambil tanggal mulai film.');
+                    }
+
+                    return response.json();
+                })
+                .then(function (data) {
+                    if (currentRequest !== requestSequence) {
+                        return;
+                    }
+
+                    if (data.tgl_tayang) {
+                        showFilmDateInfo(
+                            'Tanggal Tayang: <strong>' + formatFilmDate(data.tgl_tayang) + '</strong>',
+                            false
+                        );
+                    } else {
+                        showFilmDateInfo('Tanggal tayang belum tersedia di Master Film.', true);
+                    }
+
+                    if (data.start_date) {
+                        startDateInput.value = data.start_date;
+                        startDateInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                })
+                .catch(function (error) {
+                    if (currentRequest === requestSequence) {
+                        showFilmDateInfo('Tanggal tayang gagal dimuat. Silakan pilih ulang film.', true);
+                    }
+                    console.error(error);
+                });
+        };
+
+        // Select2 emits its selection changes through jQuery. Binding through
+        // jQuery ensures both a regular <select> change and Select2 selection
+        // call the same updater.
+        if (window.jQuery) {
+            window.jQuery(filmInput)
+                .off('change.filmStartDate')
+                .on('change.filmStartDate', updateFilmStartDate);
+        } else {
+            filmInput.addEventListener('change', updateFilmStartDate);
+        }
+    });
+</script>
 @endsection

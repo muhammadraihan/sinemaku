@@ -1,17 +1,18 @@
 :root {
     --sinemaku-font: "Nunito Sans", "Avenir Next", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    --sinemaku-blue: #2d8cff;
-    --sinemaku-blue-dark: #1768d8;
-    --sinemaku-sky: #eaf5ff;
+    --sinemaku-shell-bg: #26225e;
+    --sinemaku-blue: #625bd6;
+    --sinemaku-blue-dark: #403a99;
+    --sinemaku-sky: #efeffb;
     --sinemaku-ink: #182033;
-    --sinemaku-muted: #7b8aa4;
-    --sinemaku-line: #e4edf7;
+    --sinemaku-muted: #79778f;
+    --sinemaku-line: #e8e6f1;
     --sinemaku-card: #ffffff;
     --sinemaku-green: #28c7a2;
     --sinemaku-yellow: #ffc857;
     --sinemaku-red: #ff6b7d;
     --sinemaku-purple: #8d7cff;
-    --sinemaku-shadow: 0 22px 60px rgba(26, 89, 158, 0.18);
+    --sinemaku-shadow: 0 22px 60px rgba(38, 34, 94, 0.18);
 }
 
 html,
@@ -34,7 +35,7 @@ body.sinemaku-modern-shell {
     background:
         linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0 1px, transparent 1px 90px),
         linear-gradient(45deg, rgba(255, 255, 255, 0.13) 0 1px, transparent 1px 110px),
-        #2e8cf2;
+        var(--sinemaku-shell-bg);
     color: var(--sinemaku-ink);
 }
 
@@ -82,7 +83,7 @@ body.sinemaku-modern-shell .page-inner {
 body.sinemaku-modern-shell .page-content-wrapper {
     min-height: calc(100vh - 56px);
     margin-left: 298px;
-    background: #eaf4fb;
+    background: #f0eff8;
     border-radius: 34px;
     box-shadow: var(--sinemaku-shadow);
     overflow: clip;
@@ -141,8 +142,8 @@ body.sinemaku-modern-shell .sinemaku-sidebar-close {
     height: 36px;
     border-radius: 12px;
     color: var(--sinemaku-muted);
-    background: #f2f7fc;
-    border: 1px solid #e3edf7;
+    background: #f5f4fa;
+    border: 1px solid #e8e6f1;
     text-decoration: none;
     transition: background 0.15s ease, color 0.15s ease;
 }
@@ -176,8 +177,8 @@ body.sinemaku-modern-shell .sidebar-brand-mark {
     width: 44px;
     height: 44px;
     border-radius: 15px;
-    background: #f2f8ff;
-    box-shadow: inset 0 0 0 1px #e1ecf7;
+    background: #f2f1fb;
+    box-shadow: inset 0 0 0 1px #e4e2f0;
     overflow: hidden;
 }
 
@@ -209,7 +210,7 @@ body.sinemaku-modern-shell .primary-nav {
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: thin;
-    scrollbar-color: #c7dcf2 transparent;
+    scrollbar-color: #c8c4df transparent;
 }
 
 body.sinemaku-modern-shell .nav-filter,
@@ -233,7 +234,7 @@ body.sinemaku-modern-shell .nav-menu li a {
     min-height: 50px;
     padding: 0 16px;
     border-radius: 15px;
-    color: #8a9ab1;
+    color: #817f94;
     font-weight: 700;
     background: transparent;
     transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
@@ -243,13 +244,13 @@ body.sinemaku-modern-shell .nav-menu li a:hover,
 body.sinemaku-modern-shell .nav-menu li.active > a,
 body.sinemaku-modern-shell .nav-menu li.open > a {
     color: var(--sinemaku-blue);
-    background: #f8fbff;
-    box-shadow: 0 9px 20px rgba(41, 137, 255, 0.12);
+    background: #f7f6fc;
+    box-shadow: 0 9px 20px rgba(98, 91, 214, 0.12);
 }
 
 body.sinemaku-modern-shell .nav-menu li.active > a {
     background: #ffffff;
-    box-shadow: 0 12px 24px rgba(41, 137, 255, 0.18);
+    box-shadow: 0 12px 24px rgba(98, 91, 214, 0.18);
 }
 
 body.sinemaku-modern-shell .nav-menu li a > [class*="fa-"],
@@ -263,7 +264,7 @@ body.sinemaku-modern-shell .nav-menu li a > .ni {
     margin-right: 10px;
     border-radius: 12px;
     color: inherit;
-    background: #f1f7ff;
+    background: #f1f0fa;
     text-align: center;
     font-size: 0.98rem;
 }
@@ -332,7 +333,7 @@ body.sinemaku-modern-shell .nav-menu li > ul li a > [class*="fa-"]:before {
 body.sinemaku-modern-shell .nav-menu li > ul li.active a,
 body.sinemaku-modern-shell .nav-menu li > ul li a:hover {
     color: var(--sinemaku-blue-dark);
-    background: #edf6ff;
+    background: #efedfb;
 }
 
 body.sinemaku-modern-shell .sidebar-profile-card {
@@ -394,8 +395,8 @@ body.sinemaku-modern-shell .page-header .header-icon {
     height: 42px;
     border-radius: 14px;
     color: var(--sinemaku-blue);
-    background: #f6fbff;
-    box-shadow: inset 0 0 0 1px #e3eef9;
+    background: #f6f5fb;
+    box-shadow: inset 0 0 0 1px #e8e6f2;
 }
 
 body.sinemaku-modern-shell .page-header .header-icon:hover,
@@ -423,22 +424,22 @@ body.sinemaku-modern-shell .page-header .search .form-control {
     padding: 0 18px;
     border: 0;
     border-radius: 16px;
-    background: #f7fbff;
+    background: #f7f6fc;
     color: var(--sinemaku-ink);
-    box-shadow: inset 0 0 0 1px #e3eef9;
+    box-shadow: inset 0 0 0 1px #e8e6f2;
 }
 
 body.sinemaku-modern-shell .profile-image {
     width: 42px;
     height: 42px;
     border: 3px solid #ffffff;
-    box-shadow: 0 8px 18px rgba(35, 97, 154, 0.18);
+    box-shadow: 0 8px 18px rgba(38, 34, 94, 0.18);
 }
 
 body.sinemaku-modern-shell .dropdown-menu {
     border: 0;
     border-radius: 20px;
-    box-shadow: 0 22px 50px rgba(39, 83, 133, 0.18);
+    box-shadow: 0 22px 50px rgba(38, 34, 94, 0.18);
     overflow: hidden;
 }
 
@@ -478,7 +479,7 @@ body.sinemaku-modern-shell .panel {
     border: 0;
     border-radius: 24px;
     background: var(--sinemaku-card);
-    box-shadow: 0 16px 36px rgba(36, 88, 145, 0.12);
+    box-shadow: 0 16px 36px rgba(38, 34, 94, 0.12);
     overflow: hidden;
 }
 
@@ -506,7 +507,7 @@ body.sinemaku-modern-shell .panel-toolbar a.nav-link.active {
     color: #ffffff;
     background: var(--sinemaku-blue);
     font-weight: 800;
-    box-shadow: 0 10px 22px rgba(45, 140, 255, 0.22);
+    box-shadow: 0 10px 22px rgba(98, 91, 214, 0.24);
 }
 
 body.sinemaku-modern-shell .panel-toolbar .nav-link i {
@@ -526,7 +527,42 @@ body.sinemaku-modern-shell .btn {
 body.sinemaku-modern-shell .btn-primary {
     background: var(--sinemaku-blue);
     border-color: var(--sinemaku-blue);
-    box-shadow: 0 10px 22px rgba(45, 140, 255, 0.22);
+    box-shadow: 0 10px 22px rgba(98, 91, 214, 0.24);
+}
+
+body.sinemaku-modern-shell .btn-primary:hover,
+body.sinemaku-modern-shell .btn-primary:focus,
+body.sinemaku-modern-shell .btn-primary:not(:disabled):not(.disabled):active,
+body.sinemaku-modern-shell .panel-toolbar .nav-link:hover,
+body.sinemaku-modern-shell .panel-toolbar a.nav-link.active:hover {
+    color: #ffffff;
+    background: #514abf;
+    border-color: #514abf;
+    box-shadow: 0 12px 24px rgba(81, 74, 191, 0.28);
+}
+
+body.sinemaku-modern-shell .btn-info {
+    color: #ffffff;
+    background: #7a73df;
+    border-color: #7a73df;
+    box-shadow: 0 10px 22px rgba(98, 91, 214, 0.18);
+}
+
+body.sinemaku-modern-shell .btn-info:hover,
+body.sinemaku-modern-shell .btn-info:focus,
+body.sinemaku-modern-shell .btn-info:not(:disabled):not(.disabled):active {
+    color: #ffffff;
+    background: #655ed0;
+    border-color: #655ed0;
+}
+
+body.sinemaku-modern-shell .badge-primary,
+body.sinemaku-modern-shell .bg-primary {
+    background-color: var(--sinemaku-blue) !important;
+}
+
+body.sinemaku-modern-shell .text-primary {
+    color: var(--sinemaku-blue-dark) !important;
 }
 
 body.sinemaku-modern-shell .btn-danger {
@@ -550,9 +586,9 @@ body.sinemaku-modern-shell .form-control,
 body.sinemaku-modern-shell .custom-select,
 body.sinemaku-modern-shell .select2-container--default .select2-selection--single {
     min-height: 46px;
-    border: 1px solid #dfebf6;
+    border: 1px solid #e4e2f0;
     border-radius: 15px;
-    background: #f8fbff;
+    background: #f8f7fc;
     color: var(--sinemaku-ink);
     box-shadow: none;
 }
@@ -561,9 +597,9 @@ body.sinemaku-modern-shell .form-control:focus,
 body.sinemaku-modern-shell .custom-select:focus,
 body.sinemaku-modern-shell .select2-container--default.select2-container--open .select2-selection--single,
 body.sinemaku-modern-shell .select2-container--default.select2-container--focus .select2-selection--single {
-    border-color: rgba(45, 140, 255, 0.42) !important;
+    border-color: rgba(98, 91, 214, 0.48) !important;
     background: #ffffff !important;
-    box-shadow: 0 0 0 4px rgba(45, 140, 255, 0.1) !important;
+    box-shadow: 0 0 0 4px rgba(98, 91, 214, 0.12) !important;
 }
 
 body.sinemaku-modern-shell .select2-container--default .select2-selection--single .select2-selection__rendered {
@@ -577,7 +613,7 @@ body.sinemaku-modern-shell .select2-container--default .select2-selection--singl
 }
 
 body.sinemaku-modern-shell .select2-container--default .select2-selection--single .select2-selection__placeholder {
-    color: #8a9ab1;
+    color: #817f94;
 }
 
 body.sinemaku-modern-shell .select2-container--default .select2-selection--single .select2-selection__arrow b {
@@ -585,9 +621,9 @@ body.sinemaku-modern-shell .select2-container--default .select2-selection--singl
 }
 
 body.sinemaku-modern-shell .select2-dropdown {
-    border: 1px solid #dbeaf7 !important;
+    border: 1px solid #e1dfee !important;
     border-radius: 18px !important;
-    box-shadow: 0 18px 42px rgba(36, 88, 145, 0.14);
+    box-shadow: 0 18px 42px rgba(38, 34, 94, 0.14);
     overflow: hidden;
 }
 
@@ -598,7 +634,7 @@ body.sinemaku-modern-shell .select2-search--dropdown {
 
 body.sinemaku-modern-shell .select2-container--default .select2-search--dropdown .select2-search__field {
     min-height: 40px;
-    border: 1px solid #dfeaf6 !important;
+    border: 1px solid #e4e2f0 !important;
     border-radius: 12px;
     color: var(--sinemaku-ink);
 }
@@ -616,7 +652,66 @@ body.sinemaku-modern-shell .select2-container--default .select2-results__option-
 
 body.sinemaku-modern-shell .select2-container--default .select2-results__option[aria-selected=true] {
     color: var(--sinemaku-blue-dark);
-    background: #eef7ff;
+    background: #f0effb;
+}
+
+body.sinemaku-modern-shell .film-screening-date-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 7px 12px;
+    border: 1px solid rgba(98, 91, 214, 0.25);
+    border-radius: 999px;
+    background: linear-gradient(135deg, #eeedff, #f5f2ff);
+    box-shadow: 0 5px 14px rgba(98, 91, 214, 0.14);
+    color: #4b459f;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: 0.01em;
+}
+
+body.sinemaku-modern-shell .film-screening-date-badge i {
+    color: var(--sinemaku-blue);
+    font-size: 0.9rem;
+}
+
+body.sinemaku-modern-shell .film-screening-date-badge strong {
+    color: #302b78;
+    font-weight: 800;
+}
+
+body.sinemaku-modern-shell .film-screening-date-badge.is-warning {
+    border-color: rgba(238, 159, 27, 0.28);
+    background: linear-gradient(135deg, #fff6dc, #fffaf0);
+    box-shadow: 0 5px 14px rgba(238, 159, 27, 0.12);
+    color: #8a5a00;
+}
+
+body.sinemaku-modern-shell .film-screening-date-badge.is-warning i {
+    color: #d98a00;
+}
+
+/* Pada filter desktop multi-kolom, badge tidak boleh mengubah alignment input lain. */
+@media (min-width: 992px) {
+    body.sinemaku-modern-shell .row.has-film-date-badge {
+        row-gap: 34px;
+        margin-bottom: 24px;
+    }
+
+    body.sinemaku-modern-shell .film-date-field-group {
+        position: relative;
+    }
+
+    body.sinemaku-modern-shell .film-date-field-group .film-screening-date-badge {
+        position: absolute;
+        z-index: 2;
+        top: calc(100% - 6px);
+        left: 15px;
+        max-width: calc(100% - 30px);
+        white-space: nowrap;
+    }
 }
 
 body.sinemaku-modern-shell .modern-filter-card,
@@ -624,9 +719,9 @@ body.sinemaku-modern-shell .modern-chart-card,
 body.sinemaku-modern-shell .modern-table-card,
 body.sinemaku-modern-shell .modern-info-card {
     background: #ffffff;
-    border: 1px solid #e5eff8;
+    border: 1px solid #e7e5f1;
     border-radius: 24px;
-    box-shadow: 0 16px 36px rgba(36, 88, 145, 0.1);
+    box-shadow: 0 16px 36px rgba(38, 34, 94, 0.1);
 }
 
 body.sinemaku-modern-shell .modern-filter-card {
@@ -671,6 +766,182 @@ body.sinemaku-modern-shell .chart-fixed {
     height: 360px;
 }
 
+/* Dashboard analytics cards — inspired by Metronic's flush card hierarchy. */
+body.sinemaku-modern-shell .dashboard-analytics .analytics-section-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 8px 0 18px;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-section-heading h2 {
+    margin: 0 0 4px;
+    color: var(--sinemaku-ink);
+    font-size: 1.35rem;
+    font-weight: 900;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-section-heading p {
+    margin: 0;
+    color: var(--sinemaku-muted);
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-card {
+    height: 100%;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #e8edf5;
+    border-radius: 18px;
+    box-shadow: 0 4px 16px rgba(24, 32, 51, 0.045);
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 78px;
+    padding: 18px 20px;
+    border-bottom: 1px solid #eef1f6;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-card-heading {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 12px;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border-radius: 12px;
+    color: var(--sinemaku-blue);
+    background: #efedfb;
+    font-size: 1rem;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-card-icon.is-purple {
+    color: #7867ef;
+    background: #f2efff;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-card-icon.is-green {
+    color: #1aaa83;
+    background: #eafaf5;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-card-icon.is-warning {
+    color: #d99116;
+    background: #fff7e7;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-card-icon.is-danger {
+    color: #e65363;
+    background: #fff0f2;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-card-title {
+    min-width: 0;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-card-title h3 {
+    margin: 0 0 4px;
+    overflow: hidden;
+    color: #202638;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-card-title span {
+    display: block;
+    color: #8a93a6;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .chart-download-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    padding: 0;
+    border: 1px solid #e4e9f1;
+    border-radius: 10px;
+    color: #7b8497;
+    background: #ffffff;
+    transition: 0.2s ease;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .chart-download-btn:hover {
+    color: #ffffff;
+    border-color: var(--sinemaku-blue);
+    background: var(--sinemaku-blue);
+    box-shadow: 0 8px 18px rgba(98, 91, 214, 0.24);
+    transform: translateY(-1px);
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-card-body {
+    padding: 18px 20px 20px;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-chart {
+    position: relative;
+    height: 350px;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-chart.is-tall {
+    height: 470px;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .analytics-chart.is-donut {
+    height: 330px;
+    max-width: 520px;
+    margin: 0 auto;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .ranking-table thead th {
+    padding: 11px 12px;
+    border: 0;
+    color: #8a93a6;
+    background: #f7f9fc;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .ranking-table tbody td {
+    padding: 11px 12px;
+    border-color: #eef1f6;
+    color: #4d5669;
+    font-size: 0.8rem;
+    font-weight: 650;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .ranking-table tbody td:first-child {
+    color: var(--sinemaku-blue);
+    font-weight: 900;
+}
+
+body.sinemaku-modern-shell .dashboard-analytics .ranking-table tbody td:last-child {
+    color: #202638;
+    font-weight: 800;
+    text-align: right;
+}
+
 body.sinemaku-modern-shell .metric-card {
     display: flex;
     align-items: center;
@@ -679,8 +950,8 @@ body.sinemaku-modern-shell .metric-card {
     padding: 18px;
     border-radius: 22px;
     background: #ffffff;
-    border: 1px solid #e5eff8;
-    box-shadow: 0 14px 28px rgba(39, 99, 153, 0.09);
+    border: 1px solid #e7e5f1;
+    box-shadow: 0 14px 28px rgba(38, 34, 94, 0.09);
 }
 
 body.sinemaku-modern-shell .metric-icon {
@@ -709,7 +980,7 @@ body.sinemaku-modern-shell .metric-card p {
     font-weight: 700;
 }
 
-body.sinemaku-modern-shell .metric-blue { background: linear-gradient(135deg, #2d8cff, #54c3ff); }
+body.sinemaku-modern-shell .metric-blue { background: linear-gradient(135deg, #625bd6, #8b84e8); }
 body.sinemaku-modern-shell .metric-green { background: linear-gradient(135deg, #28c7a2, #6ee7b7); }
 body.sinemaku-modern-shell .metric-yellow { background: linear-gradient(135deg, #ffc857, #ff9f43); }
 body.sinemaku-modern-shell .metric-red { background: linear-gradient(135deg, #ff6b7d, #ff9aa7); }
@@ -754,7 +1025,7 @@ body.sinemaku-modern-shell .hero-chip {
     color: #ffffff;
     background: var(--sinemaku-blue);
     font-weight: 800;
-    box-shadow: 0 12px 26px rgba(45, 140, 255, 0.28);
+    box-shadow: 0 12px 26px rgba(98, 91, 214, 0.28);
 }
 
 body.sinemaku-modern-shell .insight-list {
@@ -768,7 +1039,7 @@ body.sinemaku-modern-shell .insight-item {
     gap: 12px;
     padding: 12px;
     border-radius: 18px;
-    background: #f8fbff;
+    background: #f8f7fc;
 }
 
 body.sinemaku-modern-shell .insight-item i {
@@ -880,7 +1151,7 @@ body.sinemaku-modern-shell table.dataTable.dtr-inline.collapsed > tbody > tr > t
     border-radius: 10px !important;
     color: #ffffff !important;
     background: var(--sinemaku-blue) !important;
-    box-shadow: 0 8px 18px rgba(45, 140, 255, 0.22) !important;
+    box-shadow: 0 8px 18px rgba(98, 91, 214, 0.24) !important;
     font-family: var(--sinemaku-font) !important;
     font-size: 18px !important;
     font-weight: 900 !important;
@@ -902,7 +1173,7 @@ body.sinemaku-modern-shell table.dataTable.dtr-inline.collapsed > tbody > tr > t
 
 body.sinemaku-modern-shell table.dataTable > tbody > tr.child,
 body.sinemaku-modern-shell table.dataTable > tbody > tr.child:hover {
-    background: #f8fbff !important;
+    background: #f8f7fc !important;
 }
 
 body.sinemaku-modern-shell table.dataTable > tbody > tr.child ul.dtr-details {
@@ -1012,9 +1283,9 @@ body.sinemaku-modern-shell .dataTables_wrapper .dataTables_length label {
 body.sinemaku-modern-shell .dataTables_filter input,
 body.sinemaku-modern-shell .dataTables_length select {
     min-height: 42px !important;
-    border: 1px solid #dfebf6 !important;
+    border: 1px solid #e4e2f0 !important;
     border-radius: 14px !important;
-    background: #f8fbff !important;
+    background: #f8f7fc !important;
     color: var(--sinemaku-ink) !important;
     box-shadow: none !important;
 }
@@ -1026,9 +1297,9 @@ body.sinemaku-modern-shell .dataTables_filter input {
 
 body.sinemaku-modern-shell .dataTables_filter input:focus,
 body.sinemaku-modern-shell .dataTables_length select:focus {
-    border-color: rgba(45, 140, 255, 0.42) !important;
+    border-color: rgba(98, 91, 214, 0.48) !important;
     background: #ffffff !important;
-    box-shadow: 0 0 0 4px rgba(45, 140, 255, 0.1) !important;
+    box-shadow: 0 0 0 4px rgba(98, 91, 214, 0.12) !important;
     outline: 0;
 }
 
@@ -1043,7 +1314,7 @@ body.sinemaku-modern-shell .dataTables_wrapper .dataTables_paginate .paginate_bu
     min-height: 38px;
     margin-left: 5px !important;
     padding: 8px 12px !important;
-    border: 1px solid #dfebf6 !important;
+    border: 1px solid #e4e2f0 !important;
     border-radius: 13px !important;
     color: var(--sinemaku-muted) !important;
     background: #ffffff !important;
@@ -1055,7 +1326,7 @@ body.sinemaku-modern-shell .dataTables_wrapper .dataTables_paginate .paginate_bu
     color: #ffffff !important;
     background: var(--sinemaku-blue) !important;
     border-color: var(--sinemaku-blue) !important;
-    box-shadow: 0 8px 18px rgba(45, 140, 255, 0.2);
+    box-shadow: 0 8px 18px rgba(98, 91, 214, 0.22);
 }
 
 body.sinemaku-modern-shell .dt-buttons .btn,
@@ -1067,7 +1338,7 @@ body.sinemaku-modern-shell .dt-button {
     border-radius: 999px !important;
     color: #ffffff !important;
     background: var(--sinemaku-blue) !important;
-    box-shadow: 0 10px 22px rgba(45, 140, 255, 0.18) !important;
+    box-shadow: 0 10px 22px rgba(98, 91, 214, 0.2) !important;
     font-weight: 800 !important;
 }
 
@@ -1087,23 +1358,23 @@ body.sinemaku-modern-shell div.dataTables_processing {
     min-width: 190px;
     margin-top: -28px !important;
     padding: 14px 18px !important;
-    border: 1px solid #dbeaf7 !important;
+    border: 1px solid #e1dfee !important;
     border-radius: 18px !important;
     color: var(--sinemaku-blue-dark) !important;
     background: rgba(255, 255, 255, 0.96) !important;
-    box-shadow: 0 18px 42px rgba(36, 88, 145, 0.16);
+    box-shadow: 0 18px 42px rgba(38, 34, 94, 0.16);
     font-weight: 900;
 }
 
 body.sinemaku-modern-shell .dataTables_scrollHead,
 body.sinemaku-modern-shell .dataTables_scrollBody {
-    border-color: #e5eff8 !important;
+    border-color: #e7e5f1 !important;
 }
 
 body.sinemaku-modern-shell .dataTables_scrollBody {
     border-radius: 0 0 20px 20px;
     scrollbar-width: thin;
-    scrollbar-color: #b9d6f4 #f5faff;
+    scrollbar-color: #c7c3df #f7f6fb;
 }
 
 body.sinemaku-modern-shell .dataTables_scrollBody::-webkit-scrollbar,
@@ -1114,21 +1385,21 @@ body.sinemaku-modern-shell .table-responsive::-webkit-scrollbar {
 
 body.sinemaku-modern-shell .dataTables_scrollBody::-webkit-scrollbar-track,
 body.sinemaku-modern-shell .table-responsive::-webkit-scrollbar-track {
-    background: #f5faff;
+    background: #f7f6fb;
     border-radius: 999px;
 }
 
 body.sinemaku-modern-shell .dataTables_scrollBody::-webkit-scrollbar-thumb,
 body.sinemaku-modern-shell .table-responsive::-webkit-scrollbar-thumb {
-    background: #b9d6f4;
+    background: #c7c3df;
     border-radius: 999px;
-    border: 2px solid #f5faff;
+    border: 2px solid #f7f6fb;
 }
 
 body.sinemaku-modern-shell #loading {
     padding: 28px;
     border-radius: 20px;
-    background: #f8fbff;
+    background: #f8f7fc;
     color: var(--sinemaku-muted);
     font-weight: 700;
 }
@@ -1143,7 +1414,7 @@ body.sinemaku-login-shell {
     background:
         linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0 1px, transparent 1px 92px),
         linear-gradient(45deg, rgba(255, 255, 255, 0.12) 0 1px, transparent 1px 120px),
-        #2e8cf2;
+        var(--sinemaku-shell-bg);
     color: var(--sinemaku-ink);
 }
 
@@ -1167,7 +1438,7 @@ body.sinemaku-login-shell .sinemaku-login-shell-card {
     width: min(1040px, 100%);
     min-height: 620px;
     border-radius: 34px;
-    background: #eaf4fb;
+    background: #f0eff8;
     box-shadow: var(--sinemaku-shadow);
     overflow: hidden;
 }
@@ -1192,7 +1463,7 @@ body.sinemaku-login-shell .login-brand img {
     height: 52px;
     border-radius: 18px;
     background: #ffffff;
-    box-shadow: 0 12px 24px rgba(45, 140, 255, 0.16);
+    box-shadow: 0 12px 24px rgba(98, 91, 214, 0.18);
 }
 
 body.sinemaku-login-shell .login-brand strong {
@@ -1278,17 +1549,17 @@ body.sinemaku-login-shell .form-label {
 body.sinemaku-login-shell .form-control {
     min-height: 52px;
     padding-left: 44px;
-    border: 1px solid #dfebf6;
+    border: 1px solid #e4e2f0;
     border-radius: 16px;
-    background: #f8fbff;
+    background: #f8f7fc;
     color: var(--sinemaku-ink);
     box-shadow: none;
 }
 
 body.sinemaku-login-shell .form-control:focus {
-    border-color: rgba(45, 140, 255, 0.42);
+    border-color: rgba(98, 91, 214, 0.48);
     background: #ffffff;
-    box-shadow: 0 0 0 4px rgba(45, 140, 255, 0.1);
+    box-shadow: 0 0 0 4px rgba(98, 91, 214, 0.12);
 }
 
 body.sinemaku-login-shell .help-block {
@@ -1316,8 +1587,15 @@ body.sinemaku-login-shell .btn-login-modern {
     border-radius: 16px;
     color: #ffffff;
     background: var(--sinemaku-blue);
-    box-shadow: 0 14px 28px rgba(45, 140, 255, 0.24);
+    box-shadow: 0 14px 28px rgba(98, 91, 214, 0.26);
     font-weight: 900;
+}
+
+body.sinemaku-login-shell .btn-login-modern:hover,
+body.sinemaku-login-shell .btn-login-modern:focus {
+    color: #ffffff;
+    background: #514abf;
+    box-shadow: 0 16px 30px rgba(81, 74, 191, 0.3);
 }
 
 body.sinemaku-login-shell .login-forgot-link {
@@ -1527,6 +1805,29 @@ body.sinemaku-login-shell .login-forgot-link {
     body.sinemaku-modern-shell .chart-fixed {
         min-height: 280px;
         height: 280px;
+    }
+
+    body.sinemaku-modern-shell .dashboard-analytics .analytics-section-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    body.sinemaku-modern-shell .dashboard-analytics .analytics-card-header {
+        min-height: 70px;
+        padding: 14px;
+    }
+
+    body.sinemaku-modern-shell .dashboard-analytics .analytics-card-body {
+        padding: 14px;
+    }
+
+    body.sinemaku-modern-shell .dashboard-analytics .analytics-chart,
+    body.sinemaku-modern-shell .dashboard-analytics .analytics-chart.is-donut {
+        height: 300px;
+    }
+
+    body.sinemaku-modern-shell .dashboard-analytics .analytics-chart.is-tall {
+        height: 420px;
     }
 
     /* Metric cards: stack vertically on small mobile */

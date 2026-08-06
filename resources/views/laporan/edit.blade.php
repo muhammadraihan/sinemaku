@@ -41,7 +41,12 @@
                 <div class="row">
                     <div class="form-group col-md-8 mb-3">
                         {{ Form::label('nama_film','Film Name',['class' => 'required form-label'])}}
-                        {{ Form::text('nama_film',$pelaporan->nama_film,['placeholder' => 'Film Name','class' => 'form-control nama_film'.($errors->has('nama_film') ? 'is-invalid':''),'required', 'style' => 'text-transform: uppercase;'])}}
+                        {!! Form::select('nama_film', $nama_film, old('nama_film', $pelaporan->nama_film), [
+                            'id' => 'nama_film',
+                            'class' => 'custom-select'.($errors->has('nama_film') ? ' is-invalid' : ''),
+                            'required' => '',
+                            'placeholder' => 'Choose Film Name ...'
+                        ]) !!}
                         @if ($errors->has('nama_film'))
                         <div class="invalid-feedback">{{ $errors->first('nama_film') }}</div>
                         @endif
@@ -178,6 +183,7 @@
         $('#type_tiket').select2();
         $('#kota').select2();
         $('#show').select2();
+        $('#nama_film').select2({ width: '100%' });
 
         $('#kategori').change(function(){
             var kategori = $(this).val();

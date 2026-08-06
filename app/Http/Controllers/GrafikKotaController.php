@@ -8,6 +8,7 @@ use App\Models\Pelaporan;
 use App\Models\TypeTiket;
 use App\Models\KategoriBioskop;
 use App\Models\MasterBioskop;
+use App\Models\MasterFilm;
 use App\Models\Laporan;
 
 
@@ -32,7 +33,7 @@ class GrafikKotaController extends Controller
         // $nama_bioskop = MasterBioskop::all()->pluck('nama_bioskop', 'uuid');
         $kota = MasterBioskop::selectRaw('Distinct kota')->pluck('kota', 'kota');
         // $type_tiket = TypeTiket::all()->pluck('name', 'uuid');
-        $nama_film = Pelaporan::selectRaw('Distinct nama_film')->pluck('nama_film', 'nama_film');
+        $nama_film = MasterFilm::options();
         return view('grafik_kota.index', compact('bioskop_kategori', 'kota', 'nama_film'));
     }
 

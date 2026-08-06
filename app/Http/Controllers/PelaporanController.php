@@ -8,6 +8,7 @@ use App\Models\Pelaporan;
 use App\Models\TypeTiket;
 use App\Models\KategoriBioskop;
 use App\Models\MasterBioskop;
+use App\Models\MasterFilm;
 use App\Models\Kapasitas;
 use App\Models\Kota;
 use App\Models\Province;
@@ -93,9 +94,39 @@ class PelaporanController extends Controller
         $nama_bioskop = MasterBioskop::all()->pluck('nama_bioskop', 'uuid');
         $kota = MasterBioskop::selectRaw('Distinct kota')->pluck('kota', 'kota');
         $type_tiket = TypeTiket::all()->pluck('name', 'uuid');
-        $nama_film = Pelaporan::selectRaw('Distinct nama_film')->pluck('nama_film', 'nama_film');
+        $nama_film = MasterFilm::options();
 
         return view('pelaporan.index',compact('bioskop_kategori', 'nama_bioskop', 'kota','type_tiket', 'nama_film'));
+    }
+
+    /**
+     * Return one month before the first screening date for a film.
+     */
+    public function getFilmStartDate(Request $request)
+    {
+        $request->validate([
+            'nama_film' => 'required|string|max:255',
+        ]);
+
+        $firstScreeningDate = MasterFilm::where('name', $request->nama_film)
+            ->value('tgl_tayang');
+
+        if (!$firstScreeningDate) {
+            return response()->json([
+                'tgl_tayang' => null,
+                'start_date' => null,
+            ]);
+        }
+
+        $screeningDate = Carbon::parse($firstScreeningDate);
+
+        return response()->json([
+            'tgl_tayang' => $screeningDate->toDateString(),
+            'start_date' => $screeningDate
+                ->copy()
+                ->subMonthNoOverflow()
+                ->toDateString(),
+        ]);
     }
 
     /**
@@ -110,7 +141,8 @@ class PelaporanController extends Controller
         $kota = MasterBioskop::selectRaw('Distinct kota')->pluck('kota', 'kota');
         $type_tiket = TypeTiket::all()->pluck('name', 'uuid');
         $studio = Kapasitas::all()->pluck('studio', 'uuid');
-        return view('pelaporan.create', compact('bioskop_kategori', 'nama_bioskop', 'kota','type_tiket', 'studio'));
+        $nama_film = MasterFilm::options();
+        return view('pelaporan.create', compact('bioskop_kategori', 'nama_bioskop', 'kota','type_tiket', 'studio', 'nama_film'));
     }
 
     /**
@@ -126,7 +158,7 @@ class PelaporanController extends Controller
             'kategori' => 'required',
             'kota' => 'required',
             'nama_bioskop' => 'required',
-            'nama_film' => 'required',
+            'nama_film' => 'required|exists:master_films,name',
             'tgl_tayang' => 'required',
             // 'jam_tayang' => 'required',
             'show.*' => 'required',
@@ -142,6 +174,7 @@ class PelaporanController extends Controller
 
         $messages = [
             '*.required' => 'Field :attribute tidak boleh kosong!',
+            'nama_film.exists' => 'Nama film tidak terdaftar di Master Film. Silakan pilih film yang tersedia.',
             '*.numeric' => 'Field :attribute harus berupa angka!',
             '*.integer' => 'Field :attribute harus berupa bilangan bulat!',
         ];
@@ -207,7 +240,8 @@ class PelaporanController extends Controller
         $nama_bioskop = MasterBioskop::all()->pluck('nama_bioskop', 'uuid');
         $type_tiket = TypeTiket::all()->pluck('name', 'uuid');
         $studio = Kapasitas::all()->pluck('studio', 'uuid');
-        return view('pelaporan.edit', compact('pelaporan', 'kota','bioskop_kategori', 'nama_bioskop', 'type_tiket', 'studio'));
+        $nama_film = MasterFilm::options();
+        return view('pelaporan.edit', compact('pelaporan', 'kota','bioskop_kategori', 'nama_bioskop', 'type_tiket', 'studio', 'nama_film'));
     }
 
     /**
@@ -223,7 +257,7 @@ class PelaporanController extends Controller
             'kategori' => 'required',
             'kota' => 'required',
             'nama_bioskop' => 'required',
-            'nama_film' => 'required',
+            'nama_film' => 'required|exists:master_films,name',
             'tgl_tayang' => 'required',
             // 'jam_tayang' => 'required',
             'show' => 'required',
@@ -239,6 +273,7 @@ class PelaporanController extends Controller
 
         $messages = [
             '*.required' => 'Field :attribute tidak boleh kosong !',
+            'nama_film.exists' => 'Nama film tidak terdaftar di Master Film. Silakan pilih film yang tersedia.',
             '*.min' => 'Nama tidak boleh kurang dari 2 karakter !',
             '*.image' => 'Field Harus Berupa Foto !',
             '*.mimes' => 'Foto Harus Berformat JPEG/PNG/JPG'
@@ -406,6 +441,10 @@ class PelaporanController extends Controller
                     'status'  => 'failed',
                     'message' => 'Sheet kosong / header tidak ditemukan.',
                 ], 422);
+            }
+
+            if ($filmValidation = $this->validateImportedFilms($rows, 'B', 'XXI')) {
+                return $filmValidation;
             }
 
             DB::table('xxi_template')->truncate();
@@ -811,6 +850,10 @@ class PelaporanController extends Controller
                     'status'  => 'failed',
                     'message' => 'Sheet kosong / header tidak ditemukan.',
                 ], 422);
+            }
+
+            if ($filmValidation = $this->validateImportedFilms($rows, 'D', 'CGV')) {
+                return $filmValidation;
             }
 
             DB::table('cgv_template')->truncate();
@@ -1237,6 +1280,10 @@ class PelaporanController extends Controller
                 ], 422);
             }
 
+            if ($filmValidation = $this->validateImportedFilms($rows, 'A', 'SAMS Studios')) {
+                return $filmValidation;
+            }
+
             DB::table('sams_template')->truncate();
 
             $batch     = [];
@@ -1553,6 +1600,86 @@ class PelaporanController extends Controller
             'Cache-Control'       => 'max-age=0, no-cache, no-store, must-revalidate',
             'Pragma'              => 'public',
         ]);
+    }
+
+    /**
+     * Pastikan setiap nama film dalam file upload sudah terdaftar di Master Film.
+     * Validasi dilakukan sebelum tabel staging dikosongkan agar import yang tidak
+     * valid sama sekali tidak mengubah data.
+     */
+    private function validateImportedFilms(array $rows, string $filmColumn, string $source)
+    {
+        $filmRows = [];
+        $emptyFilmRows = [];
+
+        foreach ($rows as $rowNumber => $columns) {
+            if ((int) $rowNumber === 1) {
+                continue;
+            }
+
+            $hasContent = collect($columns)->contains(function ($value) {
+                return trim((string) $value) !== '';
+            });
+
+            if (!$hasContent) {
+                continue;
+            }
+
+            $filmName = MasterFilm::normalizeName($columns[$filmColumn] ?? '');
+
+            if ($filmName === '') {
+                $emptyFilmRows[] = (int) $rowNumber;
+                continue;
+            }
+
+            $filmRows[$filmName][] = (int) $rowNumber;
+        }
+
+        $knownFilms = collect();
+        foreach (array_chunk(array_keys($filmRows), 500) as $filmNames) {
+            $knownFilms = $knownFilms->merge(
+                MasterFilm::whereIn('name', $filmNames)->pluck('name')
+            );
+        }
+
+        $knownLookup = $knownFilms
+            ->mapWithKeys(function ($name) {
+                return [MasterFilm::normalizeName($name) => true];
+            })
+            ->all();
+
+        $unknownFilms = [];
+        foreach ($filmRows as $filmName => $rowNumbers) {
+            if (!isset($knownLookup[$filmName])) {
+                $unknownFilms[] = [
+                    'name' => $filmName,
+                    'rows' => $rowNumbers,
+                ];
+            }
+        }
+
+        if (!$emptyFilmRows && !$unknownFilms) {
+            return null;
+        }
+
+        $problems = [];
+        if ($emptyFilmRows) {
+            $problems[] = 'nama film kosong pada baris ' . implode(', ', $emptyFilmRows);
+        }
+
+        foreach ($unknownFilms as $film) {
+            $problems[] = '"' . $film['name'] . '" pada baris ' . implode(', ', $film['rows']);
+        }
+
+        return response()->json([
+            'status' => 'failed',
+            'message' => 'Import ' . $source . ' dibatalkan. ' . implode('; ', $problems)
+                . '. Tambahkan film yang belum terdaftar melalui menu Master > Master Film, kemudian upload ulang file.',
+            'errors' => [
+                'empty_film_rows' => $emptyFilmRows,
+                'unknown_films' => $unknownFilms,
+            ],
+        ], 422);
     }
 
 }

@@ -70,7 +70,7 @@
             <div class="metric-card">
                 <span class="metric-icon metric-blue"><i class="fal fa-users"></i></span>
                 <div>
-                    <h3>{{ number_format($totalPenonton) }}</h3>
+                    <h3 id="metric-audience">{{ number_format($totalPenonton) }}</h3>
                     <p>Total Penonton</p>
                 </div>
             </div>
@@ -98,7 +98,7 @@
                 <span class="metric-icon metric-purple"><i class="fal fa-building"></i></span>
                 <div>
                     <h3 id="metric-cinemas">-</h3>
-                    <p>Bioskop Teratas</p>
+                    <p>Bioskop Dianalisis</p>
                 </div>
             </div>
         </div>
@@ -150,61 +150,60 @@
     <p class="mb-0 mt-2">Memuat data analytics...</p>
 </div>
 
-<section class="chart" style="display: none">
+<section class="chart dashboard-analytics" style="display: none">
+    <div class="analytics-section-heading">
+        <div>
+            <h2>Audience Performance</h2>
+            <p>Analisis performa film berdasarkan kota, show, dan jaringan bioskop.</p>
+        </div>
+        <span class="badge badge-light-primary px-3 py-2">6 grafik interaktif</span>
+    </div>
     <div class="row">
         <div class="col-xl-8 mb-4">
-            <div class="modern-chart-card h-100">
-                <div class="modern-card-title">
-                    <h3>TOP 20 Kota</h3>
-                    <span>Penonton terbanyak</span>
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <div class="analytics-card-heading">
+                        <span class="analytics-card-icon"><i class="fal fa-map-marker-alt"></i></span>
+                        <div class="analytics-card-title">
+                            <h3>TOP 20 Kota</h3>
+                            <span>Kota dengan jumlah penonton tertinggi</span>
+                        </div>
+                    </div>
+                    <button type="button" class="chart-download-btn" data-chart="topCities" data-title="Top 20 Kota" title="Download PDF Top 20 Kota" aria-label="Download PDF Top 20 Kota">
+                        <i class="fal fa-file-pdf"></i>
+                    </button>
                 </div>
-                <div class="chart-container">
-                    <canvas id="topCitiesChart"></canvas>
+                <div class="analytics-card-body">
+                    <div class="analytics-chart is-tall">
+                        <canvas id="topCitiesChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="col-xl-4 mb-4">
-            <div id="data-summary" class="modern-table-card h-100">
-                <div class="modern-card-title">
-                    <h3>Ranking Kota</h3>
-                    <span>Top performers</span>
+            <div id="data-summary" class="analytics-card">
+                <div class="analytics-card-header">
+                    <div class="analytics-card-heading">
+                        <span class="analytics-card-icon is-purple"><i class="fal fa-list-ol"></i></span>
+                        <div class="analytics-card-title">
+                            <h3>Ranking Kota</h3>
+                            <span>Urutan performa berdasarkan penonton</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="table-responsive">
-                    <table id="summary-table" class="table table-hover table-striped w-100">
-                        <thead>
-                            <tr>
-                                <th>Rank</th>
-                                <th>Kota</th>
-                                <th>Penonton</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-xl-6 mb-4">
-            <div class="modern-chart-card h-100">
-                <div class="modern-card-title">
-                    <h3>Grafik Show</h3>
-                    <span>Distribusi show</span>
-                </div>
-                <div class="chart-fixed">
-                    <canvas id="showsChart"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-6 mb-4">
-            <div class="modern-chart-card h-100">
-                <div class="modern-card-title">
-                    <h3>Penonton per Bioskop</h3>
-                    <span>Per kategori bioskop</span>
-                </div>
-                <div class="chart-fixed">
-                    <canvas id="viewersByCinemaChart"></canvas>
+                <div class="analytics-card-body pt-0 px-0">
+                    <div class="table-responsive" style="max-height: 488px; overflow-y: auto;">
+                        <table id="summary-table" class="table ranking-table mb-0 w-100">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Kota</th>
+                                    <th>Penonton</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -212,24 +211,30 @@
 
     <div class="row">
         <div class="col-xl-6 mb-4">
-            <div class="modern-chart-card h-100">
-                <div class="modern-card-title">
-                    <h3>TOP 20 Bioskop</h3>
-                    <span>Penonton tertinggi</span>
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <div class="analytics-card-heading">
+                        <span class="analytics-card-icon is-green"><i class="fal fa-chart-line"></i></span>
+                        <div class="analytics-card-title"><h3>Penonton per Show</h3><span>Distribusi audience di setiap urutan show</span></div>
+                    </div>
+                    <button type="button" class="chart-download-btn" data-chart="shows" data-title="Penonton per Show" title="Download PDF Penonton per Show" aria-label="Download PDF Penonton per Show"><i class="fal fa-file-pdf"></i></button>
                 </div>
-                <div class="chart-fixed">
-                    <canvas id="topCinemasChart"></canvas>
+                <div class="analytics-card-body">
+                    <div class="analytics-chart"><canvas id="showsChart"></canvas></div>
                 </div>
             </div>
         </div>
         <div class="col-xl-6 mb-4">
-            <div class="modern-chart-card h-100">
-                <div class="modern-card-title">
-                    <h3>Underperforming Kota</h3>
-                    <span>Butuh perhatian</span>
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <div class="analytics-card-heading">
+                        <span class="analytics-card-icon is-purple"><i class="fal fa-chart-pie"></i></span>
+                        <div class="analytics-card-title"><h3>Komposisi Jaringan Bioskop</h3><span>Kontribusi penonton per kategori bioskop</span></div>
+                    </div>
+                    <button type="button" class="chart-download-btn" data-chart="viewersByCinema" data-title="Komposisi Jaringan Bioskop" title="Download PDF Komposisi Jaringan Bioskop" aria-label="Download PDF Komposisi Jaringan Bioskop"><i class="fal fa-file-pdf"></i></button>
                 </div>
-                <div class="chart-fixed">
-                    <canvas id="underperfCitiesChart"></canvas>
+                <div class="analytics-card-body">
+                    <div class="analytics-chart is-donut"><canvas id="viewersByCinemaChart"></canvas></div>
                 </div>
             </div>
         </div>
@@ -237,13 +242,54 @@
 
     <div class="row">
         <div class="col-xl-12 mb-4">
-            <div class="modern-chart-card">
-                <div class="modern-card-title">
-                    <h3>Underperforming Bioskop</h3>
-                    <span>20 bioskop terbawah</span>
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <div class="analytics-card-heading">
+                        <span class="analytics-card-icon"><i class="fal fa-building"></i></span>
+                        <div class="analytics-card-title"><h3>TOP 20 Bioskop</h3><span>Lokasi bioskop dengan audience tertinggi</span></div>
+                    </div>
+                    <button type="button" class="chart-download-btn" data-chart="topCinemas" data-title="Top 20 Bioskop" title="Download PDF Top 20 Bioskop" aria-label="Download PDF Top 20 Bioskop"><i class="fal fa-file-pdf"></i></button>
                 </div>
-                <div class="chart-fixed">
-                    <canvas id="underperfCinemasChart"></canvas>
+                <div class="analytics-card-body">
+                    <div class="analytics-chart is-tall"><canvas id="topCinemasChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="analytics-section-heading mt-2">
+        <div>
+            <h2>Area yang Perlu Perhatian</h2>
+            <p>Kota dan bioskop dengan audience terendah pada periode aktif.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-6 mb-4">
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <div class="analytics-card-heading">
+                        <span class="analytics-card-icon is-warning"><i class="fal fa-map-marker-alt"></i></span>
+                        <div class="analytics-card-title"><h3>Underperforming Kota</h3><span>20 kota dengan audience terendah</span></div>
+                    </div>
+                    <button type="button" class="chart-download-btn" data-chart="underCities" data-title="Underperforming Kota" title="Download PDF Underperforming Kota" aria-label="Download PDF Underperforming Kota"><i class="fal fa-file-pdf"></i></button>
+                </div>
+                <div class="analytics-card-body">
+                    <div class="analytics-chart is-tall"><canvas id="underperfCitiesChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-6 mb-4">
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <div class="analytics-card-heading">
+                        <span class="analytics-card-icon is-danger"><i class="fal fa-building"></i></span>
+                        <div class="analytics-card-title"><h3>Underperforming Bioskop</h3><span>20 bioskop dengan audience terendah</span></div>
+                    </div>
+                    <button type="button" class="chart-download-btn" data-chart="underCinemas" data-title="Underperforming Bioskop" title="Download PDF Underperforming Bioskop" aria-label="Download PDF Underperforming Bioskop"><i class="fal fa-file-pdf"></i></button>
+                </div>
+                <div class="analytics-card-body">
+                    <div class="analytics-chart is-tall"><canvas id="underperfCinemasChart"></canvas></div>
                 </div>
             </div>
         </div>
@@ -265,7 +311,7 @@
     }
 
     const chartPalette = [
-        'rgba(45, 140, 255, 0.82)',
+        'rgba(98, 91, 214, 0.84)',
         'rgba(40, 199, 162, 0.82)',
         'rgba(255, 200, 87, 0.88)',
         'rgba(255, 107, 125, 0.82)',
@@ -337,10 +383,10 @@
             minute: '2-digit'
         });
 
-        const namaFilm = $('#nama_film option:selected').text() || '{{ $lastFilm }}';
+        const namaFilm = $('#nama_film').val() ? $('#nama_film option:selected').text() : '{{ $lastFilm }}';
         const tanggalMulai = $('#tanggal_mulai').val() || '-';
         const tanggalAkhir = $('#tanggal_akhir').val() || '-';
-        const kategoriBioskop = $('#bioskop_kategori option:selected').text() || 'Semua';
+        const kategoriBioskop = $('#bioskop_kategori').val() ? $('#bioskop_kategori option:selected').text() : 'Semua';
         const reportPeriod = tanggalMulai !== '-' && tanggalAkhir !== '-' ? `${tanggalMulai} s.d. ${tanggalAkhir}` : '{{ $periodeText }}';
         const metricCities = $('#metric-cities').text() || '-';
         const metricShows = $('#metric-shows').text() || '-';
@@ -490,7 +536,7 @@
         const cardY = 62;
         const cardW = (usableW - 12) / 4;
         addMetricCard("Top 20 Penonton", top20Audience.toLocaleString('en-US'), marginX, cardY, cardW, 22, accentColor);
-        addMetricCard("Kota Dianalisis", metricCities, marginX + cardW + 4, cardY, cardW, 22, [45, 140, 255]);
+        addMetricCard("Kota Dianalisis", metricCities, marginX + cardW + 4, cardY, cardW, 22, [98, 91, 214]);
         addMetricCard("Show Terbaca", metricShows, marginX + (cardW + 4) * 2, cardY, cardW, 22, [40, 199, 162]);
         addMetricCard("Bioskop Teratas", metricCinemas, marginX + (cardW + 4) * 3, cardY, cardW, 22, [141, 124, 255]);
 
@@ -565,46 +611,304 @@
     }
 
     function commonOptions(extra) {
-        return Object.assign({
+        const baseOptions = {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            layout: {
+                padding: { top: 6, right: 10, bottom: 2, left: 2 }
+            },
             scales: {
                 x: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(126, 149, 178, 0.14)' },
-                    ticks: { color: '#7b8aa4' }
+                    border: { display: false },
+                    grid: { color: 'rgba(126, 149, 178, 0.10)', drawTicks: false },
+                    ticks: {
+                        color: '#8a93a6',
+                        padding: 8,
+                        font: { size: 11, weight: '600' },
+                        callback: function (value) { return compactNumber(value); }
+                    }
                 },
                 y: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(126, 149, 178, 0.14)' },
-                    ticks: { color: '#7b8aa4', autoSkip: false }
+                    border: { display: false },
+                    grid: { display: false },
+                    ticks: {
+                        color: '#596276',
+                        autoSkip: false,
+                        padding: 8,
+                        font: { size: 11, weight: '600' }
+                    }
                 }
             },
             plugins: {
                 legend: { display: false },
-                datalabels: {
-                    anchor: 'end',
-                    align: 'end',
-                    formatter: (v) => Number(v).toLocaleString(),
-                    color: '#182033',
-                    font: { weight: 'bold', size: 10 }
+                datalabels: { display: false },
+                tooltip: {
+                    backgroundColor: '#202638',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    padding: 12,
+                    cornerRadius: 10,
+                    displayColors: false,
+                    callbacks: {
+                        label: function (context) {
+                            return (context.dataset.label || 'Penonton') + ': ' + Number(context.raw || 0).toLocaleString('id-ID');
+                        }
+                    }
                 }
             }
-        }, extra || {});
+        };
+
+        return $.extend(true, {}, baseOptions, extra || {});
     }
 
-    function dataset(label, data, colorOffset) {
+    function compactNumber(value) {
+        const number = Number(value || 0);
+        if (Math.abs(number) >= 1000000) return (number / 1000000).toFixed(1).replace('.0', '') + 'M';
+        if (Math.abs(number) >= 1000) return (number / 1000).toFixed(1).replace('.0', '') + 'K';
+        return number.toLocaleString('id-ID');
+    }
+
+    function dataset(label, data, color, borderColor) {
         return {
             label: label,
             data: data,
-            backgroundColor: data.map((_, index) => chartPalette[(index + (colorOffset || 0)) % chartPalette.length]),
-            borderColor: data.map((_, index) => chartPalette[(index + (colorOffset || 0)) % chartPalette.length].replace('0.82', '1').replace('0.88', '1')),
-            borderWidth: 1,
-            borderRadius: 10,
+            backgroundColor: color || 'rgba(98, 91, 214, 0.84)',
+            borderColor: borderColor || color || 'rgba(98, 91, 214, 1)',
+            borderWidth: 0,
+            borderRadius: 6,
             borderSkipped: false,
-            maxBarThickness: 32
+            maxBarThickness: 22
         };
     }
+
+    function downloadSingleChart(chartKey, title) {
+        const chart = chartInstances[chartKey];
+        if (!chart) {
+            alert('Grafik belum siap untuk didownload.');
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('l', 'mm', 'a4');
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const marginX = 14;
+        const usableW = pageW - (marginX * 2);
+        const textColor = [31, 41, 55];
+        const mutedColor = [107, 114, 128];
+        const accentColor = [153, 27, 27];
+        const brandColor = [47, 69, 88];
+        const film = $('#nama_film').val() ? $('#nama_film option:selected').text() : '{{ $lastFilm }}';
+        const start = $('#tanggal_mulai').val() || '-';
+        const end = $('#tanggal_akhir').val() || '-';
+        const period = start !== '-' && end !== '-' ? start + ' s.d. ' + end : '{{ $periodeText }}';
+        const category = $('#bioskop_kategori').val() ? $('#bioskop_kategori option:selected').text() : 'Semua';
+        const generatedAt = new Date().toLocaleString('id-ID', {
+            day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+        const labels = (chart.data.labels || []).map(function (label) { return String(label); });
+        const values = ((chart.data.datasets[0] || {}).data || []).map(function (value) { return Number(value || 0); });
+        const total = values.reduce(function (sum, value) { return sum + value; }, 0);
+        const average = values.length ? total / values.length : 0;
+        const maximum = values.length ? Math.max.apply(null, values) : 0;
+        const minimum = values.length ? Math.min.apply(null, values) : 0;
+        const maxIndex = values.indexOf(maximum);
+        const minIndex = values.indexOf(minimum);
+        const descriptions = {
+            topCities: 'Peringkat 20 kota dengan jumlah penonton tertinggi pada filter aktif.',
+            shows: 'Persebaran jumlah penonton berdasarkan urutan show pada filter aktif.',
+            viewersByCinema: 'Komposisi kontribusi penonton berdasarkan kategori atau jaringan bioskop.',
+            topCinemas: 'Peringkat 20 lokasi bioskop dengan jumlah penonton tertinggi.',
+            underCities: 'Daftar 20 kota dengan jumlah penonton terendah yang memerlukan perhatian.',
+            underCinemas: 'Daftar 20 bioskop dengan jumlah penonton terendah yang memerlukan perhatian.'
+        };
+        const dimensionLabels = {
+            topCities: 'Kota',
+            shows: 'Show',
+            viewersByCinema: 'Jaringan Bioskop',
+            topCinemas: 'Bioskop',
+            underCities: 'Kota',
+            underCinemas: 'Bioskop'
+        };
+        const dimensionLabel = dimensionLabels[chartKey] || 'Kategori';
+
+        function formatNumber(value) {
+            return Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 });
+        }
+
+        function addLogo(x, y, size) {
+            const logo = document.getElementById('report-logo');
+            if (logo && logo.complete) {
+                doc.addImage(logo, 'PNG', x, y, size, size, undefined, 'FAST');
+            }
+        }
+
+        function addHeader(sectionName) {
+            addLogo(marginX, 8, 14);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(13);
+            doc.setTextColor(...textColor);
+            doc.text('SINEMAKU PICTURES', marginX + 18, 13);
+            doc.setFontSize(8.5);
+            doc.setTextColor(...accentColor);
+            doc.text('Audience Analytics Dashboard', marginX + 18, 18);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...mutedColor);
+            doc.text(sectionName, pageW - marginX, 13, { align: 'right' });
+            doc.text('Generated: ' + generatedAt, pageW - marginX, 18, { align: 'right' });
+            doc.setDrawColor(...accentColor);
+            doc.setLineWidth(0.45);
+            doc.line(marginX, 25, pageW - marginX, 25);
+        }
+
+        function addFooter() {
+            const pages = doc.internal.getNumberOfPages();
+            for (let page = 1; page <= pages; page++) {
+                doc.setPage(page);
+                doc.setDrawColor(229, 231, 235);
+                doc.line(marginX, pageH - 13, pageW - marginX, pageH - 13);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7);
+                doc.setTextColor(...mutedColor);
+                doc.text('Sinemaku Pictures - Confidential Analytics Report', marginX, pageH - 8);
+                doc.text('Halaman ' + page + ' dari ' + pages, pageW - marginX, pageH - 8, { align: 'right' });
+            }
+        }
+
+        function addFilterBox() {
+            const y = 48;
+            doc.setFillColor(249, 250, 251);
+            doc.setDrawColor(229, 231, 235);
+            doc.roundedRect(marginX, y, usableW, 22, 2, 2, 'FD');
+            const filters = [
+                ['Nama Film', film],
+                ['Periode', period],
+                ['Kategori Bioskop', category]
+            ];
+            const columnWidth = usableW / filters.length;
+            filters.forEach(function (filter, index) {
+                const x = marginX + (columnWidth * index) + 5;
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(7);
+                doc.setTextColor(...mutedColor);
+                doc.text(filter[0].toUpperCase(), x, y + 8);
+                doc.setFontSize(9);
+                doc.setTextColor(...textColor);
+                doc.text(String(filter[1]), x, y + 15, { maxWidth: columnWidth - 10 });
+            });
+        }
+
+        function addMetric(label, value, x, y, width, color) {
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(229, 231, 235);
+            doc.roundedRect(x, y, width, 22, 2, 2, 'FD');
+            doc.setFillColor(...color);
+            doc.roundedRect(x, y, 3, 22, 1.5, 1.5, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.setTextColor(...textColor);
+            doc.text(String(value), x + 8, y + 10);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.2);
+            doc.setTextColor(...mutedColor);
+            doc.text(label, x + 8, y + 17);
+        }
+
+        function addChartImage() {
+            const dataUrl = chart.toBase64Image();
+            const image = doc.getImageProperties(dataUrl);
+            const boxX = marginX;
+            const boxY = 108;
+            const boxW = usableW;
+            const boxH = 71;
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(229, 231, 235);
+            doc.roundedRect(boxX, boxY, boxW, boxH, 2, 2, 'FD');
+            const ratio = Math.min((boxW - 10) / image.width, (boxH - 8) / image.height);
+            const width = image.width * ratio;
+            const height = image.height * ratio;
+            doc.addImage(dataUrl, 'PNG', boxX + ((boxW - width) / 2), boxY + ((boxH - height) / 2), width, height, undefined, 'FAST');
+        }
+
+        addHeader('Individual Chart Report');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.setTextColor(...textColor);
+        doc.text(title, marginX, 36);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(...mutedColor);
+        doc.text(descriptions[chartKey] || 'Detail performa berdasarkan filter aktif.', marginX, 42);
+        addFilterBox();
+
+        const metricGap = 4;
+        const metricWidth = (usableW - (metricGap * 3)) / 4;
+        addMetric('Jumlah ' + dimensionLabel, formatNumber(values.length), marginX, 78, metricWidth, [98, 91, 214]);
+        addMetric('Total dalam Grafik', formatNumber(total), marginX + metricWidth + metricGap, 78, metricWidth, [40, 199, 162]);
+        addMetric('Nilai Tertinggi', formatNumber(maximum), marginX + ((metricWidth + metricGap) * 2), 78, metricWidth, [141, 124, 255]);
+        addMetric('Rata-rata', formatNumber(average), marginX + ((metricWidth + metricGap) * 3), 78, metricWidth, [255, 159, 67]);
+        addChartImage();
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...accentColor);
+        doc.text('HIGHLIGHT', marginX, 186);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...textColor);
+        doc.text(
+            'Tertinggi: ' + (labels[maxIndex] || '-') + ' (' + formatNumber(maximum) + ')' +
+            '   |   Terendah: ' + (labels[minIndex] || '-') + ' (' + formatNumber(minimum) + ')' +
+            '   |   Data ditampilkan: ' + values.length + ' item.',
+            marginX,
+            191,
+            { maxWidth: usableW }
+        );
+
+        const detailRows = labels.map(function (label, index) {
+            const contribution = total > 0 ? ((values[index] / total) * 100).toFixed(2) + '%' : '0.00%';
+            return [index + 1, label, formatNumber(values[index]), contribution];
+        });
+
+        doc.addPage('a4', 'landscape');
+        doc.autoTable({
+            startY: 42,
+            margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
+            head: [['Rank', dimensionLabel, 'Jumlah Penonton', 'Kontribusi']],
+            body: detailRows,
+            theme: 'grid',
+            styles: { font: 'helvetica', fontSize: 8, cellPadding: 2.5, textColor: textColor },
+            headStyles: { fillColor: brandColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [249, 250, 251] },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 18 },
+                1: { cellWidth: 'auto' },
+                2: { halign: 'right', cellWidth: 42 },
+                3: { halign: 'right', cellWidth: 34 }
+            },
+            didDrawPage: function () {
+                addHeader('Detail Data - ' + title);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(...textColor);
+                doc.text('Rincian Data Grafik', marginX, 34);
+            }
+        });
+
+        addFooter();
+        const safeTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        doc.save('report-' + safeTitle + '.pdf');
+    }
+
+    $(document).on('click', '.chart-download-btn', function () {
+        downloadSingleChart($(this).data('chart'), $(this).data('title'));
+    });
 
     function loadChart(nama_film, tgl_mulai, tgl_akhir, bioskop_kategori) {
         $.ajax({
@@ -641,9 +945,11 @@
                     `);
                 });
 
-                $('#metric-cities').text(labelsTopCities.length);
-                $('#metric-shows').text((payload.shows_over_time || []).length);
-                $('#metric-cinemas').text((payload.top_cinemas || []).length);
+                const metrics = payload.metrics || {};
+                $('#metric-audience').text(Number(metrics.audience || 0).toLocaleString('id-ID'));
+                $('#metric-cities').text(Number(metrics.cities || labelsTopCities.length).toLocaleString('id-ID'));
+                $('#metric-shows').text(Number(metrics.shows || (payload.shows_over_time || []).length).toLocaleString('id-ID'));
+                $('#metric-cinemas').text(Number(metrics.cinemas || (payload.top_cinemas || []).length).toLocaleString('id-ID'));
 
                 destroyIfExists(chartInstances.topCities);
                 chartInstances.topCities = new Chart(
@@ -652,9 +958,9 @@
                         type: 'bar',
                         data: {
                             labels: labelsTopCities,
-                            datasets: [dataset('Jumlah Penonton', valuesTopCities, 0)]
+                            datasets: [dataset('Jumlah Penonton', valuesTopCities, 'rgba(98, 91, 214, 0.84)')]
                         },
-                        options: commonOptions({ maintainAspectRatio: false })
+                        options: commonOptions({ indexAxis: 'y' })
                     }
                 );
 
@@ -670,19 +976,32 @@
                         data: {
                             labels: showsLabels,
                             datasets: [{
-                                label: 'Jumlah Show',
+                                label: 'Jumlah Penonton',
                                 data: showsValues,
                                 fill: true,
                                 tension: 0.35,
-                                borderColor: 'rgba(45, 140, 255, 1)',
-                                backgroundColor: 'rgba(45, 140, 255, 0.12)',
+                                borderColor: 'rgba(98, 91, 214, 1)',
+                                backgroundColor: 'rgba(98, 91, 214, 0.12)',
                                 pointBackgroundColor: '#ffffff',
-                                pointBorderColor: 'rgba(45, 140, 255, 1)',
+                                pointBorderColor: 'rgba(98, 91, 214, 1)',
                                 pointRadius: 4,
                                 borderWidth: 3
                             }]
                         },
-                        options: commonOptions()
+                        options: commonOptions({
+                            scales: {
+                                x: {
+                                    ticks: {
+                                        callback: function (value) { return this.getLabelForValue(value); }
+                                    }
+                                },
+                                y: {
+                                    ticks: {
+                                        callback: function (value) { return compactNumber(value); }
+                                    }
+                                }
+                            }
+                        })
                     }
                 );
 
@@ -694,12 +1013,29 @@
                 chartInstances.viewersByCinema = new Chart(
                     document.getElementById('viewersByCinemaChart').getContext('2d'),
                     {
-                        type: 'bar',
+                        type: 'doughnut',
                         data: {
                             labels: vbLabels,
-                            datasets: [dataset('Penonton', vbValues, 2)]
+                            datasets: [{
+                                label: 'Penonton',
+                                data: vbValues,
+                                backgroundColor: chartPalette,
+                                borderColor: '#ffffff',
+                                borderWidth: 4,
+                                hoverOffset: 8
+                            }]
                         },
-                        options: commonOptions()
+                        options: commonOptions({
+                            cutout: '68%',
+                            scales: { x: { display: false }, y: { display: false } },
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'bottom',
+                                    labels: { usePointStyle: true, boxWidth: 8, padding: 18, color: '#596276', font: { size: 11, weight: '600' } }
+                                }
+                            }
+                        })
                     }
                 );
 
@@ -714,7 +1050,7 @@
                         type: 'bar',
                         data: {
                             labels: topCLabels,
-                            datasets: [dataset('Penonton', topCValues, 3)]
+                            datasets: [dataset('Penonton', topCValues, 'rgba(40, 199, 162, 0.82)')]
                         },
                         options: commonOptions({ indexAxis: 'y' })
                     }
@@ -731,9 +1067,9 @@
                         type: 'bar',
                         data: {
                             labels: ucLabels,
-                            datasets: [dataset('Penonton', ucValues, 4)]
+                            datasets: [dataset('Penonton', ucValues, 'rgba(255, 184, 77, 0.84)')]
                         },
-                        options: commonOptions()
+                        options: commonOptions({ indexAxis: 'y' })
                     }
                 );
 
@@ -748,7 +1084,7 @@
                         type: 'bar',
                         data: {
                             labels: ubLabels,
-                            datasets: [dataset('Penonton', ubValues, 5)]
+                            datasets: [dataset('Penonton', ubValues, 'rgba(255, 107, 125, 0.80)')]
                         },
                         options: commonOptions({ indexAxis: 'y' })
                     }

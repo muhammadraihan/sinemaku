@@ -118,7 +118,7 @@
 
 <script>
     const cityChartPalette = [
-        'rgba(45, 140, 255, 0.82)',
+        'rgba(98, 91, 214, 0.84)',
         'rgba(40, 199, 162, 0.82)',
         'rgba(255, 200, 87, 0.88)',
         'rgba(255, 107, 125, 0.82)',
@@ -194,7 +194,7 @@
                     startY: y + imgHeight + 12,
                     margin: { left: 15, right: 15 },
                     styles: { font: 'helvetica', fontSize: 10, textColor: [33, 37, 41] },
-                    headStyles: { fillColor: [45, 140, 255], textColor: [255, 255, 255], fontStyle: 'bold' },
+                    headStyles: { fillColor: [98, 91, 214], textColor: [255, 255, 255], fontStyle: 'bold' },
                     alternateRowStyles: { fillColor: [245, 250, 255] },
                     tableLineColor: [220, 231, 243],
                     tableLineWidth: 0.1,

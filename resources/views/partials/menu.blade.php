@@ -3,6 +3,7 @@
         'vendor.*',
         'kategoribioskop.*',
         'masterbioskop.*',
+        'masterfilm.*',
         'typetiket.*',
         'kapasitas.*'
     );
@@ -38,6 +39,12 @@
                 <a href="{{route('masterbioskop.index')}}" title="Nama Bioskop" data-filter-tags="nama bioskop">
                     <i class="fal fa-film"></i>
                     <span class="nav-link-text">Nama Bioskop</span>
+                </a>
+            </li>
+            <li class="{{request()->routeIs('masterfilm.*') ? 'active' : ''}}">
+                <a href="{{route('masterfilm.index')}}" title="Master Film" data-filter-tags="master film nama film">
+                    <i class="fal fa-video"></i>
+                    <span class="nav-link-text">Master Film</span>
                 </a>
             </li>
             <li class="{{request()->routeIs('typetiket.*') ? 'active' : ''}}">

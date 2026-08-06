@@ -42,7 +42,12 @@
                 <div class="row">
                     <div class="form-group col-md-8 mb-3">
                         {{ Form::label('nama_film','Nama Film',['class' => 'required form-label'])}}
-                        {{ Form::text('nama_film',null,['placeholder' => 'Nama Film','class' => 'form-control nama_film'.($errors->has('nama_film') ? 'is-invalid':''),'required', 'style' => 'text-transform: uppercase;'])}}
+                        {!! Form::select('nama_film', $nama_film, old('nama_film'), [
+                            'id' => 'nama_film',
+                            'class' => 'custom-select'.($errors->has('nama_film') ? ' is-invalid' : ''),
+                            'required' => '',
+                            'placeholder' => 'Pilih Nama Film ...'
+                        ]) !!}
                         @if ($errors->has('nama_film'))
                         <div class="invalid-feedback">{{ $errors->first('nama_film') }}</div>
                         @endif
@@ -201,6 +206,7 @@
 <script src="{{asset('js/formplugins/bootstrap-datepicker/bootstrap-datepicker.js')}}"></script>
 <script>
     $(document).ready(function(){
+        $('#nama_film').select2({ width: '100%' });
         $('#kategori').select2();
         $('#nama_bioskop').select2();
         $('#type_tiket').select2();
