@@ -182,7 +182,7 @@ class DashboardController extends Controller
                 ->orderByDesc('penonton')
                 ->get()
                 ->map(fn($r) => [
-                    'bioskop'  => (string)$r->bioskop_nama,
+                    'bioskop'  => mb_strtoupper((string) $r->bioskop_nama, 'UTF-8'),
                     'penonton' => (int)$r->penonton,
                 ])
                 ->values();
@@ -201,7 +201,7 @@ class DashboardController extends Controller
                 ->limit(20)
                 ->get()
                 ->map(fn($r) => [
-                    'bioskop'  => (string)$r->bioskop_nama,
+                    'bioskop'  => mb_strtoupper((string) $r->bioskop_nama, 'UTF-8'),
                     'penonton' => (int)$r->penonton,
                 ])
                 ->values();
@@ -231,7 +231,10 @@ class DashboardController extends Controller
                 ->orderBy('penonton', 'asc')
                 ->limit(20)
                 ->get()
-                ->map(fn($r) => ['nama_bioskop' => (string)$r->bioskop_nama, 'penonton' => (int)$r->penonton])
+                ->map(fn($r) => [
+                    'nama_bioskop' => mb_strtoupper((string) $r->bioskop_nama, 'UTF-8'),
+                    'penonton' => (int)$r->penonton,
+                ])
                 ->values();
 
             // Kembalikan JSON lengkap

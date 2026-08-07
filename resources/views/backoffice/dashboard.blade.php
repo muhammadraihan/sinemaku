@@ -372,7 +372,6 @@
         const usableW = pageW - marginX * 2;
         const brandColor = [47, 69, 88];
         const accentColor = [153, 27, 27];
-        const softRed = [254, 242, 242];
         const textColor = [31, 41, 55];
         const mutedColor = [107, 114, 128];
         const generatedAt = new Date().toLocaleString('id-ID', {
@@ -402,7 +401,6 @@
         const top20Audience = cityRows.reduce(function (total, row) {
             return total + Number(String(row[2] || '0').replace(/,/g, ''));
         }, 0);
-        const topCityRows = cityRows.slice(0, 12);
 
         function fitImageSize(imgProps, maxW, maxH) {
             const r = Math.min(maxW / imgProps.width, maxH / imgProps.height);
@@ -523,6 +521,68 @@
             doc.addImage(dataURL, 'PNG', imgX, imgY, size.w, size.h, undefined, 'FAST');
         }
 
+        function addChartDetailTable(title, dimensionLabel, chart) {
+            if (!chart) return;
+
+            const labels = (chart.data.labels || []).map(function (label) {
+                return String(label);
+            });
+            const values = ((chart.data.datasets[0] || {}).data || []).map(function (value) {
+                return Number(value || 0);
+            });
+            const total = values.reduce(function (sum, value) {
+                return sum + value;
+            }, 0);
+            const rows = labels.map(function (label, index) {
+                const contribution = total > 0
+                    ? ((values[index] / total) * 100).toFixed(2) + '%'
+                    : '0.00%';
+
+                return [
+                    index + 1,
+                    label,
+                    values[index].toLocaleString('id-ID', { maximumFractionDigits: 0 }),
+                    contribution
+                ];
+            });
+
+            doc.addPage('a4', 'landscape');
+            doc.autoTable({
+                startY: 42,
+                margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
+                head: [['Rank', dimensionLabel, 'Jumlah Penonton', 'Kontribusi']],
+                body: rows,
+                theme: 'grid',
+                showHead: 'everyPage',
+                styles: {
+                    font: 'helvetica',
+                    fontSize: 8,
+                    cellPadding: 2.5,
+                    textColor: textColor,
+                    overflow: 'linebreak'
+                },
+                headStyles: {
+                    fillColor: brandColor,
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold'
+                },
+                alternateRowStyles: { fillColor: [249, 250, 251] },
+                columnStyles: {
+                    0: { halign: 'center', cellWidth: 18 },
+                    1: { cellWidth: 'auto' },
+                    2: { halign: 'right', cellWidth: 42 },
+                    3: { halign: 'right', cellWidth: 34 }
+                },
+                didDrawPage: function () {
+                    addHeader('Detail Data - ' + title);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(11);
+                    doc.setTextColor(...textColor);
+                    doc.text('Rincian Data Grafik: ' + title, marginX, 34, { maxWidth: usableW });
+                }
+            });
+        }
+
         const imgTopCities  = chartInstances.topCities ? chartInstances.topCities.toBase64Image() : null;
         const imgShows      = chartInstances.shows ? chartInstances.shows.toBase64Image() : null;
         const imgViewCinema = chartInstances.viewersByCinema ? chartInstances.viewersByCinema.toBase64Image() : null;
@@ -541,65 +601,57 @@
         addMetricCard("Bioskop Teratas", metricCinemas, marginX + (cardW + 4) * 3, cardY, cardW, 22, [141, 124, 255]);
 
         addSectionTitle("Audience Performance Overview", "Ringkasan visual penonton berdasarkan filter yang sedang aktif.", 94);
-        addChartPanel("TOP 20 Kota - Penonton Terbanyak", imgTopCities, marginX, 103, 170, 76);
+        addChartPanel("TOP 20 Kota - Penonton Terbanyak", imgTopCities, marginX, 103, usableW, 78);
 
-        doc.autoTable({
-            startY: 103,
-            margin: { left: marginX + 176, right: marginX },
-            tableWidth: usableW - 176,
-            head: [["Rank", "Kota", "Penonton"]],
-            body: topCityRows,
-            theme: "grid",
-            styles: {
-                font: "helvetica",
-                fontSize: 7.6,
-                cellPadding: 2.2,
-                textColor: textColor
+        addChartDetailTable("TOP 20 Kota - Penonton Terbanyak", "Kota", chartInstances.topCities);
+
+        const chartPages = [
+            {
+                title: "Grafik Show",
+                subtitle: "Distribusi jumlah penonton berdasarkan urutan show.",
+                dimension: "Show",
+                image: imgShows,
+                chart: chartInstances.shows
             },
-            headStyles: {
-                fillColor: brandColor,
-                textColor: [255, 255, 255],
-                fontStyle: "bold"
+            {
+                title: "Penonton per Bioskop",
+                subtitle: "Komposisi kontribusi penonton berdasarkan jaringan bioskop.",
+                dimension: "Jaringan Bioskop",
+                image: imgViewCinema,
+                chart: chartInstances.viewersByCinema
             },
-            alternateRowStyles: {
-                fillColor: [249, 250, 251]
+            {
+                title: "TOP 20 Bioskop",
+                subtitle: "Peringkat lokasi bioskop dengan jumlah penonton tertinggi.",
+                dimension: "Bioskop",
+                image: imgTopCinemas,
+                chart: chartInstances.topCinemas
             },
-            columnStyles: {
-                0: { halign: "center", cellWidth: 16 },
-                1: { cellWidth: "auto" },
-                2: { halign: "right", cellWidth: 30 }
+            {
+                title: "Underperforming Kota",
+                subtitle: "Kota dengan jumlah penonton terendah pada periode aktif.",
+                dimension: "Kota",
+                image: imgUnderCity,
+                chart: chartInstances.underCities
             },
-            didDrawPage: function () {
-                addHeader("Executive Summary");
+            {
+                title: "Underperforming Bioskop",
+                subtitle: "Bioskop dengan jumlah penonton terendah pada periode aktif.",
+                dimension: "Bioskop",
+                image: imgUnderCin,
+                chart: chartInstances.underCinemas
             }
+        ];
+
+        chartPages.forEach(function (chartPage) {
+            if (!chartPage.image) return;
+
+            doc.addPage("a4", "landscape");
+            addHeader("Chart Detail");
+            addSectionTitle(chartPage.title, chartPage.subtitle, 37);
+            addChartPanel(chartPage.title, chartPage.image, marginX, 49, usableW, 132);
+            addChartDetailTable(chartPage.title, chartPage.dimension, chartPage.chart);
         });
-
-        doc.setFillColor(...softRed);
-        doc.setDrawColor(254, 202, 202);
-        doc.roundedRect(marginX + 176, 166, usableW - 176, 13, 2, 2, "FD");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.7);
-        doc.setTextColor(...accentColor);
-        doc.text("Catatan", marginX + 181, 171);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(...textColor);
-        doc.text("Ranking tabel menampilkan 12 kota teratas agar halaman tetap ringkas dan mudah dibaca.", marginX + 181, 176, { maxWidth: usableW - 186 });
-
-        doc.addPage("a4", "landscape");
-        addHeader("Chart Details");
-
-        const panelGap = 6;
-        const colW = (usableW - panelGap) / 2;
-        const panelH = 48;
-        const y1 = 35;
-        const y2 = y1 + panelH + panelGap;
-        const y3 = y2 + panelH + panelGap;
-
-        addChartPanel("Grafik Show", imgShows, marginX, y1, colW, panelH);
-        addChartPanel("Penonton per Bioskop", imgViewCinema, marginX + colW + panelGap, y1, colW, panelH);
-        addChartPanel("TOP 20 Bioskop", imgTopCinemas, marginX, y2, colW, panelH);
-        addChartPanel("Underperforming Kota", imgUnderCity, marginX + colW + panelGap, y2, colW, panelH);
-        addChartPanel("Underperforming Bioskop", imgUnderCin, marginX, y3, usableW, panelH);
 
         addFooter();
 
