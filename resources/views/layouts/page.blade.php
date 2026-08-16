@@ -82,8 +82,9 @@
     document.addEventListener('DOMContentLoaded', function () {
         var filmInput = document.getElementById('nama_film');
         var startDateInput = document.getElementById('tanggal_mulai') || document.getElementById('tgl_mulai');
+        var endDateInput = document.getElementById('tanggal_akhir') || document.getElementById('tgl_akhir');
 
-        if (!filmInput || !startDateInput || filmInput.tagName !== 'SELECT') {
+        if (!filmInput || !startDateInput || !endDateInput || filmInput.tagName !== 'SELECT') {
             return;
         }
 
@@ -143,14 +144,19 @@
         var requestSequence = 0;
         var updateFilmStartDate = function () {
             var filmName = filmInput.value;
+            var hasSelectedFilm = filmName && filmName !== 'ALL';
             var currentRequest = ++requestSequence;
 
-            if (!filmName || filmName === 'ALL') {
+            if (!hasSelectedFilm) {
                 startDateInput.value = '';
+                endDateInput.value = '';
                 hideFilmDateInfo();
+                startDateInput.dispatchEvent(new Event('change', { bubbles: true }));
+                endDateInput.dispatchEvent(new Event('change', { bubbles: true }));
                 return;
             }
 
+            startDateInput.value = '';
             showFilmDateInfo('Memuat tanggal tayang...', false);
 
             var url = new URL(@json(route('ref.film-start-date')), window.location.origin);
@@ -174,12 +180,12 @@
                         return;
                     }
 
-                    if (data.tgl_tayang) {
+                    if (hasSelectedFilm && data.tgl_tayang) {
                         showFilmDateInfo(
                             'Tanggal Tayang: <strong>' + formatFilmDate(data.tgl_tayang) + '</strong>',
                             false
                         );
-                    } else {
+                    } else if (hasSelectedFilm) {
                         showFilmDateInfo('Tanggal tayang belum tersedia di Master Film.', true);
                     }
 
@@ -187,9 +193,12 @@
                         startDateInput.value = data.start_date;
                         startDateInput.dispatchEvent(new Event('change', { bubbles: true }));
                     }
+
+                    endDateInput.value = data.end_date || '';
+                    endDateInput.dispatchEvent(new Event('change', { bubbles: true }));
                 })
                 .catch(function (error) {
-                    if (currentRequest === requestSequence) {
+                    if (currentRequest === requestSequence && hasSelectedFilm) {
                         showFilmDateInfo('Tanggal tayang gagal dimuat. Silakan pilih ulang film.', true);
                     }
                     console.error(error);
@@ -206,6 +215,7 @@
         } else {
             filmInput.addEventListener('change', updateFilmStartDate);
         }
+
     });
 </script>
 @endsection

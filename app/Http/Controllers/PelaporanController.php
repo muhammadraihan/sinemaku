@@ -100,7 +100,8 @@ class PelaporanController extends Controller
     }
 
     /**
-     * Return one month before the first screening date for a film.
+     * Return the Master Film screening date, its filter start date, and the
+     * latest reporting date for the selected film as the filter end date.
      */
     public function getFilmStartDate(Request $request)
     {
@@ -108,13 +109,22 @@ class PelaporanController extends Controller
             'nama_film' => 'required|string|max:255',
         ]);
 
-        $firstScreeningDate = MasterFilm::where('name', $request->nama_film)
+        $filmName = $request->nama_film;
+
+        $firstScreeningDate = MasterFilm::where('name', $filmName)
             ->value('tgl_tayang');
+
+        $latestReportDate = Pelaporan::query()
+            ->where('nama_film', $filmName)
+            ->max('tgl_tayang');
 
         if (!$firstScreeningDate) {
             return response()->json([
                 'tgl_tayang' => null,
                 'start_date' => null,
+                'end_date' => $latestReportDate
+                    ? Carbon::parse($latestReportDate)->toDateString()
+                    : null,
             ]);
         }
 
@@ -126,6 +136,9 @@ class PelaporanController extends Controller
                 ->copy()
                 ->subMonthNoOverflow()
                 ->toDateString(),
+            'end_date' => $latestReportDate
+                ? Carbon::parse($latestReportDate)->toDateString()
+                : null,
         ]);
     }
 
