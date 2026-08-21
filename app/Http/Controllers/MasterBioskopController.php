@@ -32,6 +32,9 @@ class MasterBioskopController extends Controller
                 ->editColumn('type', function ($row){
                     return $row->Categories->name;
                 })
+                ->editColumn('nama_bioskop', function ($row) {
+                    return mb_strtoupper($row->nama_bioskop ?? '', 'UTF-8');
+                })
                 ->addColumn('action', function ($row) {
                     return '
                             <a class="btn btn-success btn-sm btn-icon waves-effect waves-themed" href="' . route('masterbioskop.edit', $row->uuid) . '"><i class="fal fa-edit"></i></a>
