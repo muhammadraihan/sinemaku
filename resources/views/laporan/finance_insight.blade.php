@@ -54,6 +54,14 @@
         white-space: nowrap;
     }
 
+    .insight-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
     .insight-kpi-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -205,6 +213,10 @@
             display: inline-block;
             margin-top: 10px;
         }
+
+        .insight-actions {
+            justify-content: flex-start;
+        }
     }
 </style>
 @endsection
@@ -272,12 +284,18 @@
 </div>
 
 <section id="insight-panel" class="insight-panel">
+    <img id="finance-report-logo" src="{{ asset('img/sinemaku.png') }}" alt="Sinemaku Pictures" style="display:none">
     <div class="insight-title">
         <div>
             <h3>Executive Summary</h3>
             <span id="insight-period">Semua periode</span>
         </div>
-        <div class="insight-badge" id="insight-status">Ready</div>
+        <div class="insight-actions">
+            <button type="button" id="download-finance-pdf" class="btn btn-danger btn-sm" style="display:none">
+                <i class="fal fa-file-pdf mr-1"></i> Download PDF
+            </button>
+            <div class="insight-badge" id="insight-status">Ready</div>
+        </div>
     </div>
 
     <div class="insight-kpi-grid">
@@ -404,12 +422,20 @@
 
 @section('js')
 <script src="{{asset('js/formplugins/select2/select2.bundle.js')}}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 <script>
+    var latestFinanceInsightData = null;
+
     $(document).ready(function(){
         $('#nama_film, #bioskop_kategori, #kota, #nama_bioskop, #type_tiket').select2({ width: '100%' });
 
         $('#search-btn').on('click', function () {
             loadInsight();
+        });
+
+        $('#download-finance-pdf').on('click', function () {
+            downloadFinanceInsightPdf();
         });
     });
 
@@ -417,6 +443,8 @@
         $('#insight-panel').hide();
         $('#insight-empty').hide();
         $('#insight-loading').show();
+        $('#download-finance-pdf').hide();
+        latestFinanceInsightData = null;
 
         $.ajax({
             url: '{{ route('finance-insight.data') }}',
@@ -439,7 +467,9 @@
                 }
 
                 renderInsight(response);
+                latestFinanceInsightData = response;
                 $('#insight-panel').show();
+                $('#download-finance-pdf').show();
             },
             error: function () {
                 $('#insight-loading').hide();
@@ -536,6 +566,307 @@
 
         $('#top-occupancy').text(row.label || '-');
         $('#top-occupancy-detail').text(formatPercent(row.occupancy_rate) + ' | ' + (row.kota || '-'));
+    }
+
+    function downloadFinanceInsightPdf() {
+        if (!latestFinanceInsightData || !latestFinanceInsightData.summary) {
+            alert('Data Finance Insight belum tersedia. Silakan jalankan filter terlebih dahulu.');
+            return;
+        }
+
+        var JsPdf = window.jspdf && window.jspdf.jsPDF;
+        if (!JsPdf) {
+            alert('Library PDF belum berhasil dimuat. Silakan refresh halaman dan coba kembali.');
+            return;
+        }
+
+        var doc = new JsPdf('l', 'mm', 'a4');
+        var pageW = doc.internal.pageSize.getWidth();
+        var pageH = doc.internal.pageSize.getHeight();
+        var marginX = 14;
+        var usableW = pageW - (marginX * 2);
+        var brandColor = [47, 69, 88];
+        var accentColor = [153, 27, 27];
+        var textColor = [31, 41, 55];
+        var mutedColor = [107, 114, 128];
+        var borderColor = [229, 231, 235];
+        var data = latestFinanceInsightData;
+        var summary = data.summary || {};
+        var audit = data.audit || {};
+        var generatedAt = new Date().toLocaleString('id-ID', {
+            day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+
+        function selectedText(selector) {
+            var value = $(selector).val();
+            return value ? $(selector + ' option:selected').text() : '-';
+        }
+
+        function pdfNumber(value, decimals) {
+            return Number(value || 0).toLocaleString('id-ID', {
+                minimumFractionDigits: decimals || 0,
+                maximumFractionDigits: decimals || 0
+            });
+        }
+
+        function pdfPercent(value) {
+            return pdfNumber(value, 2) + '%';
+        }
+
+        function addLogo(x, y, size) {
+            var logo = document.getElementById('finance-report-logo');
+            if (logo && logo.complete && logo.naturalWidth) {
+                doc.addImage(logo, 'PNG', x, y, size, size, undefined, 'FAST');
+            }
+        }
+
+        function addHeader(sectionName) {
+            addLogo(marginX, 8, 14);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(13);
+            doc.setTextColor.apply(doc, textColor);
+            doc.text('SINEMAKU PICTURES', marginX + 18, 13);
+            doc.setFontSize(8.5);
+            doc.setTextColor.apply(doc, accentColor);
+            doc.text('Audience Analytics Dashboard', marginX + 18, 18);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor.apply(doc, mutedColor);
+            doc.text(sectionName, pageW - marginX, 13, { align: 'right' });
+            doc.text('Generated: ' + generatedAt, pageW - marginX, 18, { align: 'right' });
+            doc.setDrawColor.apply(doc, accentColor);
+            doc.setLineWidth(0.45);
+            doc.line(marginX, 25, pageW - marginX, 25);
+            doc.setDrawColor.apply(doc, [209, 213, 219]);
+            doc.setLineWidth(0.15);
+            doc.line(marginX, 27, pageW - marginX, 27);
+        }
+
+        function addFooter() {
+            var pages = doc.internal.getNumberOfPages();
+            for (var page = 1; page <= pages; page++) {
+                doc.setPage(page);
+                doc.setDrawColor.apply(doc, borderColor);
+                doc.line(marginX, pageH - 13, pageW - marginX, pageH - 13);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7);
+                doc.setTextColor.apply(doc, mutedColor);
+                doc.text('Sinemaku Pictures - Confidential Analytics Report', marginX, pageH - 8);
+                doc.text('Halaman ' + page + ' dari ' + pages, pageW - marginX, pageH - 8, { align: 'right' });
+            }
+        }
+
+        function addFilterBox() {
+            var filters = [
+                ['Nama Film', selectedText('#nama_film')],
+                ['Periode', reportPeriod()],
+                ['Kategori Bioskop', selectedText('#bioskop_kategori')],
+                ['Kota', selectedText('#kota')],
+                ['Nama Bioskop', selectedText('#nama_bioskop')],
+                ['Tipe Tiket', selectedText('#type_tiket')]
+            ];
+            var y = 46;
+            var columnW = usableW / 3;
+            doc.setFillColor(249, 250, 251);
+            doc.setDrawColor.apply(doc, borderColor);
+            doc.roundedRect(marginX, y, usableW, 34, 2, 2, 'FD');
+            filters.forEach(function (filter, index) {
+                var x = marginX + ((index % 3) * columnW) + 5;
+                var itemY = y + 7 + (Math.floor(index / 3) * 15);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(6.5);
+                doc.setTextColor.apply(doc, mutedColor);
+                doc.text(filter[0].toUpperCase(), x, itemY);
+                doc.setFontSize(8.3);
+                doc.setTextColor.apply(doc, textColor);
+                doc.text(String(filter[1] || '-'), x, itemY + 5, { maxWidth: columnW - 10 });
+            });
+        }
+
+        function addMetric(label, value, x, y, width, color) {
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor.apply(doc, borderColor);
+            doc.roundedRect(x, y, width, 20, 2, 2, 'FD');
+            doc.setFillColor.apply(doc, color);
+            doc.roundedRect(x, y, 3, 20, 1.5, 1.5, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10.5);
+            doc.setTextColor.apply(doc, textColor);
+            doc.text(String(value), x + 7, y + 9, { maxWidth: width - 10 });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.8);
+            doc.setTextColor.apply(doc, mutedColor);
+            doc.text(label, x + 7, y + 15.5);
+        }
+
+        function topCard(label, row, x, y, width, detailOverride) {
+            var title = row && row.label ? row.label : '-';
+            var detail = detailOverride || (row
+                ? 'Total PH ' + pdfNumber(row.total_ph, 2) + ' | Penonton ' + pdfNumber(row.audience, 0)
+                : '-');
+            doc.setFillColor(249, 250, 251);
+            doc.setDrawColor.apply(doc, borderColor);
+            doc.roundedRect(x, y, width, 18, 2, 2, 'FD');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6.3);
+            doc.setTextColor.apply(doc, accentColor);
+            doc.text(label.toUpperCase(), x + 4, y + 5);
+            doc.setFontSize(8.2);
+            doc.setTextColor.apply(doc, textColor);
+            doc.text(String(title), x + 4, y + 10.5, { maxWidth: width - 8 });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.2);
+            doc.setTextColor.apply(doc, mutedColor);
+            doc.text(String(detail), x + 4, y + 15, { maxWidth: width - 8 });
+        }
+
+        addHeader('Executive Summary - Finance Insight');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.setTextColor.apply(doc, textColor);
+        doc.text('Finance Insight Report', marginX, 35);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor.apply(doc, mutedColor);
+        doc.text('Executive summary performa omset, kontribusi PH, coverage, dan risiko data.', marginX, 41);
+        addFilterBox();
+
+        var gap = 4;
+        var metricW = (usableW - (gap * 3)) / 4;
+        addMetric('Gross Box Office', pdfNumber(summary.gross, 2), marginX, 86, metricW, [98, 91, 214]);
+        addMetric('Total PH', pdfNumber(summary.total_ph, 2), marginX + metricW + gap, 86, metricW, [4, 120, 87]);
+        addMetric('Penonton', pdfNumber(summary.audience, 0), marginX + ((metricW + gap) * 2), 86, metricW, [37, 99, 235]);
+        addMetric('ATP', pdfNumber(summary.atp, 2), marginX + ((metricW + gap) * 3), 86, metricW, [255, 159, 67]);
+        addMetric('Occupancy', pdfPercent(summary.occupancy_rate), marginX, 108, metricW, [141, 124, 255]);
+        addMetric('Effective Tax Rate', pdfPercent(summary.effective_tax_rate), marginX + metricW + gap, 108, metricW, [47, 69, 88]);
+        addMetric('Bioskop / Kota / Provinsi', pdfNumber(summary.cinema_count, 0) + ' / ' + pdfNumber(summary.city_count, 0) + ' / ' + pdfNumber(summary.province_count, 0), marginX + ((metricW + gap) * 2), 108, metricW, [40, 199, 162]);
+        addMetric('Audit Issues', pdfNumber(summary.audit_issues, 0), marginX + ((metricW + gap) * 3), 108, metricW, accentColor);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor.apply(doc, textColor);
+        doc.text('Performance Highlights', marginX, 136);
+        var topW = (usableW - (gap * 2)) / 3;
+        topCard('Top Category', data.top_category, marginX, 141, topW);
+        topCard('Top Cinema', data.top_cinema, marginX + topW + gap, 141, topW);
+        topCard('Top City', data.top_city, marginX + ((topW + gap) * 2), 141, topW);
+        topCard('Top Province', data.top_province, marginX, 161, topW);
+        topCard(
+            'Highest Occupancy',
+            data.top_occupancy,
+            marginX + topW + gap,
+            161,
+            topW,
+            data.top_occupancy
+                ? pdfPercent(data.top_occupancy.occupancy_rate) + ' | ' + (data.top_occupancy.kota || '-')
+                : '-'
+        );
+
+        doc.addPage('a4', 'landscape');
+        var notesY = 41;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        (data.notes && data.notes.length ? data.notes : ['Tidak ada catatan khusus.']).forEach(function (note, index) {
+            var lines = doc.splitTextToSize((index + 1) + '. ' + note, usableW);
+            doc.text(lines, marginX, notesY);
+            notesY += (lines.length * 4) + 1;
+        });
+        notesY += 1;
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor.apply(doc, accentColor);
+        doc.text('AUDIT RISK SUMMARY', marginX, notesY);
+        notesY += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor.apply(doc, textColor);
+        doc.text(
+            'Kapasitas / Studio: ' + pdfNumber(audit.capacity_issues, 0)
+                + '  |  Pajak Bioskop: ' + pdfNumber(audit.tax_issues, 0)
+                + '  |  Occupancy > 100%: ' + pdfNumber(audit.occupancy_issues, 0)
+                + '  |  Gross Variance: ' + pdfNumber(audit.gross_issues, 0),
+            marginX,
+            notesY
+        );
+        notesY += 7;
+
+        var provinceRows = (data.province_leaderboard || []).map(function (row, index) {
+            return [
+                index + 1, row.provinsi || '-', pdfNumber(row.city_count, 0), pdfNumber(row.cinema_count, 0),
+                pdfNumber(row.audience, 0), pdfNumber(row.gross, 2), pdfNumber(row.atp, 2),
+                pdfPercent(row.occupancy_rate), pdfNumber(row.total_ph, 2)
+            ];
+        });
+
+        doc.autoTable({
+            startY: notesY,
+            margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
+            head: [['Rank', 'Provinsi', 'Kota', 'Bioskop', 'Penonton', 'Gross', 'ATP', 'Occupancy', 'Total PH']],
+            body: provinceRows,
+            theme: 'grid',
+            showHead: 'everyPage',
+            styles: { font: 'helvetica', fontSize: 7, cellPadding: 2, textColor: textColor },
+            headStyles: { fillColor: brandColor, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+            alternateRowStyles: { fillColor: [249, 250, 251] },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 14 },
+                1: { cellWidth: 'auto' },
+                2: { halign: 'right', cellWidth: 22 },
+                3: { halign: 'right', cellWidth: 22 },
+                4: { halign: 'right', cellWidth: 30 },
+                5: { halign: 'right', cellWidth: 42 },
+                6: { halign: 'right', cellWidth: 35 },
+                7: { halign: 'right', cellWidth: 28 },
+                8: { halign: 'right', cellWidth: 42 }
+            },
+            didDrawPage: function (tableData) {
+                addHeader('Detail Data - Finance Insight');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10.5);
+                doc.setTextColor.apply(doc, textColor);
+                doc.text(tableData.pageNumber === 1 ? 'Management Notes, Audit Risk & Top Province' : 'Top Province (Lanjutan)', marginX, 35);
+            }
+        });
+
+        doc.addPage('a4', 'landscape');
+        var cinemaRows = (data.leaderboard || []).map(function (row, index) {
+            return [
+                index + 1, row.kota || '-', String(row.nama_bioskop || '-').toUpperCase(),
+                pdfNumber(row.audience, 0), pdfNumber(row.gross, 2), pdfNumber(row.atp, 2),
+                pdfPercent(row.occupancy_rate), pdfNumber(row.total_ph, 2)
+            ];
+        });
+
+        doc.autoTable({
+            startY: 42,
+            margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
+            head: [['Rank', 'Kota', 'Nama Bioskop', 'Penonton', 'Gross', 'ATP', 'Occupancy', 'Total PH']],
+            body: cinemaRows,
+            theme: 'grid',
+            showHead: 'everyPage',
+            styles: { font: 'helvetica', fontSize: 7, cellPadding: 2, textColor: textColor },
+            headStyles: { fillColor: brandColor, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+            alternateRowStyles: { fillColor: [249, 250, 251] },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 14 },
+                1: { cellWidth: 35 },
+                2: { cellWidth: 'auto' },
+                3: { halign: 'right', cellWidth: 30 },
+                4: { halign: 'right', cellWidth: 42 },
+                5: { halign: 'right', cellWidth: 35 },
+                6: { halign: 'right', cellWidth: 28 },
+                7: { halign: 'right', cellWidth: 42 }
+            },
+            didDrawPage: function () {
+                addHeader('Detail Data - Finance Insight');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10.5);
+                doc.setTextColor.apply(doc, textColor);
+                doc.text('Top 5 Cinema by Total PH', marginX, 35);
+            }
+        });
+
+        addFooter();
+        var filmName = selectedText('#nama_film').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        doc.save('report-finance-insight-' + (filmName || 'semua-film') + '.pdf');
     }
 
     function reportPeriod() {

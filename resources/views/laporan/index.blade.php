@@ -54,6 +54,14 @@
         white-space: nowrap;
     }
 
+    .finance-waterfall__actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
     .finance-kpi-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -233,6 +241,10 @@
         .waterfall-value {
             text-align: left;
         }
+
+        .finance-waterfall__actions {
+            justify-content: flex-start;
+        }
     }
 </style>
 
@@ -348,7 +360,12 @@
                                 <h3>Revenue Waterfall</h3>
                                 <span>Alur perhitungan dari Gross Box Office sampai estimasi Total PH.</span>
                             </div>
-                            <div class="finance-waterfall__badge">Finance View</div>
+                            <div class="finance-waterfall__actions">
+                                <button type="button" id="download-waterfall-pdf" class="btn btn-danger btn-sm" style="display:none">
+                                    <i class="fal fa-file-pdf mr-1"></i> Download PDF
+                                </button>
+                                <div class="finance-waterfall__badge">Finance View</div>
+                            </div>
                         </div>
                         <div class="finance-kpi-grid">
                             <div class="finance-kpi">
@@ -618,8 +635,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
     var sinemakuLogo = @json(file_exists(public_path('img/sinemaku.png')) ? 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('img/sinemaku.png'))) : null);
+    var latestRevenueWaterfall = null;
 
     $(document).ready(function(){
         $('#nama_film').select2();
@@ -627,6 +646,10 @@
         $('#kota').select2();
         $('#nama_bioskop').select2();
         $('#type_tiket').select2();
+
+        $('#download-waterfall-pdf').on('click', function () {
+            downloadRevenueWaterfallPdf();
+        });
 
         $('#bioskop_kategori').change(function(){
             var kategori = $(this).val();
@@ -739,6 +762,8 @@
 
             $('#revenue-waterfall').hide();
             $('#waterfall-flow').empty();
+            $('#download-waterfall-pdf').hide();
+            latestRevenueWaterfall = null;
             $('#report-tabs').hide();
             if ($.fn.tab) {
                 $('#omset-tab').tab('show');
@@ -1516,6 +1541,20 @@
     }
 
     function renderRevenueWaterfall(values) {
+        latestRevenueWaterfall = {
+            values: $.extend({}, values),
+            filters: {
+                namaFilm: $('#nama_film option:selected').text() || '-',
+                periode: ($('#tanggal_mulai').val() && $('#tanggal_akhir').val())
+                    ? $('#tanggal_mulai').val() + ' s/d ' + $('#tanggal_akhir').val()
+                    : 'Semua Periode',
+                kategori: $('#bioskop_kategori option:selected').text() || '-',
+                kota: $('#kota option:selected').text() || '-',
+                bioskop: $('#nama_bioskop option:selected').text() || '-',
+                tipeTiket: $('#type_tiket option:selected').text() || '-'
+            }
+        };
+
         var gross = values.gross || 0;
         var maxValue = Math.max(gross, values.net || 0, values.total || 0, 1);
         var steps = [
@@ -1561,6 +1600,182 @@
 
         $('#waterfall-flow').html(html);
         $('#revenue-waterfall').show();
+        $('#download-waterfall-pdf').show();
+    }
+
+    function downloadRevenueWaterfallPdf() {
+        if (!latestRevenueWaterfall || !latestRevenueWaterfall.values) {
+            alert('Data Revenue Waterfall belum tersedia. Silakan jalankan filter terlebih dahulu.');
+            return;
+        }
+
+        var JsPdf = window.jspdf && window.jspdf.jsPDF;
+        if (!JsPdf) {
+            alert('Library PDF belum berhasil dimuat. Silakan refresh halaman dan coba kembali.');
+            return;
+        }
+
+        var doc = new JsPdf('l', 'mm', 'a4');
+        var pageW = doc.internal.pageSize.getWidth();
+        var pageH = doc.internal.pageSize.getHeight();
+        var marginX = 14;
+        var usableW = pageW - (marginX * 2);
+        var brandColor = [47, 69, 88];
+        var accentColor = [153, 27, 27];
+        var textColor = [31, 41, 55];
+        var mutedColor = [107, 114, 128];
+        var borderColor = [229, 231, 235];
+        var values = latestRevenueWaterfall.values;
+        var filters = latestRevenueWaterfall.filters;
+        var generatedAt = new Date().toLocaleString('id-ID', {
+            day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+
+        function pdfNumber(value, decimals) {
+            return Number(value || 0).toLocaleString('id-ID', {
+                minimumFractionDigits: decimals || 0,
+                maximumFractionDigits: decimals || 0
+            });
+        }
+
+        function addHeader() {
+            if (sinemakuLogo) {
+                doc.addImage(sinemakuLogo, 'PNG', marginX, 8, 14, 14, undefined, 'FAST');
+            }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(13);
+            doc.setTextColor.apply(doc, textColor);
+            doc.text('SINEMAKU PICTURES', marginX + 18, 13);
+            doc.setFontSize(8.5);
+            doc.setTextColor.apply(doc, accentColor);
+            doc.text('Audience Analytics Dashboard', marginX + 18, 18);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor.apply(doc, mutedColor);
+            doc.text('Revenue Waterfall Report', pageW - marginX, 13, { align: 'right' });
+            doc.text('Generated: ' + generatedAt, pageW - marginX, 18, { align: 'right' });
+            doc.setDrawColor.apply(doc, accentColor);
+            doc.setLineWidth(0.45);
+            doc.line(marginX, 25, pageW - marginX, 25);
+            doc.setDrawColor.apply(doc, [209, 213, 219]);
+            doc.setLineWidth(0.15);
+            doc.line(marginX, 27, pageW - marginX, 27);
+        }
+
+        function addFooter() {
+            doc.setDrawColor.apply(doc, borderColor);
+            doc.line(marginX, pageH - 13, pageW - marginX, pageH - 13);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor.apply(doc, mutedColor);
+            doc.text('Sinemaku Pictures - Confidential Analytics Report', marginX, pageH - 8);
+            doc.text('Halaman 1 dari 1', pageW - marginX, pageH - 8, { align: 'right' });
+        }
+
+        function addFilterBox() {
+            var items = [
+                ['Nama Film', filters.namaFilm], ['Periode', filters.periode], ['Kategori Bioskop', filters.kategori],
+                ['Kota', filters.kota], ['Nama Bioskop', filters.bioskop], ['Tipe Tiket', filters.tipeTiket]
+            ];
+            var y = 46;
+            var columnW = usableW / 3;
+            doc.setFillColor(249, 250, 251);
+            doc.setDrawColor.apply(doc, borderColor);
+            doc.roundedRect(marginX, y, usableW, 34, 2, 2, 'FD');
+            items.forEach(function (item, index) {
+                var x = marginX + ((index % 3) * columnW) + 5;
+                var itemY = y + 7 + (Math.floor(index / 3) * 15);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(6.5);
+                doc.setTextColor.apply(doc, mutedColor);
+                doc.text(item[0].toUpperCase(), x, itemY);
+                doc.setFontSize(8.3);
+                doc.setTextColor.apply(doc, textColor);
+                doc.text(String(item[1] || '-'), x, itemY + 5, { maxWidth: columnW - 10 });
+            });
+        }
+
+        function addMetric(label, value, x, y, width, color) {
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor.apply(doc, borderColor);
+            doc.roundedRect(x, y, width, 18, 2, 2, 'FD');
+            doc.setFillColor.apply(doc, color);
+            doc.roundedRect(x, y, 3, 18, 1.5, 1.5, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9.5);
+            doc.setTextColor.apply(doc, textColor);
+            doc.text(String(value), x + 7, y + 8, { maxWidth: width - 10 });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor.apply(doc, mutedColor);
+            doc.text(label, x + 7, y + 14);
+        }
+
+        addHeader();
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.setTextColor.apply(doc, textColor);
+        doc.text('Revenue Waterfall', marginX, 35);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor.apply(doc, mutedColor);
+        doc.text('Alur perhitungan dari Gross Box Office sampai estimasi Total PH.', marginX, 41);
+        addFilterBox();
+
+        var gap = 4;
+        var metricW = (usableW - (gap * 3)) / 4;
+        addMetric('Gross Box Office', pdfNumber(values.gross, 2), marginX, 85, metricW, brandColor);
+        addMetric('Average Ticket Price', pdfNumber(values.atp, 2), marginX + metricW + gap, 85, metricW, [98, 91, 214]);
+        addMetric('Occupancy Rate', pdfNumber(values.occupancyRate, 2) + '%', marginX + ((metricW + gap) * 2), 85, metricW, [37, 99, 235]);
+        addMetric('Effective Tax Rate', pdfNumber(values.effectiveTaxRate, 2) + '%', marginX + ((metricW + gap) * 3), 85, metricW, accentColor);
+
+        var steps = [
+            { label: 'Gross Box Office', value: values.gross, color: brandColor },
+            { label: 'Pajak', value: values.tax, prefix: '-', color: accentColor },
+            { label: 'Net Box Office', value: values.net, color: [37, 99, 235] },
+            { label: 'Share 50%', value: values.share, prefix: '-', color: accentColor },
+            { label: 'Royalty 1.5%', value: values.royalty, prefix: '-', color: accentColor },
+            { label: 'Total PH', value: values.total, color: [4, 120, 87] }
+        ];
+        var maxValue = Math.max(Number(values.gross || 0), Number(values.net || 0), Number(values.total || 0), 1);
+        var labelW = 36;
+        var valueW = 45;
+        var trackX = marginX + labelW;
+        var trackW = usableW - labelW - valueW;
+        var flowY = 109;
+
+        steps.forEach(function (step, index) {
+            var rowY = flowY + (index * 11.5);
+            var value = Number(step.value || 0);
+            var barW = Math.max((Math.abs(value) / maxValue) * trackW, value ? 2 : 0);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor.apply(doc, textColor);
+            doc.text(step.label, marginX, rowY + 5.5, { maxWidth: labelW - 3 });
+            doc.setFillColor(243, 244, 246);
+            doc.roundedRect(trackX, rowY, trackW, 7, 3.5, 3.5, 'F');
+            if (barW > 0) {
+                doc.setFillColor.apply(doc, step.color);
+                var barRadius = Math.min(3.5, barW / 2);
+                doc.roundedRect(trackX, rowY, barW, 7, barRadius, barRadius, 'F');
+            }
+            doc.setFontSize(7.5);
+            doc.text((step.prefix || '') + pdfNumber(value, 2), pageW - marginX, rowY + 5.5, { align: 'right' });
+        });
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor.apply(doc, mutedColor);
+        doc.text(
+            'Formula: Occupancy = Penonton / Kapasitas Tersedia; Gross - Pajak = Net; Net - Share 50% - Royalty 1.5% dari share = Total PH.',
+            marginX,
+            183,
+            { maxWidth: usableW }
+        );
+        addFooter();
+
+        var filmName = String(filters.namaFilm || 'semua-film').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        doc.save('report-revenue-waterfall-' + (filmName || 'semua-film') + '.pdf');
     }
 </script>
 @endsection
