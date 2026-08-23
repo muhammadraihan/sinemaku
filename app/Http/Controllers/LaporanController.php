@@ -1140,16 +1140,6 @@ class LaporanController extends Controller
 
         $rows = DB::select($sql, $bindings);
 
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-
-        $headers = [
-            'Tanggal', 'Kategori', 'Kota', 'Nama Bioskop', 'Studio', 'Kapasitas',
-            'S1','S2','S3','S4','S5','S6','S7','Total','Kapasitas Tersedia','Occupancy Rate','Harga','Gross','ATP','Effective Tax Rate','Pajak %','Pajak','Net','Share','Share PH','Royalty (1.5%)','Total Akhir'
-        ];
-
-        $sheet->fromArray($headers, null, 'A1');
-
         $toNumber = function ($value) {
             return (float) str_replace(',', '', $value ?? 0);
         };
@@ -1172,7 +1162,6 @@ class LaporanController extends Controller
             'total_akhir' => 0,
         ];
 
-        $rowNum = 2;
         foreach ($rows as $r) {
             $totals['S1'] += $toNumber($r->S1);
             $totals['S2'] += $toNumber($r->S2);
@@ -1189,6 +1178,28 @@ class LaporanController extends Controller
             $totals['share_ph'] += $toNumber($r->share_ph);
             $totals['royalty'] += $toNumber($r->royalty);
             $totals['total_akhir'] += $toNumber($r->total_akhir);
+        }
+
+        if ($request->query('format') === 'json') {
+            return response()->json([
+                'rows' => $rows,
+                'totals' => $totals,
+                'row_count' => count($rows),
+            ]);
+        }
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $headers = [
+            'Tanggal', 'Kategori', 'Kota', 'Nama Bioskop', 'Studio', 'Kapasitas',
+            'S1','S2','S3','S4','S5','S6','S7','Total','Kapasitas Tersedia','Occupancy Rate','Harga','Gross','ATP','Effective Tax Rate','Pajak %','Pajak','Net','Share','Share PH','Royalty (1.5%)','Total Akhir'
+        ];
+
+        $sheet->fromArray($headers, null, 'A1');
+
+        $rowNum = 2;
+        foreach ($rows as $r) {
 
             $sheet->setCellValue('A' . $rowNum, $r->tgl_tayang);
             $sheet->setCellValue('B' . $rowNum, $r->name);

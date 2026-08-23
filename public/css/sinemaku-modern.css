@@ -524,6 +524,27 @@ body.sinemaku-modern-shell .btn {
     font-weight: 700;
 }
 
+body.sinemaku-modern-shell .filter-search-column {
+    display: flex;
+    align-items: flex-end;
+}
+
+body.sinemaku-modern-shell .filter-search-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    height: 46px;
+    padding: 0 14px;
+    line-height: 1;
+}
+
+body.sinemaku-modern-shell .filter-search-btn i {
+    margin: 0 !important;
+    line-height: 1;
+    font-size: 1rem;
+}
+
 body.sinemaku-modern-shell .btn-primary {
     background: var(--sinemaku-blue);
     border-color: var(--sinemaku-blue);

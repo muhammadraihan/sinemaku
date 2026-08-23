@@ -180,6 +180,64 @@
         border-color: #e5e7eb #e5e7eb #ffffff;
     }
 
+    .detail-export-dropdown {
+        position: absolute;
+        z-index: 2050;
+        display: none;
+        width: 210px;
+        padding: 6px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 41, 55, 0.16);
+    }
+
+    .detail-export-dropdown__label {
+        display: block;
+        padding: 5px 9px 7px;
+        color: #6b7280;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .detail-export-dropdown__item {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        gap: 9px;
+        padding: 8px 9px;
+        border: 0;
+        border-radius: 7px;
+        color: #374151;
+        background: transparent;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: left;
+    }
+
+    .detail-export-dropdown__item:hover,
+    .detail-export-dropdown__item:focus {
+        color: #26225e;
+        background: #f3f2ff;
+        outline: none;
+    }
+
+    .detail-export-dropdown__item i {
+        width: 16px;
+        font-size: 14px;
+        text-align: center;
+    }
+
+    .detail-export-dropdown__item--excel i {
+        color: #198754;
+    }
+
+    .detail-export-dropdown__item--pdf i {
+        color: #dc3545;
+    }
+
     #report-tabs .dataTables_scrollBody {
         border-bottom: 1px solid #e5e7eb;
     }
@@ -348,9 +406,10 @@
                                 <div class="invalid-feedback">{{ $errors->first('type_tiket') }}</div>
                                 @endif
                             </div>
-                            <div class="form-group col-md-1 mb-3">
-                                {{ Form::label('','',['class' => 'form-label'])}} <br>
-                                <button type="button" id="search-btn" class="btn btn-primary w-100">Search</button>
+                            <div class="form-group col-md-1 mb-3 filter-search-column">
+                                <button type="button" id="search-btn" class="btn btn-primary w-100 filter-search-btn" title="Tampilkan Rekap Omset" aria-label="Tampilkan Rekap Omset">
+                                    <i class="fal fa-search"></i>
+                                </button>
                             </div>
                         </div>
                     </form>
@@ -428,6 +487,15 @@
                             <div class="tab-pane fade show active" id="omset-pane" role="tabpanel" aria-labelledby="omset-tab">
                                 <div id="data-summary">
                                     {{-- <h4>📊 List 20 Besar Kota Dengan Penonton Tertinggi</h4> --}}
+                                    <div id="detail-export-dropdown" class="detail-export-dropdown" role="menu" aria-label="Pilihan export detail">
+                                        <span class="detail-export-dropdown__label">Pilih format</span>
+                                        <button type="button" id="detail-export-excel" class="detail-export-dropdown__item detail-export-dropdown__item--excel" role="menuitem">
+                                            <i class="fa fa-file-excel"></i> Excel Detail
+                                        </button>
+                                        <button type="button" id="detail-export-pdf" class="detail-export-dropdown__item detail-export-dropdown__item--pdf" role="menuitem">
+                                            <i class="fa fa-file-pdf"></i> PDF Detail
+                                        </button>
+                                    </div>
                                     <table id="summary-table" class="table table-bordered table-hover table-striped w-100">
                                         <thead>
                                             <tr>
@@ -636,19 +704,100 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 <script>
     var sinemakuLogo = @json(file_exists(public_path('img/sinemaku.png')) ? 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('img/sinemaku.png'))) : null);
     var latestRevenueWaterfall = null;
+    var currentDetailExportParams = null;
+    var currentDetailExportFilters = null;
+    var currentDetailExportButton = null;
+
+    function hideDetailExportDropdown() {
+        $('#detail-export-dropdown').stop(true, true).fadeOut(100);
+        if (currentDetailExportButton) {
+            $(currentDetailExportButton).attr('aria-expanded', 'false');
+        }
+        currentDetailExportButton = null;
+    }
+
+    function toggleDetailExportDropdown(buttonNode) {
+        var $dropdown = $('#detail-export-dropdown');
+        var $button = $(buttonNode);
+
+        if ($dropdown.is(':visible') && currentDetailExportButton === buttonNode) {
+            hideDetailExportDropdown();
+            return;
+        }
+
+        var buttonOffset = $button.offset();
+        var dropdownWidth = $dropdown.outerWidth() || 210;
+        var left = buttonOffset.left;
+        var maxLeft = $(window).scrollLeft() + $(window).width() - dropdownWidth - 12;
+
+        currentDetailExportButton = buttonNode;
+        $button.attr('aria-expanded', 'true');
+        $dropdown
+            .css({
+                top: buttonOffset.top + $button.outerHeight() + 6,
+                left: Math.max($(window).scrollLeft() + 12, Math.min(left, maxLeft))
+            })
+            .stop(true, true)
+            .fadeIn(120);
+    }
 
     $(document).ready(function(){
+        $('#detail-export-dropdown').appendTo(document.body);
+
         $('#nama_film').select2();
         $('#bioskop_kategori').select2();
         $('#kota').select2();
         $('#nama_bioskop').select2();
         $('#type_tiket').select2();
 
+        $('#nama_film').on('change.rekapFilterDefaults', function () {
+            if (!$(this).val()) {
+                return;
+            }
+
+            // Setiap pemilihan film memulai filter turunannya dari cakupan penuh.
+            // Trigger change pada kategori tetap menjalankan pemuatan ulang opsi
+            // kota, bioskop, dan tipe tiket yang sudah ada.
+            $('#bioskop_kategori').val('ALL').trigger('change');
+            $('#kota, #nama_bioskop, #type_tiket').val('ALL').trigger('change.select2');
+        });
+
         $('#download-waterfall-pdf').on('click', function () {
             downloadRevenueWaterfallPdf();
+        });
+
+        $('#detail-export-excel').on('click', function () {
+            if (!currentDetailExportParams) {
+                alert('Silakan jalankan filter terlebih dahulu.');
+                return;
+            }
+
+            hideDetailExportDropdown();
+            window.location.href = '{{ route('laporan.detailExport') }}' + '?' + $.param(currentDetailExportParams);
+        });
+
+        $('#detail-export-pdf').on('click', function () {
+            if (!currentDetailExportParams || !currentDetailExportFilters) {
+                alert('Silakan jalankan filter terlebih dahulu.');
+                return;
+            }
+
+            hideDetailExportDropdown();
+            downloadDetailPdf(currentDetailExportParams, currentDetailExportFilters, this);
+        });
+
+        $(document).on('click', function (event) {
+            if (!$(event.target).closest('#detail-export-dropdown, .detail-export-trigger').length) {
+                hideDetailExportDropdown();
+            }
+        });
+
+        $(window).on('resize scroll', function () {
+            hideDetailExportDropdown();
         });
 
         $('#bioskop_kategori').change(function(){
@@ -672,6 +821,7 @@
                     $("#nama_bioskop").empty();
 
                     $("#nama_bioskop").append('<option value="ALL">Semua ...</option>');
+                    $("#kota, #nama_bioskop").val('ALL').trigger('change.select2');
                 }
             });
 
@@ -689,6 +839,8 @@
                     $.each(data, function(key, value) {
                         $("#type_tiket").append('<option value="' + key + '">' + value + '</option>');
                     });
+
+                    $("#type_tiket").val('ALL').trigger('change.select2');
                 }
             });
         });
@@ -712,6 +864,8 @@
                     $.each(data, function(key, value) {
                         $("#nama_bioskop").append('<option value="' + key + '">' + value + '</option>');
                     });
+
+                    $("#nama_bioskop").val('ALL').trigger('change.select2');
                 }
             });
         });
@@ -739,6 +893,29 @@
 
                 return 'Semua Periode';
             }
+
+            var detailExportParams = {
+                nama_film: nama_film,
+                tgl_mulai: tgl_mulai,
+                tgl_akhir: tgl_akhir,
+                bioskop_kategori: bioskop_kategori,
+                kota: kota,
+                nama_bioskop: nama_bioskop,
+                type_tiket: type_tiket
+            };
+
+            var detailExportFilters = {
+                namaFilm: selectedText('#nama_film'),
+                periode: reportPeriod(),
+                kategori: selectedText('#bioskop_kategori'),
+                kota: selectedText('#kota'),
+                bioskop: selectedText('#nama_bioskop'),
+                tipeTiket: selectedText('#type_tiket')
+            };
+
+            currentDetailExportParams = detailExportParams;
+            currentDetailExportFilters = detailExportFilters;
+            hideDetailExportDropdown();
 
             if ($.fn.DataTable.isDataTable("#datatable")) {
                 $('#datatable').DataTable().destroy();
@@ -1139,19 +1316,15 @@
                 dom: 'Bfrtip', // <== Tambahkan ini agar tombol tampil
                 buttons: [
                     {
-                        text: '<i class="fa fa-file-excel"></i> Detail',
-                        className: 'btn btn-info btn-sm rounded-pill',
-                        action: function (e, dt, node, config) {
-                            var params = $.param({
-                                nama_film: nama_film,
-                                tgl_mulai: tgl_mulai,
-                                tgl_akhir: tgl_akhir,
-                                bioskop_kategori: bioskop_kategori,
-                                kota: kota,
-                                nama_bioskop: nama_bioskop,
-                                type_tiket: type_tiket
-                            });
-                            window.location.href = '{{ route('laporan.detailExport') }}' + '?' + params;
+                        text: '<i class="fa fa-download"></i> Detail <i class="fa fa-caret-down ml-1"></i>',
+                        className: 'btn btn-info btn-sm rounded-pill detail-export-trigger',
+                        attr: {
+                            'aria-haspopup': 'true',
+                            'aria-expanded': 'false'
+                        },
+                        action: function (event, dataTable, buttonNode) {
+                            event.stopPropagation();
+                            toggleDetailExportDropdown(buttonNode[0]);
                         }
                     },
                     {
@@ -1538,6 +1711,325 @@
 
     function formatPercent(value) {
         return value.toFixed(2) + '%';
+    }
+
+    function downloadDetailPdf(params, filters, triggerNode) {
+        var JsPdf = window.jspdf && window.jspdf.jsPDF;
+        if (!JsPdf || !JsPdf.API.autoTable) {
+            alert('Library PDF belum berhasil dimuat. Silakan refresh halaman dan coba kembali.');
+            return;
+        }
+
+        var $trigger = $(triggerNode);
+        var originalHtml = $trigger.html();
+        $trigger.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Menyiapkan PDF...');
+
+        $.ajax({
+            url: '{{ route('laporan.detailExport') }}',
+            type: 'GET',
+            data: $.extend({}, params, { format: 'json' }),
+            success: function (response) {
+                var rows = response.rows || [];
+                var totals = response.totals || {};
+
+                if (!rows.length) {
+                    alert('Tidak ada data detail untuk filter yang dipilih.');
+                    return;
+                }
+
+                var doc = new JsPdf('l', 'mm', 'a4');
+                var pageW = doc.internal.pageSize.getWidth();
+                var pageH = doc.internal.pageSize.getHeight();
+                var marginX = 14;
+                var usableW = pageW - (marginX * 2);
+                var brandColor = [47, 69, 88];
+                var accentColor = [153, 27, 27];
+                var textColor = [31, 41, 55];
+                var mutedColor = [107, 114, 128];
+                var borderColor = [229, 231, 235];
+                var generatedDate = new Date();
+                var padDatePart = function (value) {
+                    return String(value).padStart(2, '0');
+                };
+                var generatedAt = padDatePart(generatedDate.getDate())
+                    + '-' + padDatePart(generatedDate.getMonth() + 1)
+                    + '-' + generatedDate.getFullYear()
+                    + ' ' + padDatePart(generatedDate.getHours())
+                    + ':' + padDatePart(generatedDate.getMinutes());
+
+                function pdfNumber(value, decimals) {
+                    return Number(parseNumber(value)).toLocaleString('id-ID', {
+                        minimumFractionDigits: decimals || 0,
+                        maximumFractionDigits: decimals || 0
+                    });
+                }
+
+                function pdfPercent(value) {
+                    return pdfNumber(value, 2) + '%';
+                }
+
+                function displayDate(value) {
+                    var match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    return match ? match[3] + '-' + match[2] + '-' + match[1] : (value || '-');
+                }
+
+                function displayPeriod(value) {
+                    return String(value || '-').replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, function (date, year, month, day) {
+                        return day + '-' + month + '-' + year;
+                    });
+                }
+
+                function addHeader(sectionName) {
+                    if (sinemakuLogo) {
+                        doc.addImage(sinemakuLogo, 'PNG', marginX, 8, 14, 14, undefined, 'FAST');
+                    }
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(15);
+                    doc.setTextColor.apply(doc, textColor);
+                    doc.text('SINEMAKU PICTURES', marginX + 18, 13);
+                    doc.setFontSize(9.5);
+                    doc.setTextColor.apply(doc, accentColor);
+                    doc.text('Audience Analytics Dashboard', marginX + 18, 18);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(8.5);
+                    doc.setTextColor.apply(doc, mutedColor);
+                    doc.text(sectionName, pageW - marginX, 13, { align: 'right' });
+                    doc.text('Generated: ' + generatedAt, pageW - marginX, 18, { align: 'right' });
+                    doc.setDrawColor.apply(doc, accentColor);
+                    doc.setLineWidth(0.45);
+                    doc.line(marginX, 25, pageW - marginX, 25);
+                    doc.setDrawColor.apply(doc, [209, 213, 219]);
+                    doc.setLineWidth(0.15);
+                    doc.line(marginX, 27, pageW - marginX, 27);
+                }
+
+                function addFooter() {
+                    var pages = doc.internal.getNumberOfPages();
+                    for (var page = 1; page <= pages; page++) {
+                        doc.setPage(page);
+                        doc.setDrawColor.apply(doc, borderColor);
+                        doc.line(marginX, pageH - 13, pageW - marginX, pageH - 13);
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(8);
+                        doc.setTextColor.apply(doc, mutedColor);
+                        doc.text('Sinemaku Pictures - Confidential Analytics Report', marginX, pageH - 8);
+                        doc.text('Halaman ' + page + ' dari ' + pages, pageW - marginX, pageH - 8, { align: 'right' });
+                    }
+                }
+
+                function addFilterBox() {
+                    var items = [
+                        ['Nama Film', filters.namaFilm], ['Periode', displayPeriod(filters.periode)], ['Kategori Bioskop', filters.kategori],
+                        ['Kota', filters.kota], ['Nama Bioskop', filters.bioskop], ['Tipe Tiket', filters.tipeTiket]
+                    ];
+                    var y = 47;
+                    var columnW = usableW / 3;
+                    doc.setFillColor(249, 250, 251);
+                    doc.setDrawColor.apply(doc, borderColor);
+                    doc.roundedRect(marginX, y, usableW, 34, 2, 2, 'FD');
+                    items.forEach(function (item, index) {
+                        var x = marginX + ((index % 3) * columnW) + 5;
+                        var itemY = y + 7 + (Math.floor(index / 3) * 15);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(7.5);
+                        doc.setTextColor.apply(doc, mutedColor);
+                        doc.text(item[0].toUpperCase(), x, itemY);
+                        doc.setFontSize(9);
+                        doc.setTextColor.apply(doc, textColor);
+                        doc.text(String(item[1] || '-'), x, itemY + 5, { maxWidth: columnW - 10 });
+                    });
+                }
+
+                function addMetric(label, value, x, y, width, color) {
+                    doc.setFillColor(255, 255, 255);
+                    doc.setDrawColor.apply(doc, borderColor);
+                    doc.roundedRect(x, y, width, 20, 2, 2, 'FD');
+                    doc.setFillColor.apply(doc, color);
+                    doc.roundedRect(x, y, 3, 20, 1.5, 1.5, 'F');
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(11);
+                    doc.setTextColor.apply(doc, textColor);
+                    doc.text(String(value), x + 7, y + 9, { maxWidth: width - 10 });
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(7.5);
+                    doc.setTextColor.apply(doc, mutedColor);
+                    doc.text(label, x + 7, y + 15.5);
+                }
+
+                addHeader('Executive Summary - Detail Rekap Omset');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(15);
+                doc.setTextColor.apply(doc, textColor);
+                doc.text('Laporan Detail Rekap Omset', marginX, 35);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.setTextColor.apply(doc, mutedColor);
+                doc.text('Detail operasional dan finansial berdasarkan filter laporan aktif.', marginX, 41);
+                addFilterBox();
+
+                var metricGap = 4;
+                var metricW = (usableW - (metricGap * 3)) / 4;
+                addMetric('Baris Detail', pdfNumber(response.row_count, 0), marginX, 87, metricW, [98, 91, 214]);
+                addMetric('Total Penonton', pdfNumber(totals.Total, 0), marginX + metricW + metricGap, 87, metricW, [37, 99, 235]);
+                addMetric('Total Gross', pdfNumber(totals.gross, 2), marginX + ((metricW + metricGap) * 2), 87, metricW, [40, 199, 162]);
+                addMetric('Total Akhir / PH', pdfNumber(totals.total_akhir, 2), marginX + ((metricW + metricGap) * 3), 87, metricW, [4, 120, 87]);
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(8);
+                doc.setTextColor.apply(doc, accentColor);
+                doc.text('STRUKTUR PDF', marginX, 119);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8.5);
+                doc.setTextColor.apply(doc, textColor);
+                doc.text(
+                    'Tabel dipisahkan menjadi Detail Operasional dan Detail Finansial agar setiap kolom tetap terbaca pada ukuran A4 landscape.',
+                    marginX,
+                    125,
+                    { maxWidth: usableW }
+                );
+                doc.setTextColor.apply(doc, mutedColor);
+                doc.text(
+                    'Kolom yang tidak disertakan: Kota, Kapasitas, ATP, Effective Tax Rate, dan Share.',
+                    marginX,
+                    132,
+                    { maxWidth: usableW }
+                );
+
+                var operationalRows = rows.map(function (row, index) {
+                    return [
+                        index + 1,
+                        displayDate(row.tgl_tayang),
+                        row.name || '-',
+                        String(row.nama_bioskop || '-').toUpperCase(),
+                        row.studio || '-',
+                        pdfNumber(row.S1, 0), pdfNumber(row.S2, 0), pdfNumber(row.S3, 0), pdfNumber(row.S4, 0),
+                        pdfNumber(row.S5, 0), pdfNumber(row.S6, 0), pdfNumber(row.S7, 0),
+                        pdfNumber(row.Total, 0), pdfNumber(row.seats_available, 2), pdfPercent(row.occupancy_rate)
+                    ];
+                });
+                operationalRows.push([
+                    '', 'TOTAL', '', '', '',
+                    pdfNumber(totals.S1, 0), pdfNumber(totals.S2, 0), pdfNumber(totals.S3, 0), pdfNumber(totals.S4, 0),
+                    pdfNumber(totals.S5, 0), pdfNumber(totals.S6, 0), pdfNumber(totals.S7, 0),
+                    pdfNumber(totals.Total, 0), pdfNumber(totals.seats_available, 2),
+                    totals.seats_available ? pdfPercent((totals.Total / totals.seats_available) * 100) : '0,00%'
+                ]);
+
+                doc.addPage('a4', 'landscape');
+                doc.autoTable({
+                    startY: 42,
+                    margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
+                    head: [['No', 'Tanggal', 'Kategori', 'Nama Bioskop', 'Studio', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'Total', 'Kapasitas Tersedia', 'Occupancy']],
+                    body: operationalRows,
+                    theme: 'grid',
+                    showHead: 'everyPage',
+                    styles: { font: 'helvetica', fontSize: 6.8, cellPadding: 1.5, textColor: textColor, overflow: 'linebreak' },
+                    headStyles: { fillColor: brandColor, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+                    alternateRowStyles: { fillColor: [249, 250, 251] },
+                    columnStyles: {
+                        0: { halign: 'center', cellWidth: 8 },
+                        1: { halign: 'center', cellWidth: 18 },
+                        2: { cellWidth: 32 },
+                        3: { cellWidth: 59 },
+                        4: { cellWidth: 15 },
+                        5: { halign: 'right', cellWidth: 10 }, 6: { halign: 'right', cellWidth: 10 },
+                        7: { halign: 'right', cellWidth: 10 }, 8: { halign: 'right', cellWidth: 10 },
+                        9: { halign: 'right', cellWidth: 10 }, 10: { halign: 'right', cellWidth: 10 },
+                        11: { halign: 'right', cellWidth: 10 }, 12: { halign: 'right', cellWidth: 16 },
+                        13: { halign: 'right', cellWidth: 28 }, 14: { halign: 'right', cellWidth: 23 }
+                    },
+                    didParseCell: function (tableData) {
+                        if (tableData.section === 'body' && tableData.row.index === operationalRows.length - 1) {
+                            tableData.cell.styles.fontStyle = 'bold';
+                            tableData.cell.styles.fillColor = brandColor;
+                            tableData.cell.styles.textColor = [255, 255, 255];
+                        }
+                    },
+                    didDrawPage: function () {
+                        addHeader('Detail Data - Rekap Omset');
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(11);
+                        doc.setTextColor.apply(doc, textColor);
+                        doc.text('Detail Operasional', marginX, 35);
+                    }
+                });
+
+                var financialRows = rows.map(function (row, index) {
+                    return [
+                        index + 1,
+                        displayDate(row.tgl_tayang),
+                        row.name || '-',
+                        String(row.nama_bioskop || '-').toUpperCase(),
+                        row.studio || '-',
+                        pdfNumber(row.harga, 2),
+                        pdfNumber(row.gross, 2),
+                        pdfPercent(row.pajak_persen),
+                        pdfNumber(row.pajak, 2),
+                        pdfNumber(row.net, 2),
+                        pdfNumber(row.share_ph, 2),
+                        pdfNumber(row.royalty, 2),
+                        pdfNumber(row.total_akhir, 2)
+                    ];
+                });
+                financialRows.push([
+                    '', 'TOTAL', '', '', '', '',
+                    pdfNumber(totals.gross, 2), '', pdfNumber(totals.pajak, 2), pdfNumber(totals.net, 2),
+                    pdfNumber(totals.share_ph, 2), pdfNumber(totals.royalty, 2), pdfNumber(totals.total_akhir, 2)
+                ]);
+
+                doc.addPage('a4', 'landscape');
+                doc.autoTable({
+                    startY: 42,
+                    margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
+                    head: [['No', 'Tanggal', 'Kategori', 'Nama Bioskop', 'Studio', 'Harga', 'Gross', 'Pajak %', 'Pajak', 'Net', 'Share PH', 'Royalty 1.5%', 'Total Akhir']],
+                    body: financialRows,
+                    theme: 'grid',
+                    showHead: 'everyPage',
+                    styles: { font: 'helvetica', fontSize: 6.5, cellPadding: 1.5, textColor: textColor, overflow: 'linebreak' },
+                    headStyles: { fillColor: brandColor, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+                    alternateRowStyles: { fillColor: [249, 250, 251] },
+                    columnStyles: {
+                        0: { halign: 'center', cellWidth: 7 },
+                        1: { halign: 'center', cellWidth: 18 },
+                        2: { cellWidth: 27 },
+                        3: { cellWidth: 40 },
+                        4: { cellWidth: 12 },
+                        5: { halign: 'right', cellWidth: 18 },
+                        6: { halign: 'right', cellWidth: 24 },
+                        7: { halign: 'right', cellWidth: 11 },
+                        8: { halign: 'right', cellWidth: 21 },
+                        9: { halign: 'right', cellWidth: 22 },
+                        10: { halign: 'right', cellWidth: 22 },
+                        11: { halign: 'right', cellWidth: 21 },
+                        12: { halign: 'right', cellWidth: 26 }
+                    },
+                    didParseCell: function (tableData) {
+                        if (tableData.section === 'body' && tableData.row.index === financialRows.length - 1) {
+                            tableData.cell.styles.fontStyle = 'bold';
+                            tableData.cell.styles.fillColor = brandColor;
+                            tableData.cell.styles.textColor = [255, 255, 255];
+                        }
+                    },
+                    didDrawPage: function () {
+                        addHeader('Detail Data - Rekap Omset');
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(11);
+                        doc.setTextColor.apply(doc, textColor);
+                        doc.text('Detail Finansial', marginX, 35);
+                    }
+                });
+
+                addFooter();
+                var filmName = String(filters.namaFilm || 'semua-film').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                doc.save('laporan-detail-' + (filmName || 'semua-film') + '.pdf');
+            },
+            error: function () {
+                alert('Gagal mengambil data detail PDF. Silakan coba kembali.');
+            },
+            complete: function () {
+                $trigger.prop('disabled', false).html(originalHtml);
+            }
+        });
     }
 
     function renderRevenueWaterfall(values) {

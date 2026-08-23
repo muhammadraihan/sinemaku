@@ -268,8 +268,10 @@
                 {{ Form::label('type_tiket','Tipe Tiket',['class' => 'form-label'])}}
                 {!! Form::select('type_tiket', $type_tiket, 'ALL', ['id'=>'type_tiket','class' => 'custom-select']) !!}
             </div>
-            <div class="form-group col-lg-1 mb-3">
-                <button type="button" id="search-btn" class="btn btn-primary w-100">Run</button>
+            <div class="form-group col-lg-1 mb-3 filter-search-column">
+                <button type="button" id="search-btn" class="btn btn-primary w-100 filter-search-btn" title="Tampilkan Finance Insight" aria-label="Tampilkan Finance Insight">
+                    <i class="fal fa-search"></i>
+                </button>
             </div>
         </div>
     </form>
@@ -788,6 +790,12 @@
         );
         notesY += 7;
 
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor.apply(doc, textColor);
+        doc.text('Top 5 Provinsi by Total PH', marginX, notesY);
+        notesY += 5;
+
         var provinceRows = (data.province_leaderboard || []).map(function (row, index) {
             return [
                 index + 1, row.provinsi || '-', pdfNumber(row.city_count, 0), pdfNumber(row.cinema_count, 0),
@@ -822,7 +830,13 @@
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(10.5);
                 doc.setTextColor.apply(doc, textColor);
-                doc.text(tableData.pageNumber === 1 ? 'Management Notes, Audit Risk & Top Province' : 'Top Province (Lanjutan)', marginX, 35);
+                doc.text(
+                    tableData.pageNumber === 1
+                        ? 'Management Notes & Audit Risk'
+                        : 'Top 5 Provinsi by Total PH (Lanjutan)',
+                    marginX,
+                    35
+                );
             }
         });
 

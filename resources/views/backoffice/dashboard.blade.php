@@ -136,8 +136,8 @@
                 <div class="invalid-feedback">{{ $errors->first('bioskop_kategori') }}</div>
                 @endif
             </div>
-            <div class="form-group col-lg-1 mb-3">
-                <button type="button" id="search-btn" class="btn btn-primary w-100" title="Terapkan filter">
+            <div class="form-group col-lg-1 mb-3 filter-search-column">
+                <button type="button" id="search-btn" class="btn btn-primary w-100 filter-search-btn" title="Terapkan filter" aria-label="Terapkan filter">
                     <i class="fal fa-search"></i>
                 </button>
             </div>

@@ -5,6 +5,49 @@
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/datagrid/datatables/datatables.bundle.css')}}">
 <link rel="stylesheet" media="screen, print" href="{{asset('css/formplugins/select2/select2.bundle.css')}}">
+<style>
+    #chart-container {
+        min-height: 460px;
+        transition: height .2s ease;
+    }
+
+    .city-ranking-table-wrap {
+        width: 100%;
+        max-width: 1050px;
+    }
+
+    #summary-table {
+        table-layout: fixed;
+    }
+
+    #summary-table th,
+    #summary-table td {
+        text-align: left !important;
+        vertical-align: middle;
+    }
+
+    #summary-table th:nth-child(1),
+    #summary-table td:nth-child(1) {
+        width: 110px;
+    }
+
+    #summary-table th:nth-child(3),
+    #summary-table td:nth-child(3) {
+        width: 220px;
+    }
+
+    @media (max-width: 768px) {
+        #summary-table th:nth-child(1),
+        #summary-table td:nth-child(1) {
+            width: 72px;
+        }
+
+        #summary-table th:nth-child(3),
+        #summary-table td:nth-child(3) {
+            width: 140px;
+        }
+    }
+</style>
 @endsection
 
 @section('content')
@@ -47,8 +90,8 @@
                 <div class="invalid-feedback">{{ $errors->first('bioskop_kategori') }}</div>
                 @endif
             </div>
-            <div class="form-group col-lg-1 mb-3">
-                <button type="button" id="search-btn" class="btn btn-primary w-100" title="Tampilkan grafik">
+            <div class="form-group col-lg-1 mb-3 filter-search-column">
+                <button type="button" id="search-btn" class="btn btn-primary w-100 filter-search-btn" title="Tampilkan grafik" aria-label="Tampilkan grafik">
                     <i class="fal fa-search"></i>
                 </button>
             </div>
@@ -62,19 +105,20 @@
 </div>
 
 <section id="chart-section" style="display:none">
+    <img id="city-report-logo" src="{{ asset('img/sinemaku.png') }}" alt="Sinemaku Pictures" style="display:none">
     <div class="row">
-        <div class="col-xl-8 mb-4">
+        <div class="col-xl-12 mb-4">
             <div class="modern-chart-card h-100">
                 <div class="modern-card-title">
                     <h3>Grafik Penonton per Kota</h3>
-                    <span id="chart-period-label">Top 20</span>
+                    <span id="chart-period-label">Semakin panjang bar, semakin banyak penonton</span>
                 </div>
                 <div id="chart-container" class="chart-container">
                     <canvas id="topCitiesChart"></canvas>
                 </div>
             </div>
         </div>
-        <div class="col-xl-4 mb-4">
+        <div class="col-xl-12 mb-4">
             <div id="data-summary" class="modern-table-card h-100">
                 <div class="modern-card-title">
                     <h3>Ranking Kota</h3>
@@ -88,7 +132,7 @@
                         <i class="fal fa-file-excel mr-1"></i> Excel
                     </button>
                 </div>
-                <div class="table-responsive">
+                <div class="table-responsive city-ranking-table-wrap">
                     <table id="summary-table" class="table table-hover table-striped w-100">
                         <thead>
                             <tr>
@@ -110,25 +154,46 @@
 <script src="{{asset('js/datagrid/datatables/datatables.bundle.js')}}"></script>
 <script src="{{asset('js/formplugins/select2/select2.bundle.js')}}"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
 <script>
-    const cityChartPalette = [
-        'rgba(98, 91, 214, 0.84)',
-        'rgba(40, 199, 162, 0.82)',
-        'rgba(255, 200, 87, 0.88)',
-        'rgba(255, 107, 125, 0.82)',
-        'rgba(141, 124, 255, 0.82)',
-        'rgba(45, 196, 255, 0.82)',
-        'rgba(255, 159, 67, 0.82)',
-        'rgba(74, 222, 128, 0.82)'
+    const cityRankColors = [
+        '#26225e',
+        '#4b4697',
+        '#716bd3'
     ];
 
+    const cityValueLabelsPlugin = {
+        id: 'cityValueLabels',
+        afterDatasetsDraw: function (chart) {
+            const context = chart.ctx;
+            const values = chart.data.datasets[0].data || [];
+            const bars = chart.getDatasetMeta(0).data || [];
+
+            context.save();
+            context.font = '700 12px Arial';
+            context.textBaseline = 'middle';
+
+            bars.forEach(function (bar, index) {
+                const label = Number(values[index] || 0).toLocaleString('id-ID');
+                const labelWidth = context.measureText(label).width;
+                const outsideX = bar.x + 8;
+                const canFitOutside = outsideX + labelWidth <= chart.chartArea.right;
+
+                context.textAlign = canFitOutside ? 'left' : 'right';
+                context.fillStyle = canFitOutside ? '#374151' : '#ffffff';
+                context.fillText(label, canFitOutside ? outsideX : bar.x - 7, bar.y);
+            });
+
+            context.restore();
+        }
+    };
+
     let topCitiesChart = null;
+    let latestTopCitiesData = [];
 
     $(document).ready(function(){
         $('#nama_film').select2({ width: '100%' });
@@ -149,6 +214,7 @@
 
             $('#chart-section').hide();
             $('#loading').show();
+            latestTopCitiesData = [];
 
             setTimeout(function () {
                 loadChart(nama_film, tgl_mulai, tgl_akhir, bioskop_kategori);
@@ -156,53 +222,240 @@
         });
 
         document.getElementById("download-pdf").addEventListener("click", function () {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF("p", "mm", "a4");
-            const chartCanvas = document.getElementById("topCitiesChart");
+            if (!topCitiesChart || !latestTopCitiesData.length) {
+                alert('Data Grafik Kota belum tersedia. Silakan jalankan filter terlebih dahulu.');
+                return;
+            }
 
-            const namaFilm = $('#nama_film option:selected').text();
-            const tanggalMulai = $('#tanggal_mulai').val();
-            const tanggalAkhir = $('#tanggal_akhir').val();
-            const kategoriBioskop = $('#bioskop_kategori option:selected').text();
+            const JsPdf = window.jspdf && window.jspdf.jsPDF;
+            if (!JsPdf) {
+                alert('Library PDF belum berhasil dimuat. Silakan refresh halaman dan coba kembali.');
+                return;
+            }
 
-            html2canvas(chartCanvas).then(function (canvas) {
-                const imgData = canvas.toDataURL("image/png");
-                const imgProps = doc.getImageProperties(imgData);
-                const pdfWidth = doc.internal.pageSize.getWidth() - 30;
-                const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            const doc = new JsPdf('l', 'mm', 'a4');
+            const pageW = doc.internal.pageSize.getWidth();
+            const pageH = doc.internal.pageSize.getHeight();
+            const marginX = 14;
+            const usableW = pageW - (marginX * 2);
+            const brandColor = [47, 69, 88];
+            const accentColor = [153, 27, 27];
+            const textColor = [31, 41, 55];
+            const mutedColor = [107, 114, 128];
+            const borderColor = [229, 231, 235];
+            const namaFilm = $('#nama_film option:selected').text() || '-';
+            const tanggalMulai = formatDisplayDate($('#tanggal_mulai').val());
+            const tanggalAkhir = formatDisplayDate($('#tanggal_akhir').val());
+            const kategoriBioskop = $('#bioskop_kategori option:selected').text() || '-';
+            const totalAudience = latestTopCitiesData.reduce(function (total, item) {
+                return total + Number(item.jumlah || 0);
+            }, 0);
+            const highestCity = latestTopCitiesData[0] || null;
+            const averageAudience = latestTopCitiesData.length
+                ? totalAudience / latestTopCitiesData.length
+                : 0;
+            const generatedDate = new Date();
+            const padDatePart = function (value) {
+                return String(value).padStart(2, '0');
+            };
+            const generatedAt = padDatePart(generatedDate.getDate())
+                + '-' + padDatePart(generatedDate.getMonth() + 1)
+                + '-' + generatedDate.getFullYear()
+                + ' ' + padDatePart(generatedDate.getHours())
+                + ':' + padDatePart(generatedDate.getMinutes());
 
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(16);
-                doc.setTextColor(33, 37, 41);
-                doc.text("TOP 20 Kota Dengan Penonton Terbanyak", 15, 20);
+            function pdfNumber(value) {
+                return Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 });
+            }
 
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(11);
-                doc.setTextColor(80, 80, 80);
-                let y = 28;
-                doc.text(`Nama Film : ${namaFilm}`, 15, y);
-                y += 6;
-                doc.text(`Periode : ${tanggalMulai} s.d. ${tanggalAkhir}`, 15, y);
-                y += 6;
-                doc.text(`Kategori Bioskop : ${kategoriBioskop}`, 15, y);
-                y += 10;
+            function addLogo(x, y, size) {
+                const logo = document.getElementById('city-report-logo');
+                if (logo && logo.complete && logo.naturalWidth) {
+                    doc.addImage(logo, 'PNG', x, y, size, size, undefined, 'FAST');
+                }
+            }
 
-                doc.addImage(imgData, 'PNG', 15, y, pdfWidth, imgHeight);
+            function addHeader(sectionName) {
+                addLogo(marginX, 8, 14);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(15);
+                doc.setTextColor(...textColor);
+                doc.text('SINEMAKU PICTURES', marginX + 18, 13);
+                doc.setFontSize(9.5);
+                doc.setTextColor(...accentColor);
+                doc.text('Audience Analytics Dashboard', marginX + 18, 18);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8.5);
+                doc.setTextColor(...mutedColor);
+                doc.text(sectionName, pageW - marginX, 13, { align: 'right' });
+                doc.text('Generated: ' + generatedAt, pageW - marginX, 18, { align: 'right' });
+                doc.setDrawColor(...accentColor);
+                doc.setLineWidth(0.45);
+                doc.line(marginX, 25, pageW - marginX, 25);
+                doc.setDrawColor(209, 213, 219);
+                doc.setLineWidth(0.15);
+                doc.line(marginX, 27, pageW - marginX, 27);
+            }
 
-                doc.autoTable({
-                    html: '#summary-table',
-                    startY: y + imgHeight + 12,
-                    margin: { left: 15, right: 15 },
-                    styles: { font: 'helvetica', fontSize: 10, textColor: [33, 37, 41] },
-                    headStyles: { fillColor: [98, 91, 214], textColor: [255, 255, 255], fontStyle: 'bold' },
-                    alternateRowStyles: { fillColor: [245, 250, 255] },
-                    tableLineColor: [220, 231, 243],
-                    tableLineWidth: 0.1,
-                    theme: 'grid'
+            function addFooter() {
+                const pages = doc.internal.getNumberOfPages();
+                for (let page = 1; page <= pages; page++) {
+                    doc.setPage(page);
+                    doc.setDrawColor(...borderColor);
+                    doc.line(marginX, pageH - 13, pageW - marginX, pageH - 13);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(8);
+                    doc.setTextColor(...mutedColor);
+                    doc.text('Sinemaku Pictures - Confidential Analytics Report', marginX, pageH - 8);
+                    doc.text('Halaman ' + page + ' dari ' + pages, pageW - marginX, pageH - 8, { align: 'right' });
+                }
+            }
+
+            function addFilterBox() {
+                const y = 47;
+                const filters = [
+                    ['Nama Film', namaFilm],
+                    ['Periode', tanggalMulai + ' s.d. ' + tanggalAkhir],
+                    ['Kategori Bioskop', kategoriBioskop]
+                ];
+                const columnW = usableW / filters.length;
+                doc.setFillColor(249, 250, 251);
+                doc.setDrawColor(...borderColor);
+                doc.roundedRect(marginX, y, usableW, 22, 2, 2, 'FD');
+                filters.forEach(function (filter, index) {
+                    const x = marginX + (columnW * index) + 5;
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(7.5);
+                    doc.setTextColor(...mutedColor);
+                    doc.text(filter[0].toUpperCase(), x, y + 8);
+                    doc.setFontSize(9);
+                    doc.setTextColor(...textColor);
+                    doc.text(String(filter[1]), x, y + 15, { maxWidth: columnW - 10 });
                 });
+            }
 
-                doc.save("top20-kota-penonton.pdf");
+            function addMetric(label, value, x, y, width, color) {
+                doc.setFillColor(255, 255, 255);
+                doc.setDrawColor(...borderColor);
+                doc.roundedRect(x, y, width, 20, 2, 2, 'FD');
+                doc.setFillColor(...color);
+                doc.roundedRect(x, y, 3, 20, 1.5, 1.5, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(...textColor);
+                doc.text(String(value), x + 7, y + 9, { maxWidth: width - 10 });
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7.5);
+                doc.setTextColor(...mutedColor);
+                doc.text(label, x + 7, y + 15.5);
+            }
+
+            function addChartPanel() {
+                const imageData = topCitiesChart.toBase64Image();
+                const image = doc.getImageProperties(imageData);
+                const x = marginX + 18;
+                const y = 48;
+                const width = usableW - 36;
+                const height = 133;
+                doc.setFillColor(255, 255, 255);
+                doc.setDrawColor(...borderColor);
+                doc.roundedRect(x, y, width, height, 2, 2, 'FD');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(9.5);
+                doc.setTextColor(...textColor);
+                doc.text('Grafik Penonton per Kota', x + 4, y + 7);
+                const ratio = Math.min((width - 10) / image.width, (height - 14) / image.height);
+                const imageW = image.width * ratio;
+                const imageH = image.height * ratio;
+                doc.addImage(
+                    imageData,
+                    'PNG',
+                    x + ((width - imageW) / 2),
+                    y + 11 + ((height - 13 - imageH) / 2),
+                    imageW,
+                    imageH,
+                    undefined,
+                    'FAST'
+                );
+            }
+
+            addHeader('Executive Summary - Grafik Kota');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(15);
+            doc.setTextColor(...textColor);
+            doc.text('TOP 20 Kota dengan Penonton Terbanyak', marginX, 35);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(...mutedColor);
+            doc.text('Analisa kota dengan performa penonton tertinggi berdasarkan filter aktif.', marginX, 41);
+            addFilterBox();
+
+            const metricGap = 4;
+            const metricW = (usableW - (metricGap * 3)) / 4;
+            addMetric('Kota Ditampilkan', pdfNumber(latestTopCitiesData.length), marginX, 75, metricW, [98, 91, 214]);
+            addMetric('Total Penonton', pdfNumber(totalAudience), marginX + metricW + metricGap, 75, metricW, [40, 199, 162]);
+            addMetric('Kota Tertinggi', highestCity ? String(highestCity.kota) : '-', marginX + ((metricW + metricGap) * 2), 75, metricW, accentColor);
+            addMetric('Rata-rata per Kota', pdfNumber(averageAudience), marginX + ((metricW + metricGap) * 3), 75, metricW, [255, 159, 67]);
+
+            doc.addPage('a4', 'landscape');
+            addHeader('Chart Detail - Grafik Kota');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(15);
+            doc.setTextColor(...textColor);
+            doc.text('Grafik Penonton per Kota', marginX, 35);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(...mutedColor);
+            doc.text('Urutan menurun; semakin panjang bar, semakin banyak jumlah penonton.', marginX, 41);
+            addChartPanel();
+
+            const detailRows = latestTopCitiesData.map(function (item, index) {
+                const value = Number(item.jumlah || 0);
+                const contribution = totalAudience > 0
+                    ? ((value / totalAudience) * 100).toFixed(2) + '%'
+                    : '0.00%';
+                return [index + 1, String(item.kota || '-'), pdfNumber(value), contribution];
             });
+
+            doc.addPage('a4', 'landscape');
+            doc.autoTable({
+                startY: 42,
+                margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
+                head: [['Rank', 'Kota', 'Jumlah Penonton', 'Kontribusi']],
+                body: detailRows,
+                theme: 'grid',
+                showHead: 'everyPage',
+                styles: {
+                    font: 'helvetica',
+                    fontSize: 8,
+                    cellPadding: 2.5,
+                    textColor: textColor,
+                    overflow: 'linebreak'
+                },
+                headStyles: {
+                    fillColor: brandColor,
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold',
+                    halign: 'left'
+                },
+                alternateRowStyles: { fillColor: [249, 250, 251] },
+                columnStyles: {
+                    0: { halign: 'left', cellWidth: 22 },
+                    1: { cellWidth: 'auto' },
+                    2: { halign: 'left', cellWidth: 48 },
+                    3: { halign: 'left', cellWidth: 38 }
+                },
+                didDrawPage: function () {
+                    addHeader('Detail Data - Grafik Kota');
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(11);
+                    doc.setTextColor(...textColor);
+                    doc.text('Rincian Data Grafik: TOP 20 Kota', marginX, 35);
+                }
+            });
+
+            addFooter();
+            doc.save('report-top-20-kota.pdf');
         });
 
         document.getElementById("download-excel").addEventListener("click", async function () {
@@ -287,13 +540,19 @@
                 bioskop_kategori: bioskop_kategori
             },
             success: function (data) {
+                latestTopCitiesData = data || [];
                 $('#loading').hide();
                 $('#chart-section').show();
-                $('#chart-period-label').text(`${tgl_mulai} s.d. ${tgl_akhir}`);
+                $('#chart-period-label').text(
+                    `${formatDisplayDate(tgl_mulai)} s.d. ${formatDisplayDate(tgl_akhir)} · Semakin panjang bar, semakin banyak penonton`
+                );
                 $('#summary-table tbody').empty();
 
-                let labels = data.map(item => item.kota);
+                let labels = data.map(item => String(item.kota || '-').toUpperCase());
                 let values = data.map(item => Number(item.jumlah || 0));
+                let chartHeight = Math.max(460, (labels.length * 30) + 90);
+
+                $('#chart-container').css('height', chartHeight + 'px');
 
                 labels.forEach(function(label, index) {
                     $('#summary-table tbody').append(`
@@ -311,35 +570,78 @@
 
                 topCitiesChart = new Chart(document.getElementById('topCitiesChart').getContext('2d'), {
                     type: 'bar',
+                    plugins: [cityValueLabelsPlugin],
                     data: {
                         labels: labels,
                         datasets: [{
                             label: 'Jumlah Penonton',
                             data: values,
-                            backgroundColor: values.map((_, index) => cityChartPalette[index % cityChartPalette.length]),
-                            borderColor: values.map((_, index) => cityChartPalette[index % cityChartPalette.length].replace('0.82', '1').replace('0.88', '1')),
-                            borderWidth: 1,
-                            borderRadius: 10,
+                            backgroundColor: values.map(function (_, index) {
+                                return cityRankColors[index] || 'rgba(113, 107, 211, 0.58)';
+                            }),
+                            borderColor: values.map(function (_, index) {
+                                return cityRankColors[index] || 'rgba(75, 70, 151, 0.72)';
+                            }),
+                            borderWidth: 0,
+                            borderRadius: 7,
                             borderSkipped: false,
-                            maxBarThickness: 34
+                            maxBarThickness: 24,
+                            minBarLength: 3
                         }]
                     },
                     options: {
+                        indexAxis: 'y',
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: {
+                            duration: 650
+                        },
+                        layout: {
+                            padding: { top: 4, right: 18, bottom: 2, left: 4 }
+                        },
                         scales: {
-                            y: {
-                                beginAtZero: true,
-                                grid: { color: 'rgba(126, 149, 178, 0.14)' },
-                                ticks: { color: '#7b8aa4' }
-                            },
                             x: {
-                                grid: { color: 'rgba(126, 149, 178, 0.08)' },
-                                ticks: { color: '#7b8aa4' }
+                                beginAtZero: true,
+                                grace: '14%',
+                                border: { display: false },
+                                grid: {
+                                    color: 'rgba(126, 149, 178, 0.12)',
+                                    drawTicks: false
+                                },
+                                ticks: {
+                                    color: '#7b8aa4',
+                                    padding: 8,
+                                    callback: function (value) {
+                                        return compactNumber(value);
+                                    }
+                                }
+                            },
+                            y: {
+                                border: { display: false },
+                                grid: { display: false },
+                                ticks: {
+                                    color: '#374151',
+                                    padding: 9,
+                                    autoSkip: false,
+                                    font: { size: 11, weight: '700' }
+                                }
                             }
                         },
                         plugins: {
-                            legend: { display: false }
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#26225e',
+                                titleColor: '#ffffff',
+                                bodyColor: '#ffffff',
+                                padding: 12,
+                                cornerRadius: 8,
+                                displayColors: false,
+                                callbacks: {
+                                    label: function (context) {
+                                        return 'Jumlah Penonton: ' + Number(context.raw || 0).toLocaleString('id-ID');
+                                    }
+                                }
+                            }
                         }
                     }
                 });
@@ -350,6 +652,30 @@
                 alert("Terjadi kesalahan saat mengambil data.");
             }
         });
+    }
+
+    function formatDisplayDate(value) {
+        const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+        if (!match) {
+            return value || '-';
+        }
+
+        return match[3] + '-' + match[2] + '-' + match[1];
+    }
+
+    function compactNumber(value) {
+        const number = Number(value || 0);
+
+        if (Math.abs(number) >= 1000000) {
+            return (number / 1000000).toFixed(1).replace('.0', '') + 'M';
+        }
+
+        if (Math.abs(number) >= 1000) {
+            return (number / 1000).toFixed(1).replace('.0', '') + 'K';
+        }
+
+        return number.toLocaleString('id-ID');
     }
 </script>
 @endsection

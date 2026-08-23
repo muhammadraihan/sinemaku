@@ -192,9 +192,10 @@
                             </div>
                         </div>
                         <div class="row">
-                            <div class="form-group col-md-2 mb-3">
-                                {{ Form::label('','',['class' => 'form-label'])}} <br>
-                                <button type="button" id="search-btn" class="btn btn-primary w-100"><i class="fal fa-search"></i>&nbsp;&nbsp;Search</button>
+                            <div class="form-group col-md-2 mb-3 filter-search-column">
+                                <button type="button" id="search-btn" class="btn btn-primary w-100 filter-search-btn" title="Tampilkan data pelaporan" aria-label="Tampilkan data pelaporan">
+                                    <i class="fal fa-search"></i>
+                                </button>
                             </div>
                             <div class="form-group col-md-2 mb-3">
                                 {{ Form::label('','',['class' => 'form-label'])}} <br>
