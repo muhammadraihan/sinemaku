@@ -54,6 +54,14 @@
         white-space: nowrap;
     }
 
+    .trend-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
     .trend-kpi-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -162,6 +170,10 @@
             display: inline-block;
             margin-top: 10px;
         }
+
+        .trend-actions {
+            justify-content: flex-start;
+        }
     }
 </style>
 @endsection
@@ -224,12 +236,18 @@
 <div id="trend-empty" class="trend-empty mb-4">Tidak ada data trend pada filter ini.</div>
 
 <section id="trend-panel" class="trend-panel">
+    <img id="trend-report-logo" src="{{ asset('img/sinemaku.png') }}" alt="Sinemaku Pictures" style="display:none">
     <div class="trend-title">
         <div>
             <h3>Daily Movement</h3>
             <span id="trend-period">Semua periode</span>
         </div>
-        <div class="trend-badge" id="trend-status">Ready</div>
+        <div class="trend-actions">
+            <button type="button" id="download-trend-pdf" class="btn btn-danger btn-sm" style="display:none">
+                <i class="fal fa-file-pdf mr-1"></i> Download PDF
+            </button>
+            <div class="trend-badge" id="trend-status">Ready</div>
+        </div>
     </div>
 
     <div class="trend-kpi-grid">
@@ -299,8 +317,11 @@
 @section('js')
 <script src="{{asset('js/formplugins/select2/select2.bundle.js')}}"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 <script>
     var trendChart = null;
+    var latestTrendData = null;
 
     $(document).ready(function(){
         $('#nama_film, #bioskop_kategori, #kota, #nama_bioskop, #type_tiket').select2({ width: '100%' });
@@ -308,12 +329,18 @@
         $('#search-btn').on('click', function () {
             loadTrend();
         });
+
+        $('#download-trend-pdf').on('click', function () {
+            downloadTrendPdf();
+        });
     });
 
     function loadTrend() {
         $('#trend-panel').hide();
         $('#trend-empty').hide();
         $('#trend-loading').show();
+        $('#download-trend-pdf').hide();
+        latestTrendData = null;
 
         $.ajax({
             url: '{{ route('trend-analysis.data') }}',
@@ -336,7 +363,9 @@
                 }
 
                 renderTrend(response);
+                latestTrendData = response;
                 $('#trend-panel').show();
+                $('#download-trend-pdf').show();
             },
             error: function () {
                 $('#trend-loading').hide();
@@ -485,6 +514,334 @@
         }).join('');
 
         $('#trend-table-body').html(html || '<tr><td colspan="9" class="text-center">Tidak ada data.</td></tr>');
+    }
+
+    function downloadTrendPdf() {
+        if (!latestTrendData || !latestTrendData.daily || !latestTrendData.daily.length || !trendChart) {
+            alert('Data Trend Analysis belum tersedia. Silakan jalankan filter terlebih dahulu.');
+            return;
+        }
+
+        var jsPDF = window.jspdf && window.jspdf.jsPDF;
+        if (!jsPDF) {
+            alert('Library PDF belum berhasil dimuat. Silakan refresh halaman dan coba kembali.');
+            return;
+        }
+
+        var doc = new jsPDF('l', 'mm', 'a4');
+        var pageW = doc.internal.pageSize.getWidth();
+        var pageH = doc.internal.pageSize.getHeight();
+        var marginX = 14;
+        var usableW = pageW - (marginX * 2);
+        var brandColor = [47, 69, 88];
+        var accentColor = [153, 27, 27];
+        var textColor = [31, 41, 55];
+        var mutedColor = [107, 114, 128];
+        var borderColor = [229, 231, 235];
+        var summary = latestTrendData.summary || {};
+        var daily = latestTrendData.daily || [];
+        var notes = latestTrendData.notes || [];
+        var generatedAt = new Date().toLocaleString('id-ID', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        function selectedText(selector) {
+            var value = $(selector).val();
+            return value ? $(selector + ' option:selected').text() : '-';
+        }
+
+        var filters = [
+            ['Nama Film', selectedText('#nama_film')],
+            ['Periode', reportPeriod()],
+            ['Kategori Bioskop', selectedText('#bioskop_kategori')],
+            ['Kota', selectedText('#kota')],
+            ['Nama Bioskop', selectedText('#nama_bioskop')],
+            ['Tipe Tiket', selectedText('#type_tiket')]
+        ];
+
+        function pdfNumber(value, decimals) {
+            return Number(value || 0).toLocaleString('id-ID', {
+                minimumFractionDigits: decimals || 0,
+                maximumFractionDigits: decimals || 0
+            });
+        }
+
+        function pdfPercent(value) {
+            if (value === null || typeof value === 'undefined') {
+                return '-';
+            }
+
+            return pdfNumber(value, 2) + '%';
+        }
+
+        function addLogo(x, y, size) {
+            var logo = document.getElementById('trend-report-logo');
+            if (logo && logo.complete && logo.naturalWidth) {
+                doc.addImage(logo, 'PNG', x, y, size, size, undefined, 'FAST');
+            }
+        }
+
+        function addHeader(sectionName) {
+            addLogo(marginX, 8, 14);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(13);
+            doc.setTextColor.apply(doc, textColor);
+            doc.text('SINEMAKU PICTURES', marginX + 18, 13);
+            doc.setFontSize(8.5);
+            doc.setTextColor.apply(doc, accentColor);
+            doc.text('Audience Analytics Dashboard', marginX + 18, 18);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor.apply(doc, mutedColor);
+            doc.text(sectionName || 'Trend Analysis Report', pageW - marginX, 13, { align: 'right' });
+            doc.text('Generated: ' + generatedAt, pageW - marginX, 18, { align: 'right' });
+
+            doc.setDrawColor.apply(doc, accentColor);
+            doc.setLineWidth(0.45);
+            doc.line(marginX, 25, pageW - marginX, 25);
+            doc.setDrawColor.apply(doc, [209, 213, 219]);
+            doc.setLineWidth(0.15);
+            doc.line(marginX, 27, pageW - marginX, 27);
+        }
+
+        function addFooter() {
+            var pageCount = doc.internal.getNumberOfPages();
+            for (var page = 1; page <= pageCount; page++) {
+                doc.setPage(page);
+                doc.setDrawColor.apply(doc, borderColor);
+                doc.line(marginX, pageH - 13, pageW - marginX, pageH - 13);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7);
+                doc.setTextColor.apply(doc, mutedColor);
+                doc.text('Sinemaku Pictures - Confidential Analytics Report', marginX, pageH - 8);
+                doc.text('Halaman ' + page + ' dari ' + pageCount, pageW - marginX, pageH - 8, { align: 'right' });
+            }
+        }
+
+        function addFilterBox() {
+            var y = 46;
+            var boxH = 34;
+            var columnW = usableW / 3;
+            doc.setFillColor(249, 250, 251);
+            doc.setDrawColor.apply(doc, borderColor);
+            doc.roundedRect(marginX, y, usableW, boxH, 2, 2, 'FD');
+
+            filters.forEach(function (filter, index) {
+                var column = index % 3;
+                var row = Math.floor(index / 3);
+                var x = marginX + (columnW * column) + 5;
+                var itemY = y + 7 + (row * 15);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(6.5);
+                doc.setTextColor.apply(doc, mutedColor);
+                doc.text(filter[0].toUpperCase(), x, itemY);
+                doc.setFontSize(8.3);
+                doc.setTextColor.apply(doc, textColor);
+                doc.text(String(filter[1] || '-'), x, itemY + 5, { maxWidth: columnW - 10 });
+            });
+        }
+
+        function addMetric(label, value, x, y, width, color) {
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor.apply(doc, borderColor);
+            doc.roundedRect(x, y, width, 20, 2, 2, 'FD');
+            doc.setFillColor.apply(doc, color);
+            doc.roundedRect(x, y, 3, 20, 1.5, 1.5, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10.5);
+            doc.setTextColor.apply(doc, textColor);
+            doc.text(String(value), x + 7, y + 9, { maxWidth: width - 10 });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.8);
+            doc.setTextColor.apply(doc, mutedColor);
+            doc.text(label, x + 7, y + 15.5, { maxWidth: width - 10 });
+        }
+
+        function addChartPanel(y, height) {
+            var imageData = trendChart.toBase64Image();
+            var image = doc.getImageProperties(imageData);
+            var x = marginX;
+            var width = usableW;
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor.apply(doc, borderColor);
+            doc.roundedRect(x, y, width, height, 2, 2, 'FD');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8.5);
+            doc.setTextColor.apply(doc, textColor);
+            doc.text('Daily Trend Chart - Total PH, Gross, dan Penonton', x + 4, y + 7);
+
+            var ratio = Math.min((width - 10) / image.width, (height - 13) / image.height);
+            var imageW = image.width * ratio;
+            var imageH = image.height * ratio;
+            doc.addImage(
+                imageData,
+                'PNG',
+                x + ((width - imageW) / 2),
+                y + 10 + ((height - 12 - imageH) / 2),
+                imageW,
+                imageH,
+                undefined,
+                'FAST'
+            );
+        }
+
+        addHeader('Executive Summary - Trend Analysis');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.setTextColor.apply(doc, textColor);
+        doc.text('Trend Analysis Report', marginX, 35);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor.apply(doc, mutedColor);
+        doc.text('Analisa movement harian berdasarkan filter laporan yang sedang aktif.', marginX, 41);
+        addFilterBox();
+
+        var metricGap = 4;
+        var metricW = (usableW - (metricGap * 3)) / 4;
+        var metricColors = [[98, 91, 214], [40, 199, 162], [153, 27, 27], [255, 159, 67]];
+        addMetric('Total PH', pdfNumber(summary.total_ph, 2), marginX, 86, metricW, metricColors[0]);
+        addMetric('Gross', pdfNumber(summary.gross, 2), marginX + metricW + metricGap, 86, metricW, metricColors[1]);
+        addMetric('Penonton', pdfNumber(summary.audience, 0), marginX + ((metricW + metricGap) * 2), 86, metricW, metricColors[2]);
+        addMetric('Rata-rata PH / Hari', pdfNumber(summary.avg_daily_ph, 2), marginX + ((metricW + metricGap) * 3), 86, metricW, metricColors[3]);
+        addMetric('Period Movement', pdfPercent(summary.period_change), marginX, 108, metricW, summary.period_change >= 0 ? [4, 120, 87] : accentColor);
+        addMetric('Best Day', summary.best_day ? summary.best_day.tanggal : '-', marginX + metricW + metricGap, 108, metricW, [37, 99, 235]);
+        addMetric('ATP', pdfNumber(summary.atp, 2), marginX + ((metricW + metricGap) * 2), 108, metricW, [141, 124, 255]);
+        addMetric('Occupancy', pdfPercent(summary.occupancy_rate), marginX + ((metricW + metricGap) * 3), 108, metricW, [234, 88, 12]);
+
+        doc.addPage('a4', 'landscape');
+        addHeader('Daily Trend Chart');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.setTextColor.apply(doc, textColor);
+        doc.text('Daily Trend Chart', marginX, 35);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor.apply(doc, mutedColor);
+        doc.text('Pergerakan Total PH, Gross, dan Penonton dari hari ke hari.', marginX, 41);
+        addChartPanel(47, 134);
+
+        doc.addPage('a4', 'landscape');
+
+        var notesY = 41;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        (notes.length ? notes : ['Tidak ada catatan movement.']).forEach(function (note, index) {
+            var lines = doc.splitTextToSize((index + 1) + '. ' + note, usableW);
+            doc.text(lines, marginX, notesY);
+            notesY += (lines.length * 4) + 1;
+        });
+
+        var bestGrowthDay = summary.best_growth_day || null;
+        var summaryDetails = [
+            'Hari dianalisis: ' + pdfNumber(summary.day_count, 0)
+                + '  |  PH hari pertama: ' + pdfNumber(summary.first_day_ph, 2)
+                + '  |  PH hari terakhir: ' + pdfNumber(summary.last_day_ph, 2),
+            'Best growth day: ' + (bestGrowthDay ? bestGrowthDay.tanggal : '-')
+                + '  |  Pertumbuhan PH terbaik: '
+                + (bestGrowthDay ? pdfPercent(bestGrowthDay.total_ph_change) : '-')
+        ];
+
+        notesY += 1;
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor.apply(doc, accentColor);
+        doc.text('SUMMARY DETAIL', marginX, notesY);
+        notesY += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor.apply(doc, textColor);
+        summaryDetails.forEach(function (detail) {
+            var detailLines = doc.splitTextToSize(detail, usableW);
+            doc.text(detailLines, marginX, notesY);
+            notesY += (detailLines.length * 4) + 1;
+        });
+
+        var tableStartY = Math.max(notesY + 3, 50);
+        var tableRows = daily.map(function (row, index) {
+            return [
+                index + 1,
+                row.tanggal || '-',
+                pdfNumber(row.audience, 0),
+                pdfNumber(row.seats_available, 0),
+                pdfNumber(row.gross, 2),
+                pdfNumber(row.tax, 2),
+                pdfNumber(row.net, 2),
+                pdfNumber(row.total_ph, 2),
+                pdfNumber(row.atp, 2),
+                pdfPercent(row.occupancy_rate),
+                pdfPercent(row.effective_tax_rate),
+                pdfPercent(row.total_ph_change),
+                pdfPercent(row.gross_change),
+                pdfPercent(row.audience_change)
+            ];
+        });
+
+        doc.autoTable({
+            startY: tableStartY,
+            margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
+            head: [[
+                'No', 'Tanggal', 'Penonton', 'Kursi', 'Gross', 'Tax', 'Net', 'Total PH',
+                'ATP', 'Occupancy', 'Effective Tax', 'PH Growth', 'Gross Growth', 'Audience Growth'
+            ]],
+            body: tableRows,
+            theme: 'grid',
+            showHead: 'everyPage',
+            styles: {
+                font: 'helvetica',
+                fontSize: 5.6,
+                cellPadding: 1.5,
+                textColor: textColor,
+                overflow: 'linebreak',
+                valign: 'middle'
+            },
+            headStyles: {
+                fillColor: brandColor,
+                textColor: [255, 255, 255],
+                fontStyle: 'bold',
+                halign: 'center'
+            },
+            alternateRowStyles: { fillColor: [249, 250, 251] },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 8 },
+                1: { halign: 'center', cellWidth: 18 },
+                2: { halign: 'right', cellWidth: 16 },
+                3: { halign: 'right', cellWidth: 14 },
+                4: { halign: 'right', cellWidth: 25 },
+                5: { halign: 'right', cellWidth: 21 },
+                6: { halign: 'right', cellWidth: 25 },
+                7: { halign: 'right', cellWidth: 25 },
+                8: { halign: 'right', cellWidth: 19 },
+                9: { halign: 'right', cellWidth: 17 },
+                10: { halign: 'right', cellWidth: 18 },
+                11: { halign: 'right', cellWidth: 17 },
+                12: { halign: 'right', cellWidth: 17 },
+                13: { halign: 'right', cellWidth: 18 }
+            },
+            didDrawPage: function (tableData) {
+                addHeader('Detail Data - Trend Analysis');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10.5);
+                doc.setTextColor.apply(doc, textColor);
+                doc.text(
+                    tableData.pageNumber === 1
+                        ? 'Movement Notes & Daily Movement Table'
+                        : 'Daily Movement Table (Lanjutan)',
+                    marginX,
+                    35
+                );
+            }
+        });
+
+        addFooter();
+
+        var filmName = selectedText('#nama_film')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '');
+        doc.save('report-trend-analysis-' + (filmName || 'semua-film') + '.pdf');
     }
 
     function reportPeriod() {

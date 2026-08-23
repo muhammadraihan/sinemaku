@@ -29,7 +29,8 @@ class GrafikKotaController extends Controller
      */
     public function index()
     {
-        $bioskop_kategori = KategoriBioskop::all()->pluck('name', 'uuid');
+        $bioskop_kategori = ['ALL' => 'Semua ...']
+            + KategoriBioskop::all()->pluck('name', 'uuid')->toArray();
         // $nama_bioskop = MasterBioskop::all()->pluck('nama_bioskop', 'uuid');
         $kota = MasterBioskop::selectRaw('Distinct kota')->pluck('kota', 'kota');
         // $type_tiket = TypeTiket::all()->pluck('name', 'uuid');
@@ -47,8 +48,11 @@ class GrafikKotaController extends Controller
         $query = DB::table('pelaporans')
             ->select('kota', DB::raw('SUM(jumlah) as jumlah'))
             ->whereBetween('tgl_tayang', [$start_date, $end_date])
-            ->where('nama_film', $nama_film)
-            ->where('kategori', $bioskop_kategori);
+            ->where('nama_film', $nama_film);
+
+        if ($bioskop_kategori && $bioskop_kategori !== 'ALL') {
+            $query->where('kategori', $bioskop_kategori);
+        }
 
         $data = $query->groupBy('kota')
             ->orderByDesc('jumlah')
