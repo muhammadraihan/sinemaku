@@ -226,7 +226,7 @@
     <h1 class="subheader-title">
         <i class="subheader-icon fal fa-analytics"></i>
         Finance <span class="fw-300">Insight</span>
-        <small>Executive summary untuk membaca performa omset, kontribusi PH, dan risiko data.</small>
+        <small>Executive summary untuk membaca performa omset, kontribusi Production House, dan risiko data.</small>
     </h1>
 </div>
 
@@ -306,7 +306,7 @@
             <strong id="kpi-gross">0.00</strong>
         </div>
         <div class="insight-kpi insight-kpi--good">
-            <small>Total PH</small>
+            <small>Total Production House</small>
             <strong id="kpi-total-ph">0.00</strong>
         </div>
         <div class="insight-kpi">
@@ -378,7 +378,7 @@
     </div>
 
     <div class="insight-card">
-        <h4>Top 5 Provinsi by Total PH</h4>
+        <h4>Top 5 Provinsi by Total Production House</h4>
         <div class="table-responsive">
             <table class="table table-hover table-striped insight-table">
                 <thead>
@@ -391,7 +391,7 @@
                         <th>Gross</th>
                         <th>ATP</th>
                         <th>Occupancy</th>
-                        <th>Total PH</th>
+                        <th>Total Production House</th>
                     </tr>
                 </thead>
                 <tbody id="province-leaderboard-body"></tbody>
@@ -400,7 +400,7 @@
     </div>
 
     <div class="insight-card mt-3">
-        <h4>Top 5 Cinema by Total PH</h4>
+        <h4>Top 5 Cinema by Total Production House</h4>
         <div class="table-responsive">
             <table class="table table-hover table-striped insight-table">
                 <thead>
@@ -412,7 +412,7 @@
                         <th>Gross</th>
                         <th>ATP</th>
                         <th>Occupancy</th>
-                        <th>Total PH</th>
+                        <th>Total Production House</th>
                     </tr>
                 </thead>
                 <tbody id="leaderboard-body"></tbody>
@@ -556,7 +556,7 @@
         }
 
         $(titleSelector).text(row.label || '-');
-        $(detailSelector).text('Total PH ' + formatCurrency(row.total_ph) + ' | Penonton ' + formatNumber(row.audience));
+        $(detailSelector).text('Total Production House ' + formatCurrency(row.total_ph) + ' | Penonton ' + formatNumber(row.audience));
     }
 
     function renderOccupancyCard(row) {
@@ -671,55 +671,102 @@
             var columnW = usableW / 3;
             doc.setFillColor(249, 250, 251);
             doc.setDrawColor.apply(doc, borderColor);
-            doc.roundedRect(marginX, y, usableW, 34, 2, 2, 'FD');
+            doc.roundedRect(marginX, y, usableW, 20, 2, 2, 'FD');
             filters.forEach(function (filter, index) {
                 var x = marginX + ((index % 3) * columnW) + 5;
-                var itemY = y + 7 + (Math.floor(index / 3) * 15);
+                var itemY = y + 6.5 + (Math.floor(index / 3) * 9);
+                var label = filter[0].toUpperCase() + ':';
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(6.5);
+                doc.setFontSize(6.2);
                 doc.setTextColor.apply(doc, mutedColor);
-                doc.text(filter[0].toUpperCase(), x, itemY);
-                doc.setFontSize(8.3);
+                doc.text(label, x, itemY);
+                var labelWidth = doc.getTextWidth(label) + 2;
+                doc.setFontSize(7.4);
                 doc.setTextColor.apply(doc, textColor);
-                doc.text(String(filter[1] || '-'), x, itemY + 5, { maxWidth: columnW - 10 });
+                doc.text(String(filter[1] || '-'), x + labelWidth, itemY, {
+                    maxWidth: columnW - labelWidth - 8
+                });
             });
         }
 
         function addMetric(label, value, x, y, width, color) {
             doc.setFillColor(255, 255, 255);
             doc.setDrawColor.apply(doc, borderColor);
-            doc.roundedRect(x, y, width, 20, 2, 2, 'FD');
+            doc.roundedRect(x, y, width, 18, 2, 2, 'FD');
             doc.setFillColor.apply(doc, color);
-            doc.roundedRect(x, y, 3, 20, 1.5, 1.5, 'F');
+            doc.roundedRect(x, y, 3, 18, 1.5, 1.5, 'F');
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10.5);
+            doc.setFontSize(9.8);
             doc.setTextColor.apply(doc, textColor);
-            doc.text(String(value), x + 7, y + 9, { maxWidth: width - 10 });
+            doc.text(String(value), x + 7, y + 8, { maxWidth: width - 10 });
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.8);
+            doc.setFontSize(6.4);
             doc.setTextColor.apply(doc, mutedColor);
-            doc.text(label, x + 7, y + 15.5);
+            doc.text(label, x + 7, y + 14);
         }
 
         function topCard(label, row, x, y, width, detailOverride) {
             var title = row && row.label ? row.label : '-';
             var detail = detailOverride || (row
-                ? 'Total PH ' + pdfNumber(row.total_ph, 2) + ' | Penonton ' + pdfNumber(row.audience, 0)
+                ? 'Total Production House ' + pdfNumber(row.total_ph, 2) + ' | Penonton ' + pdfNumber(row.audience, 0)
                 : '-');
             doc.setFillColor(249, 250, 251);
             doc.setDrawColor.apply(doc, borderColor);
-            doc.roundedRect(x, y, width, 18, 2, 2, 'FD');
+            doc.roundedRect(x, y, width, 15, 2, 2, 'FD');
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(6.3);
             doc.setTextColor.apply(doc, accentColor);
-            doc.text(label.toUpperCase(), x + 4, y + 5);
-            doc.setFontSize(8.2);
+            doc.text(label.toUpperCase(), x + 4, y + 4.2);
+            doc.setFontSize(8);
             doc.setTextColor.apply(doc, textColor);
-            doc.text(String(title), x + 4, y + 10.5, { maxWidth: width - 8 });
+            doc.text(String(title), x + 4, y + 9, { maxWidth: width - 8 });
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(6.2);
             doc.setTextColor.apply(doc, mutedColor);
-            doc.text(String(detail), x + 4, y + 15, { maxWidth: width - 8 });
+            doc.text(String(detail), x + 4, y + 13.2, { maxWidth: width - 8 });
+        }
+
+        function addManagementInsightPanel(y) {
+            var height = 45;
+            var panelGap = 4;
+            var notesWidth = (usableW - panelGap) * 0.68;
+            var auditX = marginX + notesWidth + panelGap;
+            var auditWidth = usableW - notesWidth - panelGap;
+            var managementNotes = data.notes && data.notes.length
+                ? data.notes
+                : ['Tidak ada catatan khusus.'];
+
+            doc.setFillColor(249, 250, 251);
+            doc.setDrawColor.apply(doc, borderColor);
+            doc.roundedRect(marginX, y, usableW, height, 2, 2, 'FD');
+            doc.setDrawColor.apply(doc, borderColor);
+            doc.line(auditX - (panelGap / 2), y + 4, auditX - (panelGap / 2), y + height - 4);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor.apply(doc, accentColor);
+            doc.text('MANAGEMENT NOTES', marginX + 4, y + 6);
+            doc.text('AUDIT RISK SUMMARY', auditX + 3, y + 6);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.8);
+            doc.setTextColor.apply(doc, textColor);
+            var noteY = y + 11;
+            managementNotes.forEach(function (note, index) {
+                var lines = doc.splitTextToSize((index + 1) + '. ' + note, notesWidth - 8);
+                doc.text(lines, marginX + 4, noteY);
+                noteY += (lines.length * 3.3) + 1;
+            });
+
+            var auditRows = [
+                'Kapasitas / Studio: ' + pdfNumber(audit.capacity_issues, 0),
+                'Pajak Bioskop: ' + pdfNumber(audit.tax_issues, 0),
+                'Occupancy > 100%: ' + pdfNumber(audit.occupancy_issues, 0),
+                'Gross Variance: ' + pdfNumber(audit.gross_issues, 0)
+            ];
+            auditRows.forEach(function (row, index) {
+                doc.text(row, auditX + 3, y + 11 + (index * 5.5), { maxWidth: auditWidth - 6 });
+            });
         }
 
         addHeader('Executive Summary - Finance Insight');
@@ -730,72 +777,42 @@
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.setTextColor.apply(doc, mutedColor);
-        doc.text('Executive summary performa omset, kontribusi PH, coverage, dan risiko data.', marginX, 41);
+        doc.text('Executive summary performa omset, kontribusi Production House, coverage, dan risiko data.', marginX, 41);
         addFilterBox();
 
         var gap = 4;
         var metricW = (usableW - (gap * 3)) / 4;
-        addMetric('Gross Box Office', pdfNumber(summary.gross, 2), marginX, 86, metricW, [98, 91, 214]);
-        addMetric('Total PH', pdfNumber(summary.total_ph, 2), marginX + metricW + gap, 86, metricW, [4, 120, 87]);
-        addMetric('Penonton', pdfNumber(summary.audience, 0), marginX + ((metricW + gap) * 2), 86, metricW, [37, 99, 235]);
-        addMetric('ATP', pdfNumber(summary.atp, 2), marginX + ((metricW + gap) * 3), 86, metricW, [255, 159, 67]);
-        addMetric('Occupancy', pdfPercent(summary.occupancy_rate), marginX, 108, metricW, [141, 124, 255]);
-        addMetric('Effective Tax Rate', pdfPercent(summary.effective_tax_rate), marginX + metricW + gap, 108, metricW, [47, 69, 88]);
-        addMetric('Bioskop / Kota / Provinsi', pdfNumber(summary.cinema_count, 0) + ' / ' + pdfNumber(summary.city_count, 0) + ' / ' + pdfNumber(summary.province_count, 0), marginX + ((metricW + gap) * 2), 108, metricW, [40, 199, 162]);
-        addMetric('Audit Issues', pdfNumber(summary.audit_issues, 0), marginX + ((metricW + gap) * 3), 108, metricW, accentColor);
+        addMetric('Gross Box Office', pdfNumber(summary.gross, 2), marginX, 69, metricW, [98, 91, 214]);
+        addMetric('Total Production House', pdfNumber(summary.total_ph, 2), marginX + metricW + gap, 69, metricW, [4, 120, 87]);
+        addMetric('Penonton', pdfNumber(summary.audience, 0), marginX + ((metricW + gap) * 2), 69, metricW, [37, 99, 235]);
+        addMetric('ATP', pdfNumber(summary.atp, 2), marginX + ((metricW + gap) * 3), 69, metricW, [255, 159, 67]);
+        addMetric('Occupancy', pdfPercent(summary.occupancy_rate), marginX, 89, metricW, [141, 124, 255]);
+        addMetric('Effective Tax Rate', pdfPercent(summary.effective_tax_rate), marginX + metricW + gap, 89, metricW, [47, 69, 88]);
+        addMetric('Bioskop / Kota / Provinsi', pdfNumber(summary.cinema_count, 0) + ' / ' + pdfNumber(summary.city_count, 0) + ' / ' + pdfNumber(summary.province_count, 0), marginX + ((metricW + gap) * 2), 89, metricW, [40, 199, 162]);
+        addMetric('Audit Issues', pdfNumber(summary.audit_issues, 0), marginX + ((metricW + gap) * 3), 89, metricW, accentColor);
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         doc.setTextColor.apply(doc, textColor);
-        doc.text('Performance Highlights', marginX, 136);
+        doc.text('Performance Highlights', marginX, 112);
         var topW = (usableW - (gap * 2)) / 3;
-        topCard('Top Category', data.top_category, marginX, 141, topW);
-        topCard('Top Cinema', data.top_cinema, marginX + topW + gap, 141, topW);
-        topCard('Top City', data.top_city, marginX + ((topW + gap) * 2), 141, topW);
-        topCard('Top Province', data.top_province, marginX, 161, topW);
+        topCard('Top Category', data.top_category, marginX, 115, topW);
+        topCard('Top Cinema', data.top_cinema, marginX + topW + gap, 115, topW);
+        topCard('Top City', data.top_city, marginX + ((topW + gap) * 2), 115, topW);
+        topCard('Top Province', data.top_province, marginX, 131, topW);
         topCard(
             'Highest Occupancy',
             data.top_occupancy,
             marginX + topW + gap,
-            161,
+            131,
             topW,
             data.top_occupancy
                 ? pdfPercent(data.top_occupancy.occupancy_rate) + ' | ' + (data.top_occupancy.kota || '-')
                 : '-'
         );
+        addManagementInsightPanel(148);
 
         doc.addPage('a4', 'landscape');
-        var notesY = 41;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7.5);
-        (data.notes && data.notes.length ? data.notes : ['Tidak ada catatan khusus.']).forEach(function (note, index) {
-            var lines = doc.splitTextToSize((index + 1) + '. ' + note, usableW);
-            doc.text(lines, marginX, notesY);
-            notesY += (lines.length * 4) + 1;
-        });
-        notesY += 1;
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor.apply(doc, accentColor);
-        doc.text('AUDIT RISK SUMMARY', marginX, notesY);
-        notesY += 5;
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor.apply(doc, textColor);
-        doc.text(
-            'Kapasitas / Studio: ' + pdfNumber(audit.capacity_issues, 0)
-                + '  |  Pajak Bioskop: ' + pdfNumber(audit.tax_issues, 0)
-                + '  |  Occupancy > 100%: ' + pdfNumber(audit.occupancy_issues, 0)
-                + '  |  Gross Variance: ' + pdfNumber(audit.gross_issues, 0),
-            marginX,
-            notesY
-        );
-        notesY += 7;
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9.5);
-        doc.setTextColor.apply(doc, textColor);
-        doc.text('Top 5 Provinsi by Total PH', marginX, notesY);
-        notesY += 5;
-
         var provinceRows = (data.province_leaderboard || []).map(function (row, index) {
             return [
                 index + 1, row.provinsi || '-', pdfNumber(row.city_count, 0), pdfNumber(row.cinema_count, 0),
@@ -805,9 +822,9 @@
         });
 
         doc.autoTable({
-            startY: notesY,
+            startY: 42,
             margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
-            head: [['Rank', 'Provinsi', 'Kota', 'Bioskop', 'Penonton', 'Gross', 'ATP', 'Occupancy', 'Total PH']],
+            head: [['Rank', 'Provinsi', 'Kota', 'Bioskop', 'Penonton', 'Gross', 'ATP', 'Occupancy', 'Total Production House']],
             body: provinceRows,
             theme: 'grid',
             showHead: 'everyPage',
@@ -832,8 +849,8 @@
                 doc.setTextColor.apply(doc, textColor);
                 doc.text(
                     tableData.pageNumber === 1
-                        ? 'Management Notes & Audit Risk'
-                        : 'Top 5 Provinsi by Total PH (Lanjutan)',
+                        ? 'Top 5 Provinsi by Total Production House'
+                        : 'Top 5 Provinsi by Total Production House (Lanjutan)',
                     marginX,
                     35
                 );
@@ -852,7 +869,7 @@
         doc.autoTable({
             startY: 42,
             margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
-            head: [['Rank', 'Kota', 'Nama Bioskop', 'Penonton', 'Gross', 'ATP', 'Occupancy', 'Total PH']],
+            head: [['Rank', 'Kota', 'Nama Bioskop', 'Penonton', 'Gross', 'ATP', 'Occupancy', 'Total Production House']],
             body: cinemaRows,
             theme: 'grid',
             showHead: 'everyPage',
@@ -874,7 +891,7 @@
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(10.5);
                 doc.setTextColor.apply(doc, textColor);
-                doc.text('Top 5 Cinema by Total PH', marginX, 35);
+                doc.text('Top 5 Cinema by Total Production House', marginX, 35);
             }
         });
 

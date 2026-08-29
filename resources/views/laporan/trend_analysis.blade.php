@@ -183,7 +183,7 @@
     <h1 class="subheader-title">
         <i class="subheader-icon fal fa-chart-area"></i>
         Trend <span class="fw-300">Analysis</span>
-        <small>Analisa pergerakan harian untuk Gross, Total PH, penonton, ATP, dan occupancy.</small>
+        <small>Analisa pergerakan harian untuk Gross, Total Production House, penonton, ATP, dan occupancy.</small>
     </h1>
 </div>
 
@@ -254,7 +254,7 @@
 
     <div class="trend-kpi-grid">
         <div class="trend-kpi">
-            <small>Total PH</small>
+            <small>Total Production House</small>
             <strong id="kpi-total-ph">0.00</strong>
         </div>
         <div class="trend-kpi">
@@ -266,7 +266,7 @@
             <strong id="kpi-audience">0</strong>
         </div>
         <div class="trend-kpi">
-            <small>Rata-rata PH / Hari</small>
+            <small>Rata-rata Production House / Hari</small>
             <strong id="kpi-avg-ph">0.00</strong>
         </div>
         <div class="trend-kpi">
@@ -301,10 +301,10 @@
                         <th>Tanggal</th>
                         <th>Penonton</th>
                         <th>Gross</th>
-                        <th>Total PH</th>
+                        <th>Total Production House</th>
                         <th>ATP</th>
                         <th>Occupancy</th>
-                        <th>PH Growth</th>
+                        <th>Production House Growth</th>
                         <th>Gross Growth</th>
                         <th>Audience Growth</th>
                     </tr>
@@ -319,9 +319,14 @@
 @section('js')
 <script src="{{asset('js/formplugins/select2/select2.bundle.js')}}"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ asset('js/sinemaku-chart-value-labels.js') }}"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 <script>
+    if (window.Chart && window.SinemakuChartValueLabels) {
+        Chart.register(window.SinemakuChartValueLabels);
+    }
+
     var trendChart = null;
     var latestTrendData = null;
 
@@ -418,33 +423,45 @@
                 labels: labels,
                 datasets: [
                     {
-                        label: 'Total PH',
+                        label: 'Total Production House',
                         data: totalPh,
-                        borderColor: '#047857',
-                        backgroundColor: 'rgba(4, 120, 87, 0.08)',
+                        borderColor: '#00a86b',
+                        backgroundColor: '#00a86b',
                         borderWidth: 3,
                         tension: 0.35,
-                        fill: true,
+                        fill: false,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#00a86b',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
                         yAxisID: 'money'
                     },
                     {
                         label: 'Gross',
                         data: gross,
-                        borderColor: '#2f4558',
-                        backgroundColor: 'rgba(47, 69, 88, 0.07)',
-                        borderWidth: 2,
+                        borderColor: '#f97316',
+                        backgroundColor: '#f97316',
+                        borderWidth: 2.5,
                         tension: 0.35,
                         fill: false,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#f97316',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
                         yAxisID: 'money'
                     },
                     {
                         label: 'Penonton',
                         data: audience,
-                        borderColor: '#2563eb',
-                        backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                        borderWidth: 2,
+                        borderColor: '#0284c7',
+                        backgroundColor: '#0284c7',
+                        borderWidth: 2.5,
                         tension: 0.35,
                         fill: false,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#0284c7',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
                         yAxisID: 'audience'
                     }
                 ]
@@ -629,7 +646,7 @@
 
         function addFilterBox() {
             var y = 46;
-            var boxH = 34;
+            var boxH = 20;
             var columnW = usableW / 3;
             doc.setFillColor(249, 250, 251);
             doc.setDrawColor.apply(doc, borderColor);
@@ -639,14 +656,18 @@
                 var column = index % 3;
                 var row = Math.floor(index / 3);
                 var x = marginX + (columnW * column) + 5;
-                var itemY = y + 7 + (row * 15);
+                var itemY = y + 6.5 + (row * 9);
+                var label = filter[0].toUpperCase() + ':';
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(7.5);
+                doc.setFontSize(6.2);
                 doc.setTextColor.apply(doc, mutedColor);
-                doc.text(filter[0].toUpperCase(), x, itemY);
-                doc.setFontSize(9);
+                doc.text(label, x, itemY);
+                var labelWidth = doc.getTextWidth(label) + 2;
+                doc.setFontSize(7.4);
                 doc.setTextColor.apply(doc, textColor);
-                doc.text(String(filter[1] || '-'), x, itemY + 5, { maxWidth: columnW - 10 });
+                doc.text(String(filter[1] || '-'), x + labelWidth, itemY, {
+                    maxWidth: columnW - labelWidth - 8
+                });
             });
         }
 
@@ -666,6 +687,50 @@
             doc.text(label, x + 7, y + 15.5, { maxWidth: width - 10 });
         }
 
+        function addMovementInsightPanel(y) {
+            var height = 48;
+            var gap = 5;
+            var notesWidth = (usableW - gap) * 0.62;
+            var detailX = marginX + notesWidth + gap;
+            var detailWidth = usableW - notesWidth - gap;
+            var movementNotes = notes.length ? notes : ['Tidak ada catatan movement.'];
+            var bestGrowthDay = summary.best_growth_day || null;
+            var summaryDetails = [
+                'Hari dianalisis: ' + pdfNumber(summary.day_count, 0),
+                'Production House hari pertama: ' + pdfNumber(summary.first_day_ph, 2),
+                'Production House hari terakhir: ' + pdfNumber(summary.last_day_ph, 2),
+                'Best growth day: ' + (bestGrowthDay ? formatDisplayDate(bestGrowthDay.tanggal) : '-'),
+                'Pertumbuhan Production House terbaik: ' + (bestGrowthDay ? pdfPercent(bestGrowthDay.total_ph_change) : '-')
+            ];
+
+            doc.setFillColor(249, 250, 251);
+            doc.setDrawColor.apply(doc, borderColor);
+            doc.roundedRect(marginX, y, usableW, height, 2, 2, 'FD');
+            doc.line(detailX - (gap / 2), y + 5, detailX - (gap / 2), y + height - 5);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.setTextColor.apply(doc, accentColor);
+            doc.text('MOVEMENT NOTES', marginX + 5, y + 7);
+            doc.text('SUMMARY DETAIL', detailX + 3, y + 7);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor.apply(doc, textColor);
+            var noteY = y + 14;
+            movementNotes.forEach(function (note, index) {
+                var lines = doc.splitTextToSize((index + 1) + '. ' + formatDatesInText(note), notesWidth - 10);
+                doc.text(lines, marginX + 5, noteY);
+                noteY += (lines.length * 4) + 1.5;
+            });
+
+            summaryDetails.forEach(function (detail, index) {
+                doc.text(detail, detailX + 3, y + 14 + (index * 5.5), {
+                    maxWidth: detailWidth - 6
+                });
+            });
+        }
+
         function addChartPanel(x, y, width, height) {
             var imageData = trendChart.toBase64Image();
             var image = doc.getImageProperties(imageData);
@@ -675,7 +740,7 @@
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(9.5);
             doc.setTextColor.apply(doc, textColor);
-            doc.text('Daily Trend Chart - Total PH, Gross, dan Penonton', x + 4, y + 7);
+            doc.text('Daily Trend Chart - Total Production House, Gross, dan Penonton', x + 4, y + 7);
 
             var ratio = Math.min((width - 10) / image.width, (height - 13) / image.height);
             var imageW = image.width * ratio;
@@ -706,14 +771,15 @@
         var metricGap = 4;
         var metricW = (usableW - (metricGap * 3)) / 4;
         var metricColors = [[98, 91, 214], [40, 199, 162], [153, 27, 27], [255, 159, 67]];
-        addMetric('Total PH', pdfNumber(summary.total_ph, 2), marginX, 86, metricW, metricColors[0]);
-        addMetric('Gross', pdfNumber(summary.gross, 2), marginX + metricW + metricGap, 86, metricW, metricColors[1]);
-        addMetric('Penonton', pdfNumber(summary.audience, 0), marginX + ((metricW + metricGap) * 2), 86, metricW, metricColors[2]);
-        addMetric('Rata-rata PH / Hari', pdfNumber(summary.avg_daily_ph, 2), marginX + ((metricW + metricGap) * 3), 86, metricW, metricColors[3]);
-        addMetric('Period Movement', pdfPercent(summary.period_change), marginX, 108, metricW, summary.period_change >= 0 ? [4, 120, 87] : accentColor);
-        addMetric('Best Day', summary.best_day ? formatDisplayDate(summary.best_day.tanggal) : '-', marginX + metricW + metricGap, 108, metricW, [37, 99, 235]);
-        addMetric('ATP', pdfNumber(summary.atp, 2), marginX + ((metricW + metricGap) * 2), 108, metricW, [141, 124, 255]);
-        addMetric('Occupancy', pdfPercent(summary.occupancy_rate), marginX + ((metricW + metricGap) * 3), 108, metricW, [234, 88, 12]);
+        addMetric('Total Production House', pdfNumber(summary.total_ph, 2), marginX, 69, metricW, metricColors[0]);
+        addMetric('Gross', pdfNumber(summary.gross, 2), marginX + metricW + metricGap, 69, metricW, metricColors[1]);
+        addMetric('Penonton', pdfNumber(summary.audience, 0), marginX + ((metricW + metricGap) * 2), 69, metricW, metricColors[2]);
+        addMetric('Rata-rata Production House / Hari', pdfNumber(summary.avg_daily_ph, 2), marginX + ((metricW + metricGap) * 3), 69, metricW, metricColors[3]);
+        addMetric('Period Movement', pdfPercent(summary.period_change), marginX, 91, metricW, summary.period_change >= 0 ? [4, 120, 87] : accentColor);
+        addMetric('Best Day', summary.best_day ? formatDisplayDate(summary.best_day.tanggal) : '-', marginX + metricW + metricGap, 91, metricW, [37, 99, 235]);
+        addMetric('ATP', pdfNumber(summary.atp, 2), marginX + ((metricW + metricGap) * 2), 91, metricW, [141, 124, 255]);
+        addMetric('Occupancy', pdfPercent(summary.occupancy_rate), marginX + ((metricW + metricGap) * 3), 91, metricW, [234, 88, 12]);
+        addMovementInsightPanel(115);
 
         doc.addPage('a4', 'landscape');
         addHeader('Daily Trend Chart');
@@ -724,44 +790,10 @@
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
         doc.setTextColor.apply(doc, mutedColor);
-        doc.text('Pergerakan Total PH, Gross, dan Penonton dari hari ke hari.', marginX, 41);
+        doc.text('Pergerakan Total Production House, Gross, dan Penonton dari hari ke hari.', marginX, 41);
         addChartPanel(marginX + 18, 51, usableW - 36, 112);
 
         doc.addPage('a4', 'landscape');
-
-        var notesY = 41;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.5);
-        (notes.length ? notes : ['Tidak ada catatan movement.']).forEach(function (note, index) {
-            var lines = doc.splitTextToSize((index + 1) + '. ' + formatDatesInText(note), usableW);
-            doc.text(lines, marginX, notesY);
-            notesY += (lines.length * 4) + 1;
-        });
-
-        var bestGrowthDay = summary.best_growth_day || null;
-        var summaryDetails = [
-            'Hari dianalisis: ' + pdfNumber(summary.day_count, 0)
-                + '  |  PH hari pertama: ' + pdfNumber(summary.first_day_ph, 2)
-                + '  |  PH hari terakhir: ' + pdfNumber(summary.last_day_ph, 2),
-            'Best growth day: ' + (bestGrowthDay ? formatDisplayDate(bestGrowthDay.tanggal) : '-')
-                + '  |  Pertumbuhan PH terbaik: '
-                + (bestGrowthDay ? pdfPercent(bestGrowthDay.total_ph_change) : '-')
-        ];
-
-        notesY += 1;
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor.apply(doc, accentColor);
-        doc.text('SUMMARY DETAIL', marginX, notesY);
-        notesY += 5;
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor.apply(doc, textColor);
-        summaryDetails.forEach(function (detail) {
-            var detailLines = doc.splitTextToSize(detail, usableW);
-            doc.text(detailLines, marginX, notesY);
-            notesY += (detailLines.length * 4) + 1;
-        });
-
-        var tableStartY = Math.max(notesY + 3, 50);
         var tableRows = daily.map(function (row, index) {
             return [
                 index + 1,
@@ -780,21 +812,28 @@
                 pdfPercent(row.audience_change)
             ];
         });
+        var compactTableStyle = tableRows.length <= 10
+            ? { fontSize: 7.2, cellPadding: 1.7 }
+            : (tableRows.length <= 20
+                ? { fontSize: 6.6, cellPadding: 1.15 }
+                : { fontSize: 6.2, cellPadding: 1.1 });
 
         doc.autoTable({
-            startY: tableStartY,
+            startY: 42,
             margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
             head: [[
-                'No', 'Tanggal', 'Penonton', 'Kursi', 'Gross', 'Tax', 'Net', 'Total PH',
-                'ATP', 'Occupancy', 'Effective Tax', 'PH Growth', 'Gross Growth', 'Audience Growth'
+                'No', 'Tanggal', 'Penonton', 'Kursi', 'Gross', 'Tax', 'Net', 'Total Production House',
+                'ATP', 'Occupancy', 'Effective Tax', 'Production House Growth', 'Gross Growth', 'Audience Growth'
             ]],
             body: tableRows,
             theme: 'grid',
             showHead: 'everyPage',
+            pageBreak: 'auto',
+            rowPageBreak: 'avoid',
             styles: {
                 font: 'helvetica',
-                fontSize: 7,
-                cellPadding: 1.5,
+                fontSize: compactTableStyle.fontSize,
+                cellPadding: compactTableStyle.cellPadding,
                 textColor: textColor,
                 overflow: 'linebreak',
                 valign: 'middle'
@@ -829,7 +868,7 @@
                 doc.setTextColor.apply(doc, textColor);
                 doc.text(
                     tableData.pageNumber === 1
-                        ? 'Movement Notes & Daily Movement Table'
+                        ? 'Daily Movement Table'
                         : 'Daily Movement Table (Lanjutan)',
                     marginX,
                     35

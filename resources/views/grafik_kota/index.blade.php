@@ -161,9 +161,9 @@
 
 <script>
     const cityRankColors = [
-        '#26225e',
-        '#4b4697',
-        '#716bd3'
+        '#7c3aed',
+        '#00a86b',
+        '#f97316'
     ];
 
     const cityValueLabelsPlugin = {
@@ -416,6 +416,11 @@
                     : '0.00%';
                 return [index + 1, String(item.kota || '-'), pdfNumber(value), contribution];
             });
+            const compactStyle = detailRows.length <= 12
+                ? { fontSize: 8, cellPadding: 2.1 }
+                : (detailRows.length <= 20
+                    ? { fontSize: 6.8, cellPadding: 1.35 }
+                    : { fontSize: 7, cellPadding: 1.5 });
 
             doc.addPage('a4', 'landscape');
             doc.autoTable({
@@ -425,10 +430,12 @@
                 body: detailRows,
                 theme: 'grid',
                 showHead: 'everyPage',
+                pageBreak: 'auto',
+                rowPageBreak: 'avoid',
                 styles: {
                     font: 'helvetica',
-                    fontSize: 8,
-                    cellPadding: 2.5,
+                    fontSize: compactStyle.fontSize,
+                    cellPadding: compactStyle.cellPadding,
                     textColor: textColor,
                     overflow: 'linebreak'
                 },
@@ -577,10 +584,10 @@
                             label: 'Jumlah Penonton',
                             data: values,
                             backgroundColor: values.map(function (_, index) {
-                                return cityRankColors[index] || 'rgba(113, 107, 211, 0.58)';
+                                return cityRankColors[index] || '#0284c7';
                             }),
                             borderColor: values.map(function (_, index) {
-                                return cityRankColors[index] || 'rgba(75, 70, 151, 0.72)';
+                                return cityRankColors[index] || '#0284c7';
                             }),
                             borderWidth: 0,
                             borderRadius: 7,

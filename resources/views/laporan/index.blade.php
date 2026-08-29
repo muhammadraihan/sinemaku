@@ -110,7 +110,7 @@
 
     .waterfall-row {
         display: grid;
-        grid-template-columns: 150px 1fr 145px;
+        grid-template-columns: 180px minmax(0, 1fr) 145px;
         gap: 12px;
         align-items: center;
     }
@@ -248,6 +248,7 @@
     }
 
     .waterfall-track {
+        position: relative;
         height: 26px;
         border-radius: 999px;
         background: #f3f4f6;
@@ -258,19 +259,19 @@
         min-width: 2px;
         height: 100%;
         border-radius: 999px;
-        background: linear-gradient(90deg, #2f4558, #4f6f8b);
+        background: #7c3aed;
     }
 
     .waterfall-bar--deduction {
-        background: linear-gradient(90deg, #991b1b, #ef4444);
+        background: #dc2626;
     }
 
     .waterfall-bar--net {
-        background: linear-gradient(90deg, #2563eb, #60a5fa);
+        background: #0284c7;
     }
 
     .waterfall-bar--final {
-        background: linear-gradient(90deg, #047857, #34d399);
+        background: #00a86b;
     }
 
     .waterfall-value {
@@ -278,6 +279,7 @@
         font-weight: 700;
         font-size: 12px;
         text-align: right;
+        white-space: nowrap;
     }
 
     .finance-waterfall__note {
@@ -417,7 +419,7 @@
                         <div class="finance-waterfall__header">
                             <div>
                                 <h3>Revenue Waterfall</h3>
-                                <span>Alur perhitungan dari Gross Box Office sampai estimasi Total PH.</span>
+                                <span>Alur perhitungan dari Gross Box Office sampai estimasi Total Production House.</span>
                             </div>
                             <div class="finance-waterfall__actions">
                                 <button type="button" id="download-waterfall-pdf" class="btn btn-danger btn-sm" style="display:none">
@@ -452,13 +454,13 @@
                                 <strong id="wf-net">0.00</strong>
                             </div>
                             <div class="finance-kpi finance-kpi--final">
-                                <small>Total PH</small>
+                                <small>Total Production House</small>
                                 <strong id="wf-total">0.00</strong>
                             </div>
                         </div>
                         <div id="waterfall-flow" class="waterfall-flow"></div>
                         <p class="finance-waterfall__note">
-                            Formula: Occupancy = Penonton / Kapasitas Tersedia; Gross - Pajak = Net; Net - Share 50% - Royalty 1.5% dari share = Total PH.
+                            Formula: Occupancy = Penonton / Kapasitas Tersedia; Gross - Pajak = Net; Net - Share 50% - Royalty 1.5% dari share = Total Production House.
                         </p>
                     </section>
                     <section id="report-tabs" class="performance-panel">
@@ -547,7 +549,7 @@
                                             <th>Gross</th>
                                             <th>ATP</th>
                                             <th>Net</th>
-                                            <th>Total PH</th>
+                                            <th>Total Production House</th>
                                         </tr>
                                     </thead>
                                     <tfoot>
@@ -581,7 +583,7 @@
                                             <th>ATP</th>
                                             <th>Effective Tax Rate</th>
                                             <th>Net</th>
-                                            <th>Total PH</th>
+                                            <th>Total Production House</th>
                                         </tr>
                                     </thead>
                                     <tfoot>
@@ -1872,7 +1874,7 @@
                 addMetric('Baris Detail', pdfNumber(response.row_count, 0), marginX, 87, metricW, [98, 91, 214]);
                 addMetric('Total Penonton', pdfNumber(totals.Total, 0), marginX + metricW + metricGap, 87, metricW, [37, 99, 235]);
                 addMetric('Total Gross', pdfNumber(totals.gross, 2), marginX + ((metricW + metricGap) * 2), 87, metricW, [40, 199, 162]);
-                addMetric('Total Akhir / PH', pdfNumber(totals.total_akhir, 2), marginX + ((metricW + metricGap) * 3), 87, metricW, [4, 120, 87]);
+                addMetric('Total Akhir / Production House', pdfNumber(totals.total_akhir, 2), marginX + ((metricW + metricGap) * 3), 87, metricW, [4, 120, 87]);
 
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(8);
@@ -1882,85 +1884,26 @@
                 doc.setFontSize(8.5);
                 doc.setTextColor.apply(doc, textColor);
                 doc.text(
-                    'Tabel dipisahkan menjadi Detail Operasional dan Detail Finansial agar setiap kolom tetap terbaca pada ukuran A4 landscape.',
+                    'Tabel detail difokuskan pada informasi operasional dan finansial utama yang dibutuhkan dalam laporan.',
                     marginX,
                     125,
                     { maxWidth: usableW }
                 );
                 doc.setTextColor.apply(doc, mutedColor);
                 doc.text(
-                    'Kolom yang tidak disertakan: Kota, Kapasitas, ATP, Effective Tax Rate, dan Share.',
+                    'Jika jumlah data melebihi kapasitas satu halaman, tabel akan dilanjutkan dengan header yang sama.',
                     marginX,
                     132,
                     { maxWidth: usableW }
                 );
 
-                var operationalRows = rows.map(function (row, index) {
+                var detailRows = rows.map(function (row) {
                     return [
-                        index + 1,
                         displayDate(row.tgl_tayang),
-                        row.name || '-',
+                        row.kota || '-',
                         String(row.nama_bioskop || '-').toUpperCase(),
-                        row.studio || '-',
-                        pdfNumber(row.S1, 0), pdfNumber(row.S2, 0), pdfNumber(row.S3, 0), pdfNumber(row.S4, 0),
-                        pdfNumber(row.S5, 0), pdfNumber(row.S6, 0), pdfNumber(row.S7, 0),
-                        pdfNumber(row.Total, 0), pdfNumber(row.seats_available, 2), pdfPercent(row.occupancy_rate)
-                    ];
-                });
-                operationalRows.push([
-                    '', 'TOTAL', '', '', '',
-                    pdfNumber(totals.S1, 0), pdfNumber(totals.S2, 0), pdfNumber(totals.S3, 0), pdfNumber(totals.S4, 0),
-                    pdfNumber(totals.S5, 0), pdfNumber(totals.S6, 0), pdfNumber(totals.S7, 0),
-                    pdfNumber(totals.Total, 0), pdfNumber(totals.seats_available, 2),
-                    totals.seats_available ? pdfPercent((totals.Total / totals.seats_available) * 100) : '0,00%'
-                ]);
-
-                doc.addPage('a4', 'landscape');
-                doc.autoTable({
-                    startY: 42,
-                    margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
-                    head: [['No', 'Tanggal', 'Kategori', 'Nama Bioskop', 'Studio', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'Total', 'Kapasitas Tersedia', 'Occupancy']],
-                    body: operationalRows,
-                    theme: 'grid',
-                    showHead: 'everyPage',
-                    styles: { font: 'helvetica', fontSize: 6.8, cellPadding: 1.5, textColor: textColor, overflow: 'linebreak' },
-                    headStyles: { fillColor: brandColor, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
-                    alternateRowStyles: { fillColor: [249, 250, 251] },
-                    columnStyles: {
-                        0: { halign: 'center', cellWidth: 8 },
-                        1: { halign: 'center', cellWidth: 18 },
-                        2: { cellWidth: 32 },
-                        3: { cellWidth: 59 },
-                        4: { cellWidth: 15 },
-                        5: { halign: 'right', cellWidth: 10 }, 6: { halign: 'right', cellWidth: 10 },
-                        7: { halign: 'right', cellWidth: 10 }, 8: { halign: 'right', cellWidth: 10 },
-                        9: { halign: 'right', cellWidth: 10 }, 10: { halign: 'right', cellWidth: 10 },
-                        11: { halign: 'right', cellWidth: 10 }, 12: { halign: 'right', cellWidth: 16 },
-                        13: { halign: 'right', cellWidth: 28 }, 14: { halign: 'right', cellWidth: 23 }
-                    },
-                    didParseCell: function (tableData) {
-                        if (tableData.section === 'body' && tableData.row.index === operationalRows.length - 1) {
-                            tableData.cell.styles.fontStyle = 'bold';
-                            tableData.cell.styles.fillColor = brandColor;
-                            tableData.cell.styles.textColor = [255, 255, 255];
-                        }
-                    },
-                    didDrawPage: function () {
-                        addHeader('Detail Data - Rekap Omset');
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(11);
-                        doc.setTextColor.apply(doc, textColor);
-                        doc.text('Detail Operasional', marginX, 35);
-                    }
-                });
-
-                var financialRows = rows.map(function (row, index) {
-                    return [
-                        index + 1,
-                        displayDate(row.tgl_tayang),
-                        row.name || '-',
-                        String(row.nama_bioskop || '-').toUpperCase(),
-                        row.studio || '-',
+                        pdfNumber(row.seats_available, 2),
+                        pdfPercent(row.occupancy_rate),
                         pdfNumber(row.harga, 2),
                         pdfNumber(row.gross, 2),
                         pdfPercent(row.pajak_persen),
@@ -1971,40 +1914,53 @@
                         pdfNumber(row.total_akhir, 2)
                     ];
                 });
-                financialRows.push([
-                    '', 'TOTAL', '', '', '', '',
-                    pdfNumber(totals.gross, 2), '', pdfNumber(totals.pajak, 2), pdfNumber(totals.net, 2),
+                detailRows.push([
+                    'TOTAL', '', '', pdfNumber(totals.seats_available, 2),
+                    totals.seats_available ? pdfPercent((totals.Total / totals.seats_available) * 100) : '0,00%',
+                    '', pdfNumber(totals.gross, 2), '', pdfNumber(totals.pajak, 2), pdfNumber(totals.net, 2),
                     pdfNumber(totals.share_ph, 2), pdfNumber(totals.royalty, 2), pdfNumber(totals.total_akhir, 2)
                 ]);
 
                 doc.addPage('a4', 'landscape');
                 doc.autoTable({
-                    startY: 42,
-                    margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
-                    head: [['No', 'Tanggal', 'Kategori', 'Nama Bioskop', 'Studio', 'Harga', 'Gross', 'Pajak %', 'Pajak', 'Net', 'Share PH', 'Royalty 1.5%', 'Total Akhir']],
-                    body: financialRows,
+                    startY: 43,
+                    margin: { top: 43, left: marginX, right: marginX, bottom: 18 },
+                    head: [[
+                        'Tanggal', 'Kota', 'Nama Bioskop', 'Kapasitas Tersedia', 'Occupancy', 'Harga', 'Gross',
+                        'Pajak %', 'Pajak', 'Net', 'Share Production House', 'Royalty (1,5%)', 'Total Akhir'
+                    ]],
+                    body: detailRows,
                     theme: 'grid',
                     showHead: 'everyPage',
-                    styles: { font: 'helvetica', fontSize: 6.5, cellPadding: 1.5, textColor: textColor, overflow: 'linebreak' },
+                    pageBreak: 'auto',
+                    rowPageBreak: 'avoid',
+                    styles: {
+                        font: 'helvetica',
+                        fontSize: 6.2,
+                        cellPadding: 1.25,
+                        textColor: textColor,
+                        overflow: 'linebreak',
+                        valign: 'middle'
+                    },
                     headStyles: { fillColor: brandColor, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
                     alternateRowStyles: { fillColor: [249, 250, 251] },
                     columnStyles: {
-                        0: { halign: 'center', cellWidth: 7 },
-                        1: { halign: 'center', cellWidth: 18 },
-                        2: { cellWidth: 27 },
-                        3: { cellWidth: 40 },
-                        4: { cellWidth: 12 },
-                        5: { halign: 'right', cellWidth: 18 },
-                        6: { halign: 'right', cellWidth: 24 },
+                        0: { halign: 'center', cellWidth: 17 },
+                        1: { cellWidth: 20 },
+                        2: { cellWidth: 35 },
+                        3: { halign: 'right', cellWidth: 20 },
+                        4: { halign: 'right', cellWidth: 15 },
+                        5: { halign: 'right', cellWidth: 17 },
+                        6: { halign: 'right', cellWidth: 23 },
                         7: { halign: 'right', cellWidth: 11 },
                         8: { halign: 'right', cellWidth: 21 },
                         9: { halign: 'right', cellWidth: 22 },
                         10: { halign: 'right', cellWidth: 22 },
-                        11: { halign: 'right', cellWidth: 21 },
-                        12: { halign: 'right', cellWidth: 26 }
+                        11: { halign: 'right', cellWidth: 22 },
+                        12: { halign: 'right', cellWidth: 24 }
                     },
                     didParseCell: function (tableData) {
-                        if (tableData.section === 'body' && tableData.row.index === financialRows.length - 1) {
+                        if (tableData.section === 'body' && tableData.row.index === detailRows.length - 1) {
                             tableData.cell.styles.fontStyle = 'bold';
                             tableData.cell.styles.fillColor = brandColor;
                             tableData.cell.styles.textColor = [255, 255, 255];
@@ -2015,7 +1971,7 @@
                         doc.setFont('helvetica', 'bold');
                         doc.setFontSize(11);
                         doc.setTextColor.apply(doc, textColor);
-                        doc.text('Detail Finansial', marginX, 35);
+                        doc.text('Detail Rekap Omset', marginX, 35);
                     }
                 });
 
@@ -2055,7 +2011,7 @@
             { label: 'Net Box Office', value: values.net, type: 'net' },
             { label: 'Share 50%', value: values.share, type: 'deduction', prefix: '-' },
             { label: 'Royalty 1.5%', value: values.royalty, type: 'deduction', prefix: '-' },
-            { label: 'Total PH', value: values.total, type: 'final' }
+            { label: 'Total Production House', value: values.total, type: 'final' }
         ];
 
         $('#wf-gross').text(formatCurrency(values.gross || 0));
@@ -2211,7 +2167,7 @@
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.setTextColor.apply(doc, mutedColor);
-        doc.text('Alur perhitungan dari Gross Box Office sampai estimasi Total PH.', marginX, 41);
+        doc.text('Alur perhitungan dari Gross Box Office sampai estimasi Total Production House.', marginX, 41);
         addFilterBox();
 
         var gap = 4;
@@ -2222,18 +2178,17 @@
         addMetric('Effective Tax Rate', pdfNumber(values.effectiveTaxRate, 2) + '%', marginX + ((metricW + gap) * 3), 85, metricW, accentColor);
 
         var steps = [
-            { label: 'Gross Box Office', value: values.gross, color: brandColor },
-            { label: 'Pajak', value: values.tax, prefix: '-', color: accentColor },
-            { label: 'Net Box Office', value: values.net, color: [37, 99, 235] },
-            { label: 'Share 50%', value: values.share, prefix: '-', color: accentColor },
-            { label: 'Royalty 1.5%', value: values.royalty, prefix: '-', color: accentColor },
-            { label: 'Total PH', value: values.total, color: [4, 120, 87] }
+            { label: 'Gross Box Office', value: values.gross, color: [124, 58, 237] },
+            { label: 'Pajak', value: values.tax, prefix: '-', color: [220, 38, 38] },
+            { label: 'Net Box Office', value: values.net, color: [2, 132, 199] },
+            { label: 'Share 50%', value: values.share, prefix: '-', color: [220, 38, 38] },
+            { label: 'Royalty 1.5%', value: values.royalty, prefix: '-', color: [220, 38, 38] },
+            { label: 'Total Production House', value: values.total, color: [0, 168, 107] }
         ];
         var maxValue = Math.max(Number(values.gross || 0), Number(values.net || 0), Number(values.total || 0), 1);
         var labelW = 36;
-        var valueW = 45;
         var trackX = marginX + labelW;
-        var trackW = usableW - labelW - valueW;
+        var trackW = usableW - labelW;
         var flowY = 109;
 
         steps.forEach(function (step, index) {
@@ -2251,15 +2206,21 @@
                 var barRadius = Math.min(3.5, barW / 2);
                 doc.roundedRect(trackX, rowY, barW, 7, barRadius, barRadius, 'F');
             }
-            doc.setFontSize(7.5);
-            doc.text((step.prefix || '') + pdfNumber(value, 2), pageW - marginX, rowY + 5.5, { align: 'right' });
+            var valueLabel = (step.prefix || '') + pdfNumber(value, 2);
+            doc.setFontSize(6.8);
+            var valueLabelW = Math.min(Math.max(doc.getTextWidth(valueLabel) + 5, 24), 42);
+            var valueLabelX = trackX + trackW - valueLabelW - 1;
+            doc.setFillColor(17, 24, 39);
+            doc.roundedRect(valueLabelX, rowY + 0.8, valueLabelW, 5.4, 2.7, 2.7, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text(valueLabel, valueLabelX + valueLabelW - 2.2, rowY + 4.7, { align: 'right' });
         });
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
         doc.setTextColor.apply(doc, mutedColor);
         doc.text(
-            'Formula: Occupancy = Penonton / Kapasitas Tersedia; Gross - Pajak = Net; Net - Share 50% - Royalty 1.5% dari share = Total PH.',
+            'Formula: Occupancy = Penonton / Kapasitas Tersedia; Gross - Pajak = Net; Net - Share 50% - Royalty 1.5% dari share = Total Production House.',
             marginX,
             183,
             { maxWidth: usableW }

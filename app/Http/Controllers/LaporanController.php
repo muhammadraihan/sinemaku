@@ -224,13 +224,13 @@ class LaporanController extends Controller
 
         $notes = [];
         if ($topCinema) {
-            $notes[] = 'Kontributor Total PH terbesar adalah ' . $topCinema->label . ' di ' . $topCinema->kota . '.';
+            $notes[] = 'Kontributor Total Production House terbesar adalah ' . $topCinema->label . ' di ' . $topCinema->kota . '.';
         }
         if ($topCategory) {
             $notes[] = 'Kategori terkuat pada filter ini adalah ' . $topCategory->label . '.';
         }
         if ($topProvince) {
-            $notes[] = 'Provinsi dengan kontribusi Total PH terbesar adalah ' . $topProvince->label . '.';
+            $notes[] = 'Provinsi dengan kontribusi Total Production House terbesar adalah ' . $topProvince->label . '.';
         }
         if ($occupancyRate >= 75) {
             $notes[] = 'Occupancy agregat berada di level kuat, menandakan kapasitas show dimanfaatkan dengan baik.';
@@ -407,10 +407,10 @@ class LaporanController extends Controller
         $notes = [];
         if ($summary['period_change'] !== null) {
             $movement = $summary['period_change'] >= 0 ? 'naik' : 'turun';
-            $notes[] = 'Total PH periode ini ' . $movement . ' ' . number_format(abs($summary['period_change']), 2) . '% dari hari pertama ke hari terakhir.';
+            $notes[] = 'Total Production House periode ini ' . $movement . ' ' . number_format(abs($summary['period_change']), 2) . '% dari hari pertama ke hari terakhir.';
         }
         if ($bestDay) {
-            $notes[] = 'Hari terbaik berdasarkan Total PH adalah ' . $bestDay['tanggal'] . '.';
+            $notes[] = 'Hari terbaik berdasarkan Total Production House adalah ' . $bestDay['tanggal'] . '.';
         }
         if ($bestGrowthDay && $bestGrowthDay['total_ph_change'] > 0) {
             $notes[] = 'Lonjakan harian terbaik terjadi pada ' . $bestGrowthDay['tanggal'] . ' sebesar ' . number_format($bestGrowthDay['total_ph_change'], 2) . '%.';
@@ -1193,7 +1193,7 @@ class LaporanController extends Controller
 
         $headers = [
             'Tanggal', 'Kategori', 'Kota', 'Nama Bioskop', 'Studio', 'Kapasitas',
-            'S1','S2','S3','S4','S5','S6','S7','Total','Kapasitas Tersedia','Occupancy Rate','Harga','Gross','ATP','Effective Tax Rate','Pajak %','Pajak','Net','Share','Share PH','Royalty (1.5%)','Total Akhir'
+            'S1','S2','S3','S4','S5','S6','S7','Total','Kapasitas Tersedia','Occupancy Rate','Harga','Gross','ATP','Effective Tax Rate','Pajak %','Pajak','Net','Share','Share Production House','Royalty (1.5%)','Total Akhir'
         ];
 
         $sheet->fromArray($headers, null, 'A1');

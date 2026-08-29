@@ -5,6 +5,7 @@
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/datagrid/datatables/datatables.bundle.css')}}">
 <link rel="stylesheet" media="screen, print" href="{{asset('css/formplugins/select2/select2.bundle.css')}}">
+<link rel="stylesheet" media="screen" href="{{asset('css/notifications/sweetalert2/sweetalert2.bundle.css')}}">
 @endsection
 
 @section('content')
@@ -25,9 +26,6 @@
             </div>
             <h1>Sinemaku Analytics</h1>
             <p>Pantau performa film, kota, bioskop, jumlah show, dan area underperforming dalam satu dashboard yang mudah dibaca.</p>
-            <button id="download-pdf" class="btn btn-danger">
-                <i class="fal fa-file-pdf mr-1"></i> Download PDF
-            </button>
             <img id="report-logo" src="{{ asset('img/sinemaku.png') }}" alt="logo" style="display:none">
         </section>
     </div>
@@ -141,6 +139,14 @@
                     <i class="fal fa-search"></i>
                 </button>
             </div>
+        </div>
+        <div class="d-flex flex-wrap justify-content-end align-items-center pt-3 mt-1 border-top">
+            <button type="button" id="download-pdf" class="btn btn-danger mb-2">
+                <i class="fal fa-file-pdf mr-1"></i> Dashboard PDF
+            </button>
+            <button type="button" id="download-all-reports" class="btn btn-primary ml-2 mb-2" style="display:none" title="Download Summary Report" aria-label="Download Summary Report">
+                <i class="fal fa-file-archive mr-1"></i> Summary Report
+            </button>
         </div>
     </form>
 </div>
@@ -301,25 +307,25 @@
 <script src="{{asset('js/datagrid/datatables/datatables.bundle.js')}}"></script>
 <script src="{{asset('js/formplugins/select2/select2.bundle.js')}}"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ asset('js/sinemaku-chart-value-labels.js') }}"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script>
-    if (window.Chart && window.ChartDataLabels) {
-        Chart.register(ChartDataLabels);
-    }
-
     const chartPalette = [
-        'rgba(98, 91, 214, 0.84)',
-        'rgba(40, 199, 162, 0.82)',
-        'rgba(255, 200, 87, 0.88)',
-        'rgba(255, 107, 125, 0.82)',
-        'rgba(141, 124, 255, 0.82)',
-        'rgba(45, 196, 255, 0.82)',
-        'rgba(255, 159, 67, 0.82)',
-        'rgba(74, 222, 128, 0.82)'
+        '#7c3aed',
+        '#00a86b',
+        '#0284c7',
+        '#f97316',
+        '#db2777',
+        '#06b6d4',
+        '#dc2626',
+        '#eab308'
     ];
+
+    if (window.Chart && window.SinemakuChartValueLabels) {
+        Chart.register(window.SinemakuChartValueLabels);
+    }
 
     let chartInstances = {
         topCities: null,
@@ -329,14 +335,19 @@
         underCities: null,
         underCinemas: null
     };
+    window.sinemakuLatestDashboardPayload = null;
 
     $(document).ready(function(){
         $('#nama_film').select2({ width: '100%' });
         $('#bioskop_kategori').select2({ width: '100%' });
-        $('#download-pdf').hide();
+        $('#download-pdf, #download-all-reports').hide();
         $('#data-summary').hide();
 
-        loadChart('', '', '', 'ALL');
+        $('#nama_film, #tanggal_mulai, #tanggal_akhir, #bioskop_kategori').on('change.summaryReportState', function () {
+            $('#download-all-reports').hide();
+        });
+
+        loadChart('', '', '', 'ALL', false);
 
         $(document).delegate("#search-btn", "click", function (event) {
             event.preventDefault();
@@ -353,11 +364,11 @@
 
             $('.chart').hide();
             $('#data-summary').hide();
-            $('#download-pdf').hide();
+            $('#download-pdf, #download-all-reports').hide();
             $('#loading').show();
 
             setTimeout(function () {
-                loadChart(nama_film, tgl_mulai, tgl_akhir, bioskop_kategori);
+                loadChart(nama_film, tgl_mulai, tgl_akhir, bioskop_kategori, true);
             }, 200);
         });
     });
@@ -545,6 +556,11 @@
                     contribution
                 ];
             });
+            const compactStyle = rows.length <= 12
+                ? { fontSize: 8, cellPadding: 2.1 }
+                : (rows.length <= 20
+                    ? { fontSize: 6.8, cellPadding: 1.35 }
+                    : { fontSize: 7, cellPadding: 1.5 });
 
             doc.addPage('a4', 'landscape');
             doc.autoTable({
@@ -554,10 +570,12 @@
                 body: rows,
                 theme: 'grid',
                 showHead: 'everyPage',
+                pageBreak: 'auto',
+                rowPageBreak: 'avoid',
                 styles: {
                     font: 'helvetica',
-                    fontSize: 8,
-                    cellPadding: 2.5,
+                    fontSize: compactStyle.fontSize,
+                    cellPadding: compactStyle.cellPadding,
                     textColor: textColor,
                     overflow: 'linebreak'
                 },
@@ -600,8 +618,18 @@
         addMetricCard("Show Terbaca", metricShows, marginX + (cardW + 4) * 2, cardY, cardW, 22, [40, 199, 162]);
         addMetricCard("Bioskop Teratas", metricCinemas, marginX + (cardW + 4) * 3, cardY, cardW, 22, [141, 124, 255]);
 
-        addSectionTitle("Audience Performance Overview", "Ringkasan visual penonton berdasarkan filter yang sedang aktif.", 94);
-        addChartPanel("TOP 20 Kota - Penonton Terbanyak", imgTopCities, marginX, 103, usableW, 78);
+        addSectionTitle("Audience Performance Overview", "Setiap grafik dan tabel rinciannya disajikan pada halaman terpisah.", 94);
+
+        if (imgTopCities) {
+            doc.addPage("a4", "landscape");
+            addHeader("Chart Detail");
+            addSectionTitle(
+                "TOP 20 Kota - Penonton Terbanyak",
+                "Peringkat kota dengan jumlah penonton tertinggi pada periode aktif.",
+                37
+            );
+            addChartPanel("TOP 20 Kota - Penonton Terbanyak", imgTopCities, marginX, 49, usableW, 132);
+        }
 
         addChartDetailTable("TOP 20 Kota - Penonton Terbanyak", "Kota", chartInstances.topCities);
 
@@ -719,6 +747,20 @@
         return $.extend(true, {}, baseOptions, extra || {});
     }
 
+    function barChartOptions() {
+        return commonOptions({
+            indexAxis: 'y',
+            layout: {
+                padding: { top: 6, right: 24, bottom: 2, left: 2 }
+            },
+            scales: {
+                x: {
+                    grace: '18%'
+                }
+            }
+        });
+    }
+
     function compactNumber(value) {
         const number = Number(value || 0);
         if (Math.abs(number) >= 1000000) return (number / 1000000).toFixed(1).replace('.0', '') + 'M';
@@ -730,8 +772,8 @@
         return {
             label: label,
             data: data,
-            backgroundColor: color || 'rgba(98, 91, 214, 0.84)',
-            borderColor: borderColor || color || 'rgba(98, 91, 214, 1)',
+            backgroundColor: color || '#7c3aed',
+            borderColor: borderColor || color || '#7c3aed',
             borderWidth: 0,
             borderRadius: 6,
             borderSkipped: false,
@@ -927,6 +969,11 @@
             const contribution = total > 0 ? ((values[index] / total) * 100).toFixed(2) + '%' : '0.00%';
             return [index + 1, label, formatNumber(values[index]), contribution];
         });
+        const compactStyle = detailRows.length <= 12
+            ? { fontSize: 8, cellPadding: 2.1 }
+            : (detailRows.length <= 20
+                ? { fontSize: 6.8, cellPadding: 1.35 }
+                : { fontSize: 7, cellPadding: 1.5 });
 
         doc.addPage('a4', 'landscape');
         doc.autoTable({
@@ -935,7 +982,16 @@
             head: [['Rank', dimensionLabel, 'Jumlah Penonton', 'Kontribusi']],
             body: detailRows,
             theme: 'grid',
-            styles: { font: 'helvetica', fontSize: 8, cellPadding: 2.5, textColor: textColor },
+            showHead: 'everyPage',
+            pageBreak: 'auto',
+            rowPageBreak: 'avoid',
+            styles: {
+                font: 'helvetica',
+                fontSize: compactStyle.fontSize,
+                cellPadding: compactStyle.cellPadding,
+                textColor: textColor,
+                overflow: 'linebreak'
+            },
             headStyles: { fillColor: brandColor, textColor: [255, 255, 255], fontStyle: 'bold' },
             alternateRowStyles: { fillColor: [249, 250, 251] },
             columnStyles: {
@@ -962,7 +1018,7 @@
         downloadSingleChart($(this).data('chart'), $(this).data('title'));
     });
 
-    function loadChart(nama_film, tgl_mulai, tgl_akhir, bioskop_kategori) {
+    function loadChart(nama_film, tgl_mulai, tgl_akhir, bioskop_kategori, summaryReportEnabled) {
         $.ajax({
             url: "{{ route('getCharAudienceDashboard') }}",
             method: "GET",
@@ -976,11 +1032,27 @@
                 if (Array.isArray(payload)) {
                     payload = { top_cities: payload };
                 }
+                window.sinemakuLatestDashboardPayload = payload;
+                const reportDefaults = (window.sinemakuAllReportConfig || {}).defaults || {};
+                window.sinemakuLatestDashboardFilters = {
+                    nama_film: nama_film || reportDefaults.nama_film || '',
+                    tgl_mulai: tgl_mulai || reportDefaults.tgl_mulai || '',
+                    tgl_akhir: tgl_akhir || reportDefaults.tgl_akhir || '',
+                    bioskop_kategori: bioskop_kategori || reportDefaults.bioskop_kategori || 'ALL',
+                    kota: 'ALL',
+                    nama_bioskop: 'ALL',
+                    type_tiket: 'ALL'
+                };
 
                 $('#loading').hide();
                 $('.chart').show();
                 $('#data-summary').show();
                 $('#download-pdf').show();
+                const activeFilterStillMatches = $('#nama_film').val() === nama_film
+                    && $('#tanggal_mulai').val() === tgl_mulai
+                    && $('#tanggal_akhir').val() === tgl_akhir
+                    && $('#bioskop_kategori').val() === bioskop_kategori;
+                $('#download-all-reports').toggle(Boolean(summaryReportEnabled && activeFilterStillMatches));
 
                 const topCities = payload.top_cities || [];
                 const labelsTopCities = topCities.map(x => x.kota);
@@ -1010,9 +1082,9 @@
                         type: 'bar',
                         data: {
                             labels: labelsTopCities,
-                            datasets: [dataset('Jumlah Penonton', valuesTopCities, 'rgba(98, 91, 214, 0.84)')]
+                            datasets: [dataset('Jumlah Penonton', valuesTopCities, '#7c3aed')]
                         },
-                        options: commonOptions({ indexAxis: 'y' })
+                        options: barChartOptions()
                     }
                 );
 
@@ -1030,12 +1102,12 @@
                             datasets: [{
                                 label: 'Jumlah Penonton',
                                 data: showsValues,
-                                fill: true,
+                                fill: false,
                                 tension: 0.35,
-                                borderColor: 'rgba(98, 91, 214, 1)',
-                                backgroundColor: 'rgba(98, 91, 214, 0.12)',
+                                borderColor: '#0284c7',
+                                backgroundColor: '#0284c7',
                                 pointBackgroundColor: '#ffffff',
-                                pointBorderColor: 'rgba(98, 91, 214, 1)',
+                                pointBorderColor: '#0284c7',
                                 pointRadius: 4,
                                 borderWidth: 3
                             }]
@@ -1102,9 +1174,9 @@
                         type: 'bar',
                         data: {
                             labels: topCLabels,
-                            datasets: [dataset('Penonton', topCValues, 'rgba(40, 199, 162, 0.82)')]
+                            datasets: [dataset('Penonton', topCValues, '#00a86b')]
                         },
-                        options: commonOptions({ indexAxis: 'y' })
+                        options: barChartOptions()
                     }
                 );
 
@@ -1119,9 +1191,9 @@
                         type: 'bar',
                         data: {
                             labels: ucLabels,
-                            datasets: [dataset('Penonton', ucValues, 'rgba(255, 184, 77, 0.84)')]
+                            datasets: [dataset('Penonton', ucValues, '#f97316')]
                         },
-                        options: commonOptions({ indexAxis: 'y' })
+                        options: barChartOptions()
                     }
                 );
 
@@ -1136,9 +1208,9 @@
                         type: 'bar',
                         data: {
                             labels: ubLabels,
-                            datasets: [dataset('Penonton', ubValues, 'rgba(255, 107, 125, 0.80)')]
+                            datasets: [dataset('Penonton', ubValues, '#dc2626')]
                         },
-                        options: commonOptions({ indexAxis: 'y' })
+                        options: barChartOptions()
                     }
                 );
             },
@@ -1150,4 +1222,19 @@
         });
     }
 </script>
+<script src="{{ asset('js/notifications/sweetalert2/sweetalert2.bundle.js') }}"></script>
+<script>
+    window.sinemakuAllReportConfig = {
+        financeUrl: @json(route('finance-insight.data')),
+        trendUrl: @json(route('trend-analysis.data')),
+        detailUrl: @json(route('laporan.detailExport')),
+        defaults: {
+            nama_film: @json(optional($last)->nama_film),
+            tgl_mulai: @json(optional($periode)->tgl_awal),
+            tgl_akhir: @json(optional($periode)->tgl_akhir),
+            bioskop_kategori: 'ALL'
+        }
+    };
+</script>
+<script src="{{ asset('js/sinemaku-all-report.js') }}"></script>
 @endsection
