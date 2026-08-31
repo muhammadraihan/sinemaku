@@ -1242,6 +1242,10 @@
         financeUrl: @json(route('finance-insight.data')),
         trendUrl: @json(route('trend-analysis.data')),
         detailUrl: @json(route('laporan.detailExport')),
+        rekapSummaryUrl: @json(route('laporan.summary')),
+        rekapPerformanceUrl: @json(route('laporan.performance')),
+        rekapProvinceUrl: @json(route('laporan.province')),
+        rekapAuditUrl: @json(route('laporan.audit')),
         defaults: {
             nama_film: @json(optional($last)->nama_film),
             tgl_mulai: @json(optional($periode)->tgl_awal),

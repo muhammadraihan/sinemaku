@@ -500,6 +500,11 @@
         var trendSummary = trend.summary || {};
         var detail = data.detail || {};
         var detailRows = detail.rows || [];
+        var rekap = data.rekap || {};
+        var rekapSummaryRows = Array.isArray(rekap.summary) ? rekap.summary : [];
+        var rekapPerformanceRows = Array.isArray(rekap.performance) ? rekap.performance : [];
+        var rekapProvinceRows = Array.isArray(rekap.province) ? rekap.province : [];
+        var rekapAuditRows = Array.isArray(rekap.audit) ? rekap.audit : [];
 
         pageTitle('Summary Report', 'Ringkasan seluruh laporan dan detail berdasarkan satu filter aktif.', 'Executive Summary');
         filterBox(48);
@@ -615,37 +620,163 @@
         });
 
         function addBoxOfficeSection() {
-            nextPage('Box Office Performance Summary', 'Alur ringkas perhitungan dari Gross sampai Total Production House.', 'Box Office Performance Summary');
-            metricCard('Gross', reportNumber(financeSummary.gross, 2), marginX, 50, cardW, colors.primary);
-        metricCard('Pajak', reportNumber(financeSummary.tax, 2), marginX + cardW + gap, 50, cardW, colors.accent);
-        metricCard('Net', reportNumber(financeSummary.net, 2), marginX + ((cardW + gap) * 2), 50, cardW, colors.green);
-        metricCard('Total Production House', reportNumber(financeSummary.total_ph, 2), marginX + ((cardW + gap) * 3), 50, cardW, colors.purple);
-        metricCard('ATP', reportNumber(financeSummary.atp, 2), marginX, 76, cardW, colors.orange);
-        metricCard('Occupancy', reportPercent(financeSummary.occupancy_rate), marginX + cardW + gap, 76, cardW, colors.blue);
-        metricCard('Share Production House', reportNumber(financeSummary.share, 2), marginX + ((cardW + gap) * 2), 76, cardW, colors.primary);
-        metricCard('Royalty 1,5%', reportNumber(financeSummary.royalty, 2), marginX + ((cardW + gap) * 3), 76, cardW, colors.accent);
-        var waterfallRows = [
-            ['Gross Box Office', reportNumber(financeSummary.gross, 2), 'Nilai awal pendapatan'],
-            ['Pajak', '-' + reportNumber(financeSummary.tax, 2), 'Pengurang berdasarkan pajak bioskop'],
-            ['Net Box Office', reportNumber(financeSummary.net, 2), 'Gross dikurangi pajak'],
-            ['Share Production House', '-' + reportNumber(financeSummary.share, 2), 'Pembagian share 50%'],
-            ['Royalty 1,5%', '-' + reportNumber(financeSummary.royalty, 2), 'Royalty dari Share Production House'],
-            ['Total Akhir', reportNumber(financeSummary.total_ph, 2), 'Estimasi pendapatan akhir Production House']
-        ];
-        doc.autoTable({
-            startY: 108,
-            margin: { left: marginX, right: marginX, bottom: 18 },
-            head: [['Stage', 'Amount', 'Description']],
-            body: waterfallRows,
-            theme: 'grid',
-            styles: { font: 'helvetica', fontSize: 8, cellPadding: 2.5, textColor: colors.text },
-            headStyles: { fillColor: colors.brand, textColor: [255, 255, 255], fontStyle: 'bold' },
-            columnStyles: { 0: { cellWidth: 55 }, 1: { halign: 'right', cellWidth: 55 }, 2: { cellWidth: 'auto' } }
-        });
+            var totals = rekapSummaryRows.reduce(function (result, row) {
+                result.audience += numberValue(row.jumlah);
+                result.seats += numberValue(row.seats_available);
+                result.gross += numberValue(row.gross);
+                result.tax += numberValue(row.tax);
+                result.net += numberValue(row.net);
+                result.share += numberValue(row.share);
+                result.totalPh += numberValue(row.total);
+                return result;
+            }, { audience: 0, seats: 0, gross: 0, tax: 0, net: 0, share: 0, totalPh: 0 });
+
+            if (!rekapSummaryRows.length) {
+                totals.audience = numberValue(financeSummary.audience);
+                totals.seats = numberValue(financeSummary.seats_available);
+                totals.gross = numberValue(financeSummary.gross);
+                totals.tax = numberValue(financeSummary.tax);
+                totals.net = numberValue(financeSummary.net);
+                totals.share = numberValue(financeSummary.share);
+                totals.totalPh = numberValue(financeSummary.total_ph);
+            }
+
+            totals.royalty = totals.share * 0.015;
+            var occupancy = totals.seats ? (totals.audience / totals.seats) * 100 : 0;
+            var atp = totals.audience ? totals.gross / totals.audience : 0;
+
+            nextPage('Box Office Performance Summary', 'Revenue waterfall berdasarkan data lengkap modul Rekap Omset.', 'Box Office Performance Summary');
+            metricCard('Gross', reportNumber(totals.gross, 2), marginX, 50, cardW, colors.primary);
+            metricCard('Tax', reportNumber(totals.tax, 2), marginX + cardW + gap, 50, cardW, colors.accent);
+            metricCard('Net', reportNumber(totals.net, 2), marginX + ((cardW + gap) * 2), 50, cardW, colors.green);
+            metricCard('Total Production House', reportNumber(totals.totalPh, 2), marginX + ((cardW + gap) * 3), 50, cardW, colors.purple);
+            metricCard('ATP', reportNumber(atp, 2), marginX, 76, cardW, colors.orange);
+            metricCard('Occupancy', reportPercent(occupancy), marginX + cardW + gap, 76, cardW, colors.blue);
+            metricCard('Share Production House', reportNumber(totals.share, 2), marginX + ((cardW + gap) * 2), 76, cardW, colors.primary);
+            metricCard('Royalty 1.5%', reportNumber(totals.royalty, 2), marginX + ((cardW + gap) * 3), 76, cardW, colors.accent);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.setTextColor.apply(doc, colors.text);
+            doc.text('REVENUE WATERFALL', marginX, 105);
+
+            var waterfall = [
+                { label: 'Gross Box Office', value: totals.gross, color: [124, 58, 237] },
+                { label: 'Tax', value: totals.tax, prefix: '-', color: [220, 38, 38] },
+                { label: 'Net Box Office', value: totals.net, color: [2, 132, 199] },
+                { label: 'Share 50%', value: totals.share, prefix: '-', color: [234, 88, 12] },
+                { label: 'Royalty 1.5%', value: totals.royalty, prefix: '-', color: [219, 39, 119] },
+                { label: 'Total Production House', value: totals.totalPh, color: [5, 150, 105] }
+            ];
+            var maximumWaterfall = Math.max(totals.gross, 1);
+            var waterfallLabelW = 45;
+            var waterfallValueW = 50;
+            var waterfallTrackX = marginX + waterfallLabelW;
+            var waterfallTrackW = usableW - waterfallLabelW - waterfallValueW;
+
+            waterfall.forEach(function (step, index) {
+                var y = 110 + (index * 8.2);
+                var barW = Math.max(1.5, waterfallTrackW * (Math.abs(step.value) / maximumWaterfall));
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(7.2);
+                doc.setTextColor.apply(doc, colors.text);
+                doc.text(step.label, marginX, y + 4.8, { maxWidth: waterfallLabelW - 3 });
+                doc.setFillColor(243, 244, 246);
+                doc.roundedRect(waterfallTrackX, y, waterfallTrackW, 6, 2, 2, 'F');
+                doc.setFillColor.apply(doc, step.color);
+                doc.roundedRect(waterfallTrackX, y, Math.min(barW, waterfallTrackW), 6, 2, 2, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(7);
+                doc.setTextColor.apply(doc, colors.text);
+                doc.text((step.prefix || '') + reportNumber(step.value, 2), pageW - marginX, y + 4.7, { align: 'right' });
+            });
+
             insightBox('Insight Box Office Performance', [
-                'Gross sebesar ' + reportNumber(financeSummary.gross, 2) + ' menghasilkan Net sebesar ' + reportNumber(financeSummary.net, 2) + '.',
-                'Setelah Share Production House dan Royalty, estimasi Total Akhir adalah ' + reportNumber(financeSummary.total_ph, 2) + '.'
-            ], doc.lastAutoTable.finalY + 5, 22);
+                'Gross sebesar ' + reportNumber(totals.gross, 2) + ' menghasilkan Net sebesar ' + reportNumber(totals.net, 2) + '.',
+                'Setelah Share Production House dan Royalty, estimasi Total Akhir adalah ' + reportNumber(totals.totalPh, 2) + '.'
+            ], 162, 24);
+
+            function plainText(value) {
+                return $('<div>').html(String(value || '-')).text();
+            }
+
+            function addRekapTable(title, headers, rows, columnStyles, fontSize) {
+                var tableRows = rows.length ? rows : [[{
+                    content: 'No data available for the selected filters.',
+                    colSpan: headers.length,
+                    styles: { halign: 'center', textColor: colors.muted }
+                }]];
+
+                doc.addPage('a4', 'landscape');
+                doc.autoTable({
+                    startY: 43,
+                    margin: { top: 43, left: marginX, right: marginX, bottom: 18 },
+                    head: [headers],
+                    body: tableRows,
+                    theme: 'grid',
+                    showHead: 'everyPage',
+                    pageBreak: 'auto',
+                    rowPageBreak: 'avoid',
+                    styles: {
+                        font: 'helvetica',
+                        fontSize: fontSize,
+                        cellPadding: 1.1,
+                        textColor: colors.text,
+                        overflow: 'linebreak',
+                        valign: 'middle'
+                    },
+                    headStyles: { fillColor: colors.brand, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+                    alternateRowStyles: { fillColor: colors.soft },
+                    columnStyles: columnStyles,
+                    didDrawPage: function () {
+                        addHeader('Box Office Performance Summary - Data');
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(10.5);
+                        doc.setTextColor.apply(doc, colors.text);
+                        doc.text(title, marginX, 35);
+                    }
+                });
+            }
+
+            addRekapTable(
+                'Summary by Cinema Category',
+                ['No', 'Category', 'Audience', 'Available Capacity', 'Occupancy', 'Gross', 'ATP', 'Effective Tax Rate', 'Net', 'Share 50%', 'Royalty', 'Final Total'],
+                rekapSummaryRows.map(function (row, index) {
+                    return [index + 1, row.kategori || '-', row.jumlah || '0', row.seats_available || '0', row.occupancy_rate || '0.00%', row.gross || '0', row.atp || '0', row.effective_tax_rate || '0.00%', row.net || '0', row.share || '0', row.royalty || '1.5%', row.total || '0'];
+                }),
+                { 0: { cellWidth: 8 }, 1: { cellWidth: 24 }, 2: { cellWidth: 19 }, 3: { cellWidth: 24 }, 4: { cellWidth: 18 }, 5: { cellWidth: 28 }, 6: { cellWidth: 21 }, 7: { cellWidth: 21 }, 8: { cellWidth: 27 }, 9: { cellWidth: 26 }, 10: { cellWidth: 16 }, 11: { cellWidth: 28 } },
+                5.8
+            );
+
+            addRekapTable(
+                'Cinema Performance Ranking',
+                ['Rank', 'City', 'Cinema Name', 'Audience', 'Available Capacity', 'Occupancy', 'Gross', 'ATP', 'Net', 'Total Production House'],
+                rekapPerformanceRows.map(function (row, index) {
+                    return [index + 1, row.kota || '-', String(row.nama_bioskop || '-').toUpperCase(), row.jumlah || '0', row.seats_available || '0', row.occupancy_rate || '0.00%', row.gross || '0', row.atp || '0', row.net || '0', row.total_ph || '0'];
+                }),
+                { 0: { cellWidth: 10 }, 1: { cellWidth: 22 }, 2: { cellWidth: 45 }, 3: { cellWidth: 20 }, 4: { cellWidth: 25 }, 5: { cellWidth: 20 }, 6: { cellWidth: 30 }, 7: { cellWidth: 24 }, 8: { cellWidth: 30 }, 9: { cellWidth: 35 } },
+                rekapPerformanceRows.length > 35 ? 5.5 : 6.3
+            );
+
+            addRekapTable(
+                'Province Performance Leaderboard',
+                ['Rank', 'Province', 'Cities', 'Cinemas', 'Audience', 'Available Capacity', 'Occupancy', 'Gross', 'ATP', 'Effective Tax Rate', 'Net', 'Total Production House'],
+                rekapProvinceRows.map(function (row, index) {
+                    return [index + 1, row.provinsi || '-', row.city_count || '0', row.cinema_count || '0', row.jumlah || '0', row.seats_available || '0', row.occupancy_rate || '0.00%', row.gross || '0', row.atp || '0', row.effective_tax_rate || '0.00%', row.net || '0', row.total_ph || '0'];
+                }),
+                { 0: { cellWidth: 8 }, 1: { cellWidth: 29 }, 2: { cellWidth: 14 }, 3: { cellWidth: 16 }, 4: { cellWidth: 19 }, 5: { cellWidth: 24 }, 6: { cellWidth: 18 }, 7: { cellWidth: 27 }, 8: { cellWidth: 21 }, 9: { cellWidth: 21 }, 10: { cellWidth: 28 }, 11: { cellWidth: 30 } },
+                rekapProvinceRows.length > 30 ? 5.4 : 6
+            );
+
+            addRekapTable(
+                'Audit Checks',
+                ['No', 'Issue', 'Date', 'Category', 'City', 'Cinema Name', 'Studio', 'Show', 'Ticket Type', 'Audience', 'Capacity', 'Price', 'Gross', 'Expected Gross', 'Variance', 'Tax'],
+                rekapAuditRows.map(function (row, index) {
+                    return [index + 1, plainText(row.issue), displayDate(row.tgl_tayang), row.kategori || '-', row.kota || '-', String(row.nama_bioskop || '-').toUpperCase(), row.studio || '-', row.show || '-', row.type_tiket || '-', row.jumlah || '0', row.kapasitas || '0', row.harga || '0', row.gross || '0', row.expected_gross || '0', row.selisih || '0', row.pajak || '-'];
+                }),
+                { 0: { cellWidth: 7 }, 1: { cellWidth: 30 }, 2: { cellWidth: 15 }, 3: { cellWidth: 18 }, 4: { cellWidth: 15 }, 5: { cellWidth: 28 }, 6: { cellWidth: 12 }, 7: { cellWidth: 10 }, 8: { cellWidth: 18 }, 9: { cellWidth: 14 }, 10: { cellWidth: 14 }, 11: { cellWidth: 16 }, 12: { cellWidth: 21 }, 13: { cellWidth: 21 }, 14: { cellWidth: 16 }, 15: { cellWidth: 11 } },
+                4.8
+            );
         }
 
         function addFinanceSection() {
@@ -808,7 +939,7 @@
         var completedSources = 0;
         var markSourceComplete = function (label) {
             completedSources += 1;
-            updateDownloadProgress(10 + (completedSources * 20), label + ' selesai dimuat.');
+            updateDownloadProgress(10 + (completedSources * 10), label + ' selesai dimuat.');
         };
         var financeRequest = fetchReport(config.financeUrl, commonParams, 'Finance Insight').then(function (response) {
             markSourceComplete('Finance Insight');
@@ -826,11 +957,31 @@
             markSourceComplete('Report Detail');
             return response;
         });
+        var rekapSummaryRequest = fetchReport(config.rekapSummaryUrl, commonParams, 'Rekap Omset Summary').then(function (response) {
+            markSourceComplete('Rekap Omset Summary');
+            return response;
+        });
+        var rekapPerformanceRequest = fetchReport(config.rekapPerformanceUrl, commonParams, 'Performance Ranking').then(function (response) {
+            markSourceComplete('Performance Ranking');
+            return response;
+        });
+        var rekapProvinceRequest = fetchReport(config.rekapProvinceUrl, commonParams, 'Province Leaderboard').then(function (response) {
+            markSourceComplete('Province Leaderboard');
+            return response;
+        });
+        var rekapAuditRequest = fetchReport(config.rekapAuditUrl, commonParams, 'Audit Checks').then(function (response) {
+            markSourceComplete('Audit Checks');
+            return response;
+        });
 
         Promise.all([
             financeRequest,
             trendRequest,
-            detailRequest
+            detailRequest,
+            rekapSummaryRequest,
+            rekapPerformanceRequest,
+            rekapProvinceRequest,
+            rekapAuditRequest
         ])
             .then(function (responses) {
                 updateDownloadProgress(82, 'Menyusun halaman dan tabel PDF...');
@@ -838,7 +989,13 @@
                     dashboard: window.sinemakuLatestDashboardPayload,
                     finance: responses[0],
                     trend: responses[1],
-                    detail: responses[2]
+                    detail: responses[2],
+                    rekap: {
+                        summary: responses[3],
+                        performance: responses[4],
+                        province: responses[5],
+                        audit: responses[6]
+                    }
                 }, filters, filterLabels(filters));
                 updateDownloadProgress(100, 'Summary Report selesai. Download dimulai...');
 
