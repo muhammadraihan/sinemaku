@@ -528,9 +528,9 @@
             '1. Dashboard Audience Performance',
             '2. Grafik TOP 20 Kota',
             '3. Trend Analysis',
-            '4. Daily Theatrical Performance Report',
-            '5. Finance Insight',
-            '6. Box Office Performance Summary'
+            '4. Box Office Performance Summary',
+            '5. Daily Theatrical Performance Report',
+            '6. Finance Insight'
         ], marginX, 148);
 
         var topCities = dashboard.top_cities || [];
@@ -828,6 +828,8 @@
             }
         });
 
+        addBoxOfficeSection();
+
         doc.addPage('a4', 'landscape');
         var pdfDetailRows = detailRows.map(function (row) {
             return [
@@ -883,9 +885,8 @@
             }
         });
 
-        // Bagian finansial ditempatkan paling akhir setelah laporan detail.
+        // Finance Insight ditempatkan paling akhir setelah laporan detail.
         addFinanceSection();
-        addBoxOfficeSection();
 
         addFooter();
         var safeFilm = String(labels.film || 'semua-film').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
