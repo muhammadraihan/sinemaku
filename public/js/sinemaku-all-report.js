@@ -503,8 +503,6 @@
         var rekap = data.rekap || {};
         var rekapSummaryRows = Array.isArray(rekap.summary) ? rekap.summary : [];
         var rekapPerformanceRows = Array.isArray(rekap.performance) ? rekap.performance : [];
-        var rekapProvinceRows = Array.isArray(rekap.province) ? rekap.province : [];
-        var rekapAuditRows = Array.isArray(rekap.audit) ? rekap.audit : [];
 
         pageTitle('Summary Report', 'Ringkasan seluruh laporan dan detail berdasarkan satu filter aktif.', 'Executive Summary');
         filterBox(48);
@@ -696,10 +694,6 @@
                 'Setelah Share Production House dan Royalty, estimasi Total Akhir adalah ' + reportNumber(totals.totalPh, 2) + '.'
             ], 162, 24);
 
-            function plainText(value) {
-                return $('<div>').html(String(value || '-')).text();
-            }
-
             function addRekapTable(title, headers, rows, columnStyles, fontSize) {
                 var tableRows = rows.length ? rows : [[{
                     content: 'No data available for the selected filters.',
@@ -758,25 +752,6 @@
                 rekapPerformanceRows.length > 35 ? 5.5 : 6.3
             );
 
-            addRekapTable(
-                'Province Performance Leaderboard',
-                ['Rank', 'Province', 'Cities', 'Cinemas', 'Audience', 'Available Capacity', 'Occupancy', 'Gross', 'ATP', 'Effective Tax Rate', 'Net', 'Total Production House'],
-                rekapProvinceRows.map(function (row, index) {
-                    return [index + 1, row.provinsi || '-', row.city_count || '0', row.cinema_count || '0', row.jumlah || '0', row.seats_available || '0', row.occupancy_rate || '0.00%', row.gross || '0', row.atp || '0', row.effective_tax_rate || '0.00%', row.net || '0', row.total_ph || '0'];
-                }),
-                { 0: { cellWidth: 8 }, 1: { cellWidth: 29 }, 2: { cellWidth: 14 }, 3: { cellWidth: 16 }, 4: { cellWidth: 19 }, 5: { cellWidth: 24 }, 6: { cellWidth: 18 }, 7: { cellWidth: 27 }, 8: { cellWidth: 21 }, 9: { cellWidth: 21 }, 10: { cellWidth: 28 }, 11: { cellWidth: 30 } },
-                rekapProvinceRows.length > 30 ? 5.4 : 6
-            );
-
-            addRekapTable(
-                'Audit Checks',
-                ['No', 'Issue', 'Date', 'Category', 'City', 'Cinema Name', 'Studio', 'Show', 'Ticket Type', 'Audience', 'Capacity', 'Price', 'Gross', 'Expected Gross', 'Variance', 'Tax'],
-                rekapAuditRows.map(function (row, index) {
-                    return [index + 1, plainText(row.issue), displayDate(row.tgl_tayang), row.kategori || '-', row.kota || '-', String(row.nama_bioskop || '-').toUpperCase(), row.studio || '-', row.show || '-', row.type_tiket || '-', row.jumlah || '0', row.kapasitas || '0', row.harga || '0', row.gross || '0', row.expected_gross || '0', row.selisih || '0', row.pajak || '-'];
-                }),
-                { 0: { cellWidth: 7 }, 1: { cellWidth: 30 }, 2: { cellWidth: 15 }, 3: { cellWidth: 18 }, 4: { cellWidth: 15 }, 5: { cellWidth: 28 }, 6: { cellWidth: 12 }, 7: { cellWidth: 10 }, 8: { cellWidth: 18 }, 9: { cellWidth: 14 }, 10: { cellWidth: 14 }, 11: { cellWidth: 16 }, 12: { cellWidth: 21 }, 13: { cellWidth: 21 }, 14: { cellWidth: 16 }, 15: { cellWidth: 11 } },
-                4.8
-            );
         }
 
         function addFinanceSection() {
@@ -939,7 +914,7 @@
         var completedSources = 0;
         var markSourceComplete = function (label) {
             completedSources += 1;
-            updateDownloadProgress(10 + (completedSources * 10), label + ' selesai dimuat.');
+            updateDownloadProgress(10 + (completedSources * 14), label + ' selesai dimuat.');
         };
         var financeRequest = fetchReport(config.financeUrl, commonParams, 'Finance Insight').then(function (response) {
             markSourceComplete('Finance Insight');
@@ -965,23 +940,12 @@
             markSourceComplete('Performance Ranking');
             return response;
         });
-        var rekapProvinceRequest = fetchReport(config.rekapProvinceUrl, commonParams, 'Province Leaderboard').then(function (response) {
-            markSourceComplete('Province Leaderboard');
-            return response;
-        });
-        var rekapAuditRequest = fetchReport(config.rekapAuditUrl, commonParams, 'Audit Checks').then(function (response) {
-            markSourceComplete('Audit Checks');
-            return response;
-        });
-
         Promise.all([
             financeRequest,
             trendRequest,
             detailRequest,
             rekapSummaryRequest,
-            rekapPerformanceRequest,
-            rekapProvinceRequest,
-            rekapAuditRequest
+            rekapPerformanceRequest
         ])
             .then(function (responses) {
                 updateDownloadProgress(82, 'Menyusun halaman dan tabel PDF...');
@@ -992,9 +956,7 @@
                     detail: responses[2],
                     rekap: {
                         summary: responses[3],
-                        performance: responses[4],
-                        province: responses[5],
-                        audit: responses[6]
+                        performance: responses[4]
                     }
                 }, filters, filterLabels(filters));
                 updateDownloadProgress(100, 'Summary Report selesai. Download dimulai...');
