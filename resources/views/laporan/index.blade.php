@@ -311,6 +311,7 @@
 @endsection
 
 @section('content')
+<img id="laporan-report-logo" src="{{ asset('img/sinemaku.png') }}" alt="Sinemaku Pictures" style="display:none">
 <div class="subheader">
     <h1 class="subheader-title">
         <i class='subheader-icon fal fa-users'></i> Module: <span class='fw-300'>Rekap Omset </span>
@@ -707,12 +708,53 @@
 <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<script src="{{ asset('js/sinemaku-pdf-logo.js') }}"></script>
 <script>
-    var sinemakuLogo = @json(file_exists(public_path('img/sinemaku.png')) ? 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('img/sinemaku.png'))) : null);
     var latestRevenueWaterfall = null;
     var currentDetailExportParams = null;
     var currentDetailExportFilters = null;
     var currentDetailExportButton = null;
+
+    function translatePdfTableHeaders(doc) {
+        var translations = {
+            'Kategori': 'Category',
+            'Jumlah Penonton': 'Audience',
+            'Penonton': 'Audience',
+            'Kapasitas Tersedia': 'Available Capacity',
+            'Kapasitas': 'Capacity',
+            'Total Pendapatan': 'Total Revenue',
+            'Kota': 'City',
+            'Kota Covered': 'Cities Covered',
+            'Nama Bioskop': 'Cinema Name',
+            'Provinsi': 'Province',
+            'Bioskop': 'Cinemas',
+            'Tanggal': 'Date',
+            'Tipe Tiket': 'Ticket Type',
+            'Harga': 'Price',
+            'Selisih': 'Variance',
+            'Pajak': 'Tax',
+            'Total': 'Final Total'
+        };
+
+        (doc.content || []).forEach(function (node) {
+            if (!node.table || !node.table.body || !node.table.body.length) {
+                return;
+            }
+
+            node.table.body[0].forEach(function (cell, index, headerRow) {
+                var label = typeof cell === 'string' ? cell : cell.text;
+                if (!translations[label]) {
+                    return;
+                }
+
+                if (typeof cell === 'string') {
+                    headerRow[index] = translations[label];
+                } else {
+                    cell.text = translations[label];
+                }
+            });
+        });
+    }
 
     function hideDetailExportDropdown() {
         $('#detail-export-dropdown').stop(true, true).fadeOut(100);
@@ -1052,7 +1094,8 @@
                         orientation: 'landscape',
                         pageSize: 'A4',
                         footer: true,
-                        exportOptions: { columns: ':visible' }
+                        exportOptions: { columns: ':visible' },
+                        customize: translatePdfTableHeaders
                     }
                 ],
                 "ajax":{
@@ -1150,7 +1193,8 @@
                         orientation: 'landscape',
                         pageSize: 'A4',
                         footer: true,
-                        exportOptions: { columns: ':visible' }
+                        exportOptions: { columns: ':visible' },
+                        customize: translatePdfTableHeaders
                     }
                 ],
                 "ajax":{
@@ -1265,7 +1309,8 @@
                         title: 'Audit Checks',
                         orientation: 'landscape',
                         pageSize: 'A4',
-                        exportOptions: { columns: ':visible' }
+                        exportOptions: { columns: ':visible' },
+                        customize: translatePdfTableHeaders
                     }
                 ],
                 "ajax":{
@@ -1346,6 +1391,11 @@
                         footer: true,
                         exportOptions: { columns: ':visible' },
                         customize: function (doc) {
+                            translatePdfTableHeaders(doc);
+                            var logoElement = document.getElementById('laporan-report-logo');
+                            var pdfLogo = window.SinemakuPdfLogo && logoElement
+                                ? window.SinemakuPdfLogo.toDataUrl(logoElement)
+                                : null;
                             var generatedAt = new Date().toLocaleString('id-ID', {
                                 day: '2-digit',
                                 month: 'long',
@@ -1374,8 +1424,8 @@
                                     stack: [
                                         {
                                             columns: [
-                                                sinemakuLogo ? {
-                                                    image: sinemakuLogo,
+                                                pdfLogo ? {
+                                                    image: pdfLogo,
                                                     width: 48,
                                                     margin: [0, 0, 12, 0]
                                                 } : {
@@ -1389,7 +1439,7 @@
                                                     width: '*',
                                                     stack: [
                                                         { text: 'SINEMAKU PICTURES', style: 'companyName' },
-                                                        { text: 'Laporan Rekap Omset', style: 'reportTitle' },
+                                                        { text: 'Box Office Performance Summary', style: 'reportTitle' },
                                                         { text: 'Generated: ' + generatedAt, style: 'mutedText' }
                                                     ]
                                                 },
@@ -1782,8 +1832,9 @@
                 }
 
                 function addHeader(sectionName) {
-                    if (sinemakuLogo) {
-                        doc.addImage(sinemakuLogo, 'PNG', marginX, 8, 14, 14, undefined, 'FAST');
+                    var logo = document.getElementById('laporan-report-logo');
+                    if (window.SinemakuPdfLogo && logo) {
+                        window.SinemakuPdfLogo.add(doc, logo, marginX, 8, 14, 14);
                     }
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(15);
@@ -1858,11 +1909,11 @@
                     doc.text(label, x + 7, y + 15.5);
                 }
 
-                addHeader('Executive Summary - Detail Rekap Omset');
+                addHeader('Daily Theatrical Performance Report');
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(15);
                 doc.setTextColor.apply(doc, textColor);
-                doc.text('Laporan Detail Rekap Omset', marginX, 35);
+                doc.text('Daily Theatrical Performance Report', marginX, 35);
                 doc.setFont('helvetica', 'normal');
                 doc.setFontSize(9);
                 doc.setTextColor.apply(doc, mutedColor);
@@ -1926,8 +1977,8 @@
                     startY: 43,
                     margin: { top: 43, left: marginX, right: marginX, bottom: 18 },
                     head: [[
-                        'Tanggal', 'Kota', 'Nama Bioskop', 'Kapasitas Tersedia', 'Occupancy', 'Harga', 'Gross',
-                        'Pajak %', 'Pajak', 'Net', 'Share Production House', 'Royalty (1,5%)', 'Total Akhir'
+                        'Date', 'City', 'Cinema Name', 'Available Capacity', 'Occupancy', 'Price', 'Gross',
+                        'Tax %', 'Tax', 'Net', 'Share Production House', 'Royalty (1.5%)', 'Final Total'
                     ]],
                     body: detailRows,
                     theme: 'grid',
@@ -1967,11 +2018,11 @@
                         }
                     },
                     didDrawPage: function () {
-                        addHeader('Detail Data - Rekap Omset');
+                        addHeader('Daily Theatrical Performance Report');
                         doc.setFont('helvetica', 'bold');
                         doc.setFontSize(11);
                         doc.setTextColor.apply(doc, textColor);
-                        doc.text('Detail Rekap Omset', marginX, 35);
+                        doc.text('Daily Theatrical Performance Report', marginX, 35);
                     }
                 });
 
@@ -2087,8 +2138,9 @@
         }
 
         function addHeader() {
-            if (sinemakuLogo) {
-                doc.addImage(sinemakuLogo, 'PNG', marginX, 8, 14, 14, undefined, 'FAST');
+            var logo = document.getElementById('laporan-report-logo');
+            if (window.SinemakuPdfLogo && logo) {
+                window.SinemakuPdfLogo.add(doc, logo, marginX, 8, 14, 14);
             }
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(13);

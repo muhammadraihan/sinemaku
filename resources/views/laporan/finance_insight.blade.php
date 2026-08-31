@@ -424,6 +424,7 @@
 
 @section('js')
 <script src="{{asset('js/formplugins/select2/select2.bundle.js')}}"></script>
+<script src="{{ asset('js/sinemaku-pdf-logo.js') }}"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 <script>
@@ -617,8 +618,8 @@
 
         function addLogo(x, y, size) {
             var logo = document.getElementById('finance-report-logo');
-            if (logo && logo.complete && logo.naturalWidth) {
-                doc.addImage(logo, 'PNG', x, y, size, size, undefined, 'FAST');
+            if (window.SinemakuPdfLogo && logo) {
+                window.SinemakuPdfLogo.add(doc, logo, x, y, size, size);
             }
         }
 
@@ -824,7 +825,7 @@
         doc.autoTable({
             startY: 42,
             margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
-            head: [['Rank', 'Provinsi', 'Kota', 'Bioskop', 'Penonton', 'Gross', 'ATP', 'Occupancy', 'Total Production House']],
+            head: [['Rank', 'Province', 'Cities', 'Cinemas', 'Audience', 'Gross', 'ATP', 'Occupancy', 'Total Production House']],
             body: provinceRows,
             theme: 'grid',
             showHead: 'everyPage',
@@ -869,7 +870,7 @@
         doc.autoTable({
             startY: 42,
             margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
-            head: [['Rank', 'Kota', 'Nama Bioskop', 'Penonton', 'Gross', 'ATP', 'Occupancy', 'Total Production House']],
+            head: [['Rank', 'City', 'Cinema Name', 'Audience', 'Gross', 'ATP', 'Occupancy', 'Total Production House']],
             body: cinemaRows,
             theme: 'grid',
             showHead: 'everyPage',

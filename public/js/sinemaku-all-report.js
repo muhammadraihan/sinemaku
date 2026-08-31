@@ -87,8 +87,19 @@
             $.ajax({
                 url: url,
                 method: 'GET',
+                dataType: 'json',
                 data: params,
-                success: resolve,
+                success: function (response) {
+                    // Beberapa konfigurasi middleware membungkus payload JSON di
+                    // dalam `data`. Samakan bentuknya supaya seluruh report selalu
+                    // menerima object response dari controller.
+                    if (response && response.data && !response.daily && !response.summary && !response.rows) {
+                        resolve(response.data);
+                        return;
+                    }
+
+                    resolve(response);
+                },
                 error: function (xhr) {
                     var message = xhr.responseJSON && xhr.responseJSON.message
                         ? xhr.responseJSON.message
@@ -267,8 +278,8 @@
 
         function addLogo() {
             var logo = document.getElementById('report-logo');
-            if (logo && logo.complete && logo.naturalWidth) {
-                doc.addImage(logo, 'PNG', marginX, 8, 14, 14, undefined, 'FAST');
+            if (window.SinemakuPdfLogo && logo) {
+                window.SinemakuPdfLogo.add(doc, logo, marginX, 8, 14, 14);
             }
         }
 
@@ -455,7 +466,7 @@
             doc.autoTable({
                 startY: 48,
                 margin: { left: marginX, right: marginX, bottom: 18 },
-                head: [['Rank', options.dimension || 'Kategori', options.valueLabel || 'Penonton', 'Kontribusi']],
+                head: [['Rank', options.dimension || 'Category', options.valueLabel || 'Audience', 'Contribution']],
                 body: rows,
                 theme: 'grid',
                 pageBreak: 'avoid',
@@ -483,6 +494,9 @@
         var finance = data.finance || {};
         var financeSummary = finance.summary || {};
         var trend = data.trend || {};
+        var trendDaily = Array.isArray(trend.daily)
+            ? trend.daily.slice()
+            : (Array.isArray(trend.rows) ? trend.rows.slice() : []);
         var trendSummary = trend.summary || {};
         var detail = data.detail || {};
         var detailRows = detail.rows || [];
@@ -509,11 +523,11 @@
         doc.setTextColor.apply(doc, colors.muted);
         doc.text([
             '1. Dashboard Audience Performance',
-            '2. Rekap Omset',
-            '3. Finance Insight',
-            '4. Trend Analysis',
-            '5. Grafik TOP 20 Kota',
-            '6. Report Detail'
+            '2. Grafik TOP 20 Kota',
+            '3. Trend Analysis',
+            '4. Daily Theatrical Performance Report',
+            '5. Finance Insight',
+            '6. Box Office Performance Summary'
         ], marginX, 148);
 
         var topCities = dashboard.top_cities || [];
@@ -538,7 +552,7 @@
             subtitle: 'Kota dengan jumlah penonton tertinggi berdasarkan filter aktif.',
             section: 'Dashboard / Grafik Kota',
             image: chartImage('topCities'),
-            dimension: 'Kota',
+            dimension: 'City',
             labels: topCities.map(function (row) { return row.kota; }),
             values: topCities.map(function (row) { return row.jumlah; })
         });
@@ -556,7 +570,7 @@
             subtitle: 'Kontribusi penonton berdasarkan jaringan bioskop.',
             section: 'Dashboard Charts',
             image: chartImage('viewersByCinema'),
-            dimension: 'Jaringan Bioskop',
+            dimension: 'Cinema Network',
             labels: cinemaGroups.map(function (row) { return row.bioskop; }),
             values: cinemaGroups.map(function (row) { return row.penonton; })
         });
@@ -565,7 +579,7 @@
             subtitle: 'Bioskop dengan jumlah penonton tertinggi.',
             section: 'Dashboard Charts',
             image: chartImage('topCinemas'),
-            dimension: 'Nama Bioskop',
+            dimension: 'Cinema Name',
             labels: topCinemas.map(function (row) { return row.bioskop; }),
             values: topCinemas.map(function (row) { return row.penonton; })
         });
@@ -574,7 +588,7 @@
             subtitle: 'Kota dengan jumlah penonton terendah yang masih memiliki transaksi.',
             section: 'Dashboard Charts',
             image: chartImage('underCities'),
-            dimension: 'Kota',
+            dimension: 'City',
             labels: underCities.map(function (row) { return row.kota; }),
             values: underCities.map(function (row) { return row.penonton; }),
             primaryLabel: underCities.length ? underCities[0].kota : '-',
@@ -589,7 +603,7 @@
             subtitle: 'Bioskop dengan jumlah penonton terendah yang masih memiliki transaksi.',
             section: 'Dashboard Charts',
             image: chartImage('underCinemas'),
-            dimension: 'Nama Bioskop',
+            dimension: 'Cinema Name',
             labels: underCinemas.map(function (row) { return row.nama_bioskop; }),
             values: underCinemas.map(function (row) { return row.penonton; }),
             primaryLabel: underCinemas.length ? underCinemas[0].nama_bioskop : '-',
@@ -600,8 +614,9 @@
             ] : ['Belum ada data underperforming bioskop pada filter aktif.']
         });
 
-        nextPage('Rekap Omset', 'Alur ringkas perhitungan dari Gross sampai Total Production House.', 'Rekap Omset Summary');
-        metricCard('Gross', reportNumber(financeSummary.gross, 2), marginX, 50, cardW, colors.primary);
+        function addBoxOfficeSection() {
+            nextPage('Box Office Performance Summary', 'Alur ringkas perhitungan dari Gross sampai Total Production House.', 'Box Office Performance Summary');
+            metricCard('Gross', reportNumber(financeSummary.gross, 2), marginX, 50, cardW, colors.primary);
         metricCard('Pajak', reportNumber(financeSummary.tax, 2), marginX + cardW + gap, 50, cardW, colors.accent);
         metricCard('Net', reportNumber(financeSummary.net, 2), marginX + ((cardW + gap) * 2), 50, cardW, colors.green);
         metricCard('Total Production House', reportNumber(financeSummary.total_ph, 2), marginX + ((cardW + gap) * 3), 50, cardW, colors.purple);
@@ -620,27 +635,29 @@
         doc.autoTable({
             startY: 108,
             margin: { left: marginX, right: marginX, bottom: 18 },
-            head: [['Tahapan', 'Nilai', 'Keterangan']],
+            head: [['Stage', 'Amount', 'Description']],
             body: waterfallRows,
             theme: 'grid',
             styles: { font: 'helvetica', fontSize: 8, cellPadding: 2.5, textColor: colors.text },
             headStyles: { fillColor: colors.brand, textColor: [255, 255, 255], fontStyle: 'bold' },
             columnStyles: { 0: { cellWidth: 55 }, 1: { halign: 'right', cellWidth: 55 }, 2: { cellWidth: 'auto' } }
         });
-        insightBox('Insight Rekap Omset', [
-            'Gross sebesar ' + reportNumber(financeSummary.gross, 2) + ' menghasilkan Net sebesar ' + reportNumber(financeSummary.net, 2) + '.',
-            'Setelah Share Production House dan Royalty, estimasi Total Akhir adalah ' + reportNumber(financeSummary.total_ph, 2) + '.'
-        ], doc.lastAutoTable.finalY + 5, 22);
+            insightBox('Insight Box Office Performance', [
+                'Gross sebesar ' + reportNumber(financeSummary.gross, 2) + ' menghasilkan Net sebesar ' + reportNumber(financeSummary.net, 2) + '.',
+                'Setelah Share Production House dan Royalty, estimasi Total Akhir adalah ' + reportNumber(financeSummary.total_ph, 2) + '.'
+            ], doc.lastAutoTable.finalY + 5, 22);
+        }
 
-        nextPage('Finance Insight', 'Executive insight, provinsi teratas, dan bioskop teratas.', 'Finance Insight Summary');
-        var financeNotes = finance.notes && finance.notes.length ? finance.notes : ['Tidak ada catatan khusus.'];
+        function addFinanceSection() {
+            nextPage('Finance Insight', 'Executive insight, provinsi teratas, dan bioskop teratas.', 'Finance Insight Summary');
+            var financeNotes = finance.notes && finance.notes.length ? finance.notes : ['Tidak ada catatan khusus.'];
         var provinceRows = (finance.province_leaderboard || []).map(function (row, index) {
             return [index + 1, row.provinsi || '-', reportNumber(row.city_count, 0), reportNumber(row.cinema_count, 0), reportNumber(row.audience, 0), reportNumber(row.gross, 2), reportNumber(row.total_ph, 2)];
         });
         doc.autoTable({
             startY: 48,
             margin: { left: marginX, right: marginX, bottom: 18 },
-            head: [['Rank', 'Provinsi', 'Kota', 'Bioskop', 'Penonton', 'Gross', 'Total Production House']],
+            head: [['Rank', 'Province', 'Cities', 'Cinemas', 'Audience', 'Gross', 'Total Production House']],
             body: provinceRows,
             theme: 'grid',
             styles: { font: 'helvetica', fontSize: 7, cellPadding: 1.5, textColor: colors.text },
@@ -653,23 +670,24 @@
         doc.autoTable({
             startY: doc.lastAutoTable.finalY + 7,
             margin: { left: marginX, right: marginX, bottom: 18 },
-            head: [['Rank', 'Nama Bioskop', 'Kota', 'Penonton', 'Gross', 'Total Production House']],
+            head: [['Rank', 'Cinema Name', 'City', 'Audience', 'Gross', 'Total Production House']],
             body: cinemaRows,
             theme: 'grid',
             styles: { font: 'helvetica', fontSize: 7, cellPadding: 1.5, textColor: colors.text },
             headStyles: { fillColor: colors.brand, textColor: [255, 255, 255], fontStyle: 'bold' },
             alternateRowStyles: { fillColor: colors.soft }
         });
-        insightBox('Management Insight', financeNotes.slice(0, 5), doc.lastAutoTable.finalY + 5, 32);
+            insightBox('Management Insight', financeNotes.slice(0, 5), doc.lastAutoTable.finalY + 5, 32);
+        }
 
         nextPage('Trend Analysis', 'Pergerakan Total Production House, Gross, dan Penonton dari hari ke hari.', 'Trend Analysis Summary');
-        var trendImage = createTrendImage(trend.daily || []);
+        var trendImage = createTrendImage(trendDaily);
         imagePanel(trendImage, 'Daily Trend Chart', marginX + 16, 48, usableW - 32, 110);
         var trendNotes = trend.notes && trend.notes.length ? trend.notes : ['Belum cukup data untuk membaca tren.'];
         insightBox('Insight Trend Analysis', trendNotes.slice(0, 2), 164, 23);
 
         nextPage('Tabel Trend Analysis', 'Rincian angka utama yang membentuk Daily Trend Chart.', 'Trend Analysis - Data');
-        var trendRows = (trend.daily || []).map(function (row) {
+        var trendRows = trendDaily.map(function (row) {
             return [
                 displayDate(row.tanggal),
                 reportNumber(row.total_ph, 2),
@@ -681,11 +699,12 @@
         doc.autoTable({
             startY: 48,
             margin: { left: marginX, right: marginX, bottom: 18 },
-            head: [['Tanggal', 'Total Production House', 'Gross', 'Penonton']],
+            head: [['Date', 'Total Production House', 'Gross', 'Audience']],
             body: trendRows,
             theme: 'grid',
-            pageBreak: 'avoid',
+            pageBreak: 'auto',
             rowPageBreak: 'avoid',
+            showHead: 'everyPage',
             styles: {
                 font: 'helvetica',
                 fontSize: trendCompact ? 5.8 : 7.2,
@@ -709,7 +728,7 @@
                 displayDate(row.tgl_tayang),
                 row.kota || '-',
                 String(row.nama_bioskop || '-').toUpperCase(),
-                reportNumber(row.seats_available, 2),
+                reportNumber(row.Total, 0),
                 reportPercent(row.occupancy_rate),
                 reportNumber(row.harga, 2),
                 reportNumber(row.gross, 2),
@@ -725,8 +744,8 @@
             startY: 43,
             margin: { top: 43, left: marginX, right: marginX, bottom: 18 },
             head: [[
-                'Tanggal', 'Kota', 'Nama Bioskop', 'Kapasitas Tersedia', 'Occupancy', 'Harga', 'Gross',
-                'Pajak %', 'Pajak', 'Net', 'Share Production House', 'Royalty (1,5%)', 'Total Akhir'
+                'Date', 'City', 'Cinema Name', 'Total Audience', 'Occupancy', 'Price', 'Gross',
+                'Tax %', 'Tax', 'Net', 'Share Production House', 'Royalty (1.5%)', 'Final Total'
             ]],
             body: pdfDetailRows,
             theme: 'grid',
@@ -750,13 +769,17 @@
                 12: { halign: 'right', cellWidth: 24 }
             },
             didDrawPage: function () {
-                addHeader('Detail Data - All Reports');
+                addHeader('Daily Theatrical Performance Report');
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(10.5);
                 doc.setTextColor.apply(doc, colors.text);
-                doc.text('Report Detail', marginX, 35);
+                doc.text('Daily Theatrical Performance Report', marginX, 35);
             }
         });
+
+        // Bagian finansial ditempatkan paling akhir setelah laporan detail.
+        addFinanceSection();
+        addBoxOfficeSection();
 
         addFooter();
         var safeFilm = String(labels.film || 'semua-film').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');

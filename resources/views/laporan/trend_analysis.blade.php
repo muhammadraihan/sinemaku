@@ -320,6 +320,7 @@
 <script src="{{asset('js/formplugins/select2/select2.bundle.js')}}"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ asset('js/sinemaku-chart-value-labels.js') }}"></script>
+<script src="{{ asset('js/sinemaku-pdf-logo.js') }}"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 <script>
@@ -601,8 +602,8 @@
 
         function addLogo(x, y, size) {
             var logo = document.getElementById('trend-report-logo');
-            if (logo && logo.complete && logo.naturalWidth) {
-                doc.addImage(logo, 'PNG', x, y, size, size, undefined, 'FAST');
+            if (window.SinemakuPdfLogo && logo) {
+                window.SinemakuPdfLogo.add(doc, logo, x, y, size, size);
             }
         }
 
@@ -822,7 +823,7 @@
             startY: 42,
             margin: { top: 42, left: marginX, right: marginX, bottom: 18 },
             head: [[
-                'No', 'Tanggal', 'Penonton', 'Kursi', 'Gross', 'Tax', 'Net', 'Total Production House',
+                'No', 'Date', 'Audience', 'Available Seats', 'Gross', 'Tax', 'Net', 'Total Production House',
                 'ATP', 'Occupancy', 'Effective Tax', 'Production House Growth', 'Gross Growth', 'Audience Growth'
             ]],
             body: tableRows,
