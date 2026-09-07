@@ -378,10 +378,12 @@
             doc.setFillColor(255, 255, 255);
             doc.setDrawColor.apply(doc, colors.border);
             doc.roundedRect(x, y, width, height, 2, 2, 'FD');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8.5);
-            doc.setTextColor.apply(doc, colors.text);
-            doc.text(title, x + 4, y + 7, { maxWidth: width - 8 });
+            if (title) {
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(8.5);
+                doc.setTextColor.apply(doc, colors.text);
+                doc.text(title, x + 4, y + 7, { maxWidth: width - 8 });
+            }
 
             if (!imageData) {
                 doc.setFont('helvetica', 'normal');
@@ -391,14 +393,16 @@
             }
 
             var image = doc.getImageProperties(imageData);
-            var ratio = Math.min((width - 8) / image.width, (height - 15) / image.height);
+            var topPadding = title ? 11 : 4;
+            var availableH = height - topPadding - 4;
+            var ratio = Math.min((width - 8) / image.width, availableH / image.height);
             var imageW = image.width * ratio;
             var imageH = image.height * ratio;
             doc.addImage(
                 imageData,
                 'PNG',
                 x + ((width - imageW) / 2),
-                y + 11 + ((height - 12 - imageH) / 2),
+                y + topPadding + ((availableH - imageH) / 2),
                 imageW,
                 imageH,
                 undefined,
@@ -489,6 +493,72 @@
             });
         }
 
+        function addCompactChartAndTable(options) {
+            var labels = options.labels || [];
+            var values = options.values || [];
+            var total = values.reduce(function (sum, value) {
+                return sum + numberValue(value);
+            }, 0);
+            var highestValue = values.length ? Math.max.apply(null, values.map(numberValue)) : 0;
+            var highestIndex = values.map(numberValue).indexOf(highestValue);
+            var primaryLabel = labels[highestIndex] || '-';
+            var rows = labels.map(function (label, index) {
+                var value = numberValue(values[index]);
+                return [
+                    index + 1,
+                    String(label || '-').toUpperCase(),
+                    reportNumber(value, 0),
+                    total ? reportPercent((value / total) * 100) : '0,00%'
+                ];
+            });
+            var columnGap = 7;
+            var chartWidth = 128;
+            var tableX = marginX + chartWidth + columnGap;
+            var tableWidth = usableW - chartWidth - columnGap;
+
+            nextPage(options.title, options.subtitle, options.section || 'Chart Summary');
+            imagePanel(options.image, '', marginX, 48, chartWidth, 111);
+
+            doc.autoTable({
+                startY: 48,
+                margin: { left: tableX, right: marginX, bottom: 18 },
+                tableWidth: tableWidth,
+                head: [['Rank', options.dimension || 'Category', options.valueLabel || 'Audience', 'Contribution']],
+                body: rows.length ? rows : [[{
+                    content: 'No data available for the selected filters.',
+                    colSpan: 4,
+                    styles: { halign: 'center', textColor: colors.muted }
+                }]],
+                theme: 'grid',
+                pageBreak: 'avoid',
+                rowPageBreak: 'avoid',
+                styles: {
+                    font: 'helvetica',
+                    fontSize: 7.3,
+                    cellPadding: 2,
+                    textColor: colors.text,
+                    valign: 'middle'
+                },
+                headStyles: {
+                    fillColor: colors.brand,
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold'
+                },
+                alternateRowStyles: { fillColor: colors.soft },
+                columnStyles: {
+                    0: { cellWidth: 14, halign: 'center' },
+                    1: { cellWidth: 'auto' },
+                    2: { cellWidth: 27, halign: 'right' },
+                    3: { cellWidth: 25, halign: 'right' }
+                }
+            });
+
+            insightBox('Insight Grafik', [
+                'Nilai utama: ' + primaryLabel + ' dengan ' + reportNumber(highestValue, 0) + ' penonton.',
+                'Total data pada grafik: ' + reportNumber(total, 0) + ' penonton dari ' + reportNumber(labels.length, 0) + ' kategori.'
+            ], 165, 23);
+        }
+
         var dashboard = data.dashboard || {};
         var metrics = dashboard.metrics || {};
         var finance = data.finance || {};
@@ -559,7 +629,7 @@
             labels: topCities.map(function (row) { return row.kota; }),
             values: topCities.map(function (row) { return row.jumlah; })
         });
-        addChartAndTable({
+        addCompactChartAndTable({
             title: 'Penonton per Show',
             subtitle: 'Distribusi penonton berdasarkan urutan show.',
             section: 'Dashboard Charts',
@@ -568,7 +638,7 @@
             labels: shows.map(function (row) { return row.show; }),
             values: shows.map(function (row) { return row.jumlah; })
         });
-        addChartAndTable({
+        addCompactChartAndTable({
             title: 'Komposisi Jaringan Bioskop',
             subtitle: 'Kontribusi penonton berdasarkan jaringan bioskop.',
             section: 'Dashboard Charts',
@@ -694,12 +764,16 @@
                 'Setelah Share Production House dan Royalty, estimasi Total Akhir adalah ' + reportNumber(totals.totalPh, 2) + '.'
             ], 162, 24);
 
-            function addRekapTable(title, headers, rows, columnStyles, fontSize) {
-                var tableRows = rows.length ? rows : [[{
+            function addRekapTable(title, headers, rows, columnStyles, fontSize, totalRow) {
+                var tableRows = rows.length ? rows.slice() : [[{
                     content: 'No data available for the selected filters.',
                     colSpan: headers.length,
                     styles: { halign: 'center', textColor: colors.muted }
                 }]];
+
+                if (rows.length && totalRow) {
+                    tableRows.push(totalRow);
+                }
 
                 doc.addPage('a4', 'landscape');
                 doc.autoTable({
@@ -739,7 +813,13 @@
                     return [index + 1, row.kategori || '-', row.jumlah || '0', row.seats_available || '0', row.occupancy_rate || '0.00%', row.gross || '0', row.atp || '0', row.effective_tax_rate || '0.00%', row.net || '0', row.share || '0', row.royalty || '1.5%', row.total || '0'];
                 }),
                 { 0: { cellWidth: 8 }, 1: { cellWidth: 24 }, 2: { cellWidth: 19 }, 3: { cellWidth: 24 }, 4: { cellWidth: 18 }, 5: { cellWidth: 28 }, 6: { cellWidth: 21 }, 7: { cellWidth: 21 }, 8: { cellWidth: 27 }, 9: { cellWidth: 26 }, 10: { cellWidth: 16 }, 11: { cellWidth: 28 } },
-                5.8
+                5.8,
+                [
+                    { content: 'TOTAL', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
+                    { content: reportNumber(totals.audience, 0), styles: { halign: 'right', fontStyle: 'bold' } },
+                    { content: '', colSpan: 8 },
+                    { content: reportNumber(totals.totalPh, 2), styles: { halign: 'right', fontStyle: 'bold' } }
+                ]
             );
 
             addRekapTable(
