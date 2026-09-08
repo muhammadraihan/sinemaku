@@ -38,7 +38,7 @@
     function text(id, fallback) {
         var copy = {
             id: {
-                audienceAnalytics: 'Laporan Kinerja Investor',
+                audienceAnalytics: 'Dashboard Analitik Penonton',
                 allReports: 'Semua Laporan',
                 generated: 'Dibuat',
                 confidential: 'Sinemaku Pictures - Laporan Analitik Rahasia',
@@ -55,7 +55,7 @@
                 totalShows: 'Jumlah Show',
                 grossBoxOffice: 'Gross Box Office',
                 netBoxOffice: 'Net Box Office',
-                producerProceeds: 'Pendapatan Production House',
+                producerProceeds: 'Estimasi Pendapatan Produser',
                 detailRows: 'Baris Detail',
                 film: 'Nama Film',
                 period: 'Periode',
@@ -74,15 +74,15 @@
                 summaryByCinemaCategory: 'Ringkasan Berdasarkan Kategori Bioskop',
                 cinemaPerformanceRanking: 'Peringkat Performa Bioskop',
                 total: 'TOTAL',
-                finalTotal: 'Pendapatan Production House',
+                finalTotal: 'Estimasi Pendapatan Produser',
                 methodologyLines: [
-                    'Laporan ini disusun untuk kebutuhan peninjauan investor menggunakan data laporan bioskop yang tersedia.',
-                    'Gross Box Office adalah pendapatan tiket yang dilaporkan; pajak, bagi hasil bioskop, dan royalti mengikuti formula komersial laporan.',
-                    'Pendapatan Production House dihitung dari data pelaporan dan formula komersial laporan; angka dapat berubah setelah rekonsiliasi dan bukan laporan keuangan teraudit.'
+                    'Laporan ini disusun untuk kebutuhan peninjauan investor dan menggunakan data pelaporan bioskop yang tersedia.',
+                    'Gross Box Office adalah pendapatan tiket yang dilaporkan; pajak, pembagian pendapatan, dan royalty mengikuti asumsi konfigurasi laporan.',
+                    'Estimasi Pendapatan Produser bukan laporan keuangan teraudit dan bergantung pada kelengkapan serta akurasi data sumber.'
                 ]
             },
             en: {
-                audienceAnalytics: 'Investor Performance Report',
+                audienceAnalytics: 'Audience Analytics Dashboard',
                 allReports: 'All Reports',
                 generated: 'Generated',
                 confidential: 'Sinemaku Pictures - Confidential Investor Report',
@@ -99,7 +99,7 @@
                 totalShows: 'Show Slots',
                 grossBoxOffice: 'Gross Box Office',
                 netBoxOffice: 'Net Box Office',
-                producerProceeds: 'Production House Revenue',
+                producerProceeds: 'Estimated Producer Proceeds',
                 detailRows: 'Detail Rows',
                 film: 'Film',
                 period: 'Reporting Period',
@@ -118,11 +118,11 @@
                 summaryByCinemaCategory: 'Summary by Cinema Category',
                 cinemaPerformanceRanking: 'Cinema Performance Ranking',
                 total: 'TOTAL',
-                finalTotal: 'Production House Revenue',
+                finalTotal: 'Estimated Producer Proceeds',
                 methodologyLines: [
-                    'This report is prepared for investor review using available cinema reporting data.',
-                    'Gross Box Office represents reported ticket revenue; tax, cinema revenue share, and royalty follow the report commercial formula.',
-                    'Production House Revenue is calculated from reported data and the report commercial formula; figures may change after reconciliation and are not audited financial statements.'
+                    'This report is prepared for investor review using available theatrical reporting data.',
+                    'Gross Box Office represents reported ticket revenue; tax, revenue sharing, and royalty follow the configured reporting assumptions.',
+                    'Estimated Producer Proceeds are not audited financial statements and depend on the completeness and accuracy of source reporting.'
                 ]
             }
         };
@@ -131,14 +131,14 @@
 
     function reportText(key) {
         var copy = {
-            dashboardAudiencePerformance: ['Performa Penonton', 'Audience Performance'],
-            dashboardSummary: ['Performa Pasar', 'Market Performance'],
+            dashboardAudiencePerformance: ['Dashboard Audience Performance', 'Audience Performance Dashboard'],
+            dashboardSummary: ['Ringkasan Dashboard', 'Dashboard Summary'],
             dashboardSubtitle: ['Ringkasan performa penonton berdasarkan filter aktif.', 'Admissions performance overview for the selected filters.'],
-            topCities: ['20 Kota Teratas', 'Top 20 Cities'],
+            topCities: ['Top 20 Kota', 'Top 20 Cities'],
             topCitiesSubtitle: ['Kota dengan jumlah penonton tertinggi berdasarkan filter aktif.', 'Cities ranked by total admissions for the selected filters.'],
-            admissionsByShow: ['Penonton per Urutan Show', 'Admissions by Showtime Sequence'],
-            admissionsByShowSubtitle: ['Distribusi penonton berdasarkan urutan show.', 'Admissions distribution by showtime sequence.'],
-            cinemaNetworkMix: ['Kontribusi Jaringan Bioskop', 'Cinema Network Contribution'],
+            admissionsByShow: ['Penonton per Show', 'Admissions by Show'],
+            admissionsByShowSubtitle: ['Distribusi penonton berdasarkan urutan show.', 'Admissions distribution by show slot.'],
+            cinemaNetworkMix: ['Komposisi Jaringan Bioskop', 'Cinema Network Mix'],
             cinemaNetworkMixSubtitle: ['Kontribusi penonton berdasarkan jaringan bioskop.', 'Admissions contribution by cinema network.'],
             topCinemas: ['Top 20 Bioskop', 'Top 20 Cinemas'],
             topCinemasSubtitle: ['Bioskop dengan jumlah penonton tertinggi.', 'Cinemas ranked by total admissions.'],
@@ -155,10 +155,8 @@
             totalChartData: ['Total data grafik', 'Total chart data'],
             admissions: ['penonton', 'admissions'],
             categories: ['kategori', 'categories'],
-            rank: ['No.', 'Rank'],
+            rank: ['Peringkat', 'Rank'],
             city: ['Kota', 'City'],
-            cityCount: ['Jumlah Kota', 'Cities'],
-            cinemaCount: ['Jumlah Bioskop', 'Cinemas'],
             cinema: ['Bioskop', 'Cinema'],
             cinemaName: ['Nama Bioskop', 'Cinema Name'],
             cinemaNetwork: ['Jaringan Bioskop', 'Cinema Network'],
@@ -167,27 +165,27 @@
             availableSeats: ['Kapasitas Tersedia', 'Available Seats'],
             occupancy: ['Okupansi', 'Occupancy'],
             effectiveTaxRate: ['Tarif Pajak Efektif', 'Effective Tax Rate'],
-            revenueShare: ['Bagi Hasil Bioskop', 'Cinema Revenue Share'],
-            royalty: ['Royalti', 'Royalty'],
+            revenueShare: ['Bagi Hasil Bioskop 50%', 'Cinema Revenue Share 50%'],
+            royalty: ['Royalti 1,5%', 'Royalty 1.5%'],
             boxOfficeSummary: ['Ringkasan Performa Box Office', 'Box Office Performance Summary'],
-            boxOfficeSubtitle: ['Jembatan pendapatan dari Gross Box Office hingga Pendapatan Production House.', 'Revenue bridge from Gross Box Office to Production House Revenue.'],
-            revenueWaterfall: ['REKONSILIASI PENDAPATAN', 'REVENUE RECONCILIATION'],
+            boxOfficeSubtitle: ['Jembatan pendapatan dari Gross Box Office hingga Estimasi Pendapatan Produser.', 'Revenue bridge from Gross Box Office to Estimated Producer Proceeds.'],
+            revenueWaterfall: ['JEMBATAN PENDAPATAN', 'REVENUE BRIDGE'],
             lessTax: ['Dikurangi: Pajak', 'Less: Tax'],
             lessRevenueShare: ['Dikurangi: Bagi Hasil Bioskop', 'Less: Cinema Revenue Share'],
             lessRoyalty: ['Dikurangi: Royalti', 'Less: Royalty'],
             boxOfficeInsight: ['Insight Box Office', 'Box Office Insight'],
-            financeInsight: ['Insight Keuangan', 'Financial Insights'],
-            financeSubtitle: ['Ringkasan pasar teratas berdasarkan wilayah dan bioskop.', 'Leading market overview by territory and cinema.'],
+            financeInsight: ['Finance Insight', 'Financial Insight'],
+            financeSubtitle: ['Ringkasan pasar teratas berdasarkan provinsi dan bioskop.', 'Leading market overview by province and cinema.'],
             province: ['Provinsi', 'Province'],
             managementInsight: ['Insight Manajemen', 'Management Insight'],
-            trendAnalysis: ['Analisis Tren Harian', 'Daily Trend Analysis'],
-            trendSubtitle: ['Pergerakan Gross Box Office, Pendapatan Production House, dan penonton dari hari ke hari.', 'Daily movement of Gross Box Office, Production House Revenue, and admissions.'],
+            trendAnalysis: ['Analisis Tren', 'Trend Analysis'],
+            trendSubtitle: ['Pergerakan Gross Box Office, Estimasi Pendapatan Produser, dan penonton dari hari ke hari.', 'Daily movement of Gross Box Office, Estimated Producer Proceeds, and admissions.'],
             dailyTrendChart: ['Grafik Tren Harian', 'Daily Trend Chart'],
             trendInsight: ['Insight Tren', 'Trend Insight'],
             trendTable: ['Tabel Analisis Tren', 'Trend Analysis Table'],
             trendTableSubtitle: ['Rincian angka utama yang membentuk grafik tren harian.', 'Key daily figures supporting the trend chart.'],
             date: ['Tanggal', 'Date'],
-            dailyPerformance: ['Appendix: Detail Performa Harian', 'Appendix: Daily Performance Detail'],
+            dailyPerformance: ['Laporan Performa Theatrical Harian', 'Daily Theatrical Performance Report'],
             totalAdmissions: ['Total Penonton', 'Total Admissions'],
             ticketPrice: ['Harga Tiket', 'Ticket Price'],
             tax: ['Pajak', 'Tax'],
@@ -195,7 +193,7 @@
             noData: ['Tidak ada data untuk filter yang dipilih.', 'No data is available for the selected filters.'],
             noTrendData: ['Data belum cukup untuk membaca tren.', 'There is not enough data to interpret the trend.'],
             noFinanceNotes: ['Tidak ada catatan khusus.', 'No specific notes are available.'],
-            methodologySubtitle: ['Basis data, formula komersial, batasan kualitas data, dan disclaimer penting.', 'Data basis, commercial formulas, data-quality limitations, and important disclaimer.'],
+            methodologySubtitle: ['Definisi dan asumsi yang digunakan untuk membaca ringkasan investor ini.', 'Definitions and assumptions used to read this investor summary.'],
             generatedFrom: ['Laporan ini dibuat dari data pelaporan theatrical yang tersedia.', 'This report is generated from available theatrical reporting data.']
         };
         var value = copy[key] || [key, key];
@@ -206,18 +204,14 @@
         var lines = {
             methodology: {
                 id: [
-                    'Basis data: laporan theatrical yang tersedia untuk film, periode, dan kategori bioskop yang dipilih; tanggal pembuatan adalah tanggal dokumen dibuat.',
-                    'Gross Box Office adalah pendapatan tiket yang dilaporkan. Net Box Office dikurangi pajak sesuai data sumber; Bagi Hasil Bioskop dan royalti mengikuti formula komersial laporan.',
-                    'Pendapatan Production House = Net Box Office - Bagi Hasil Bioskop - Royalti. Nilai yang ditampilkan dibulatkan ke rupiah dan direkonsiliasi pada halaman ringkasan.',
-                    'Occupancy bergantung pada definisi kapasitas sumber. Data wilayah/kategori yang belum terpetakan dan harga tiket tidak wajar harus dikonfirmasi sebelum keputusan investasi.',
-                    'DISCLAIMER PENTING: laporan ini bukan laporan keuangan teraudit dan tidak menggantikan laporan resmi, kontrak, atau rekonsiliasi keuangan Production House.'
+                    'Laporan ini disusun untuk kebutuhan peninjauan investor dan menggunakan data pelaporan bioskop yang tersedia.',
+                    'Gross Box Office adalah pendapatan tiket yang dilaporkan; pajak, pembagian pendapatan, dan royalti mengikuti asumsi konfigurasi laporan.',
+                    'Estimasi Pendapatan Produser bukan laporan keuangan teraudit dan bergantung pada kelengkapan serta akurasi data sumber.'
                 ],
                 en: [
-                    'Data basis: available theatrical reporting for the selected film, period, and cinema category; the creation date is the document generation date.',
-                    'Gross Box Office is reported ticket revenue. Net Box Office is reduced by source-reported tax; Cinema Revenue Share and royalty follow the report commercial formula.',
-                    'Production House Revenue = Net Box Office - Cinema Revenue Share - Royalty. Displayed amounts are rounded to whole IDR and reconciled on the summary page.',
-                    'Occupancy depends on the source capacity definition. Unmapped territories/categories and unusual ticket prices should be confirmed before investment decisions.',
-                    'IMPORTANT DISCLAIMER: this report is not an audited financial statement and does not replace official statements, contracts, or Production House financial reconciliation.'
+                    'This report is prepared for investor review using available theatrical reporting data.',
+                    'Gross Box Office represents reported ticket revenue; tax, revenue sharing, and royalty follow the configured reporting assumptions.',
+                    'Estimated Producer Proceeds are not audited financial statements and depend on the completeness and accuracy of source reporting.'
                 ]
             }
         };
@@ -293,9 +287,9 @@
                 ? selectedText('#nama_film', filters.nama_film)
                 : (filters.nama_film || '-'),
             period: displayDate(filters.tgl_mulai) + (isEnglish() ? ' to ' : ' s.d. ') + displayDate(filters.tgl_akhir),
-            category: selectedCategoryValue && selectedCategoryValue !== 'ALL'
-                ? selectedText('#bioskop_kategori', selectedCategoryValue)
-                : (isEnglish() ? 'All Cinema Categories' : 'Semua Kategori Bioskop')
+            category: selectedCategoryValue === filters.bioskop_kategori
+                ? selectedText('#bioskop_kategori', text('all'))
+                : text('all')
         };
     }
 
@@ -912,28 +906,6 @@
         var rekapPerformanceRows = Array.isArray(rekap.performance) ? rekap.performance : [];
         var gap = 4;
         var cardW = (usableW - (gap * 3)) / 4;
-        var topCities = dashboard.top_cities || [];
-        var shows = dashboard.shows_over_time || [];
-        var cinemaGroups = dashboard.viewers_by_cinema || [];
-        var topCinemas = dashboard.top_cinemas || [];
-        var underCities = dashboard.underperf_cities || [];
-        var underCinemas = dashboard.underperf_cinemas || [];
-        var totalAdmissions = numberValue(metrics.audience || financeSummary.audience);
-        var grossBoxOffice = numberValue(financeSummary.gross);
-        var productionHouseRevenue = numberValue(financeSummary.total_ph);
-        var phRevenueRatio = grossBoxOffice ? (productionHouseRevenue / grossBoxOffice) * 100 : 0;
-        var topCityShare = totalAdmissions && topCities.length ? (numberValue(topCities[0].jumlah) / totalAdmissions) * 100 : 0;
-        var topCinemaShare = totalAdmissions && topCinemas.length ? (numberValue(topCinemas[0].penonton) / totalAdmissions) * 100 : 0;
-        var unmappedProvince = (finance.province_leaderboard || []).find(function (row) {
-            return /belum|unmapped|unknown|tidak/i.test(String(row.provinsi || ''));
-        });
-        var invalidOccupancyCount = rekapPerformanceRows.filter(function (row) {
-            return numberValue(row.occupancy_rate) > 100;
-        }).length;
-        var suspiciousPriceCount = detailRows.filter(function (row) {
-            var price = numberValue(row.harga);
-            return price > 0 && price < 1000;
-        }).length;
 
         addHeader(text('executiveSummary'));
         doc.setFont('helvetica', 'bold');
@@ -943,7 +915,7 @@
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(11);
         doc.setTextColor.apply(doc, colors.muted);
-        doc.text(isEnglish() ? 'Cinema performance and investment overview' : 'Ikhtisar performa bioskop dan investasi', marginX, 69);
+        doc.text(isEnglish() ? 'Theatrical performance and investment overview' : 'Ringkasan performa theatrical dan overview investasi', marginX, 69);
         doc.setDrawColor.apply(doc, colors.accent);
         doc.setLineWidth(0.7);
         doc.line(marginX, 76, pageW - marginX, 76);
@@ -958,51 +930,43 @@
         metricCard(text('producerProceeds'), reportCurrency(financeSummary.total_ph, 0), marginX + ((cardW + gap) * 3), 122, cardW, colors.purple);
         insightBox(text('investmentHighlights'), [
             (isEnglish() ? 'The report covers ' : 'Laporan mencakup ') + reportNumber(metrics.audience || financeSummary.audience, 0) + ' ' + (isEnglish() ? 'admissions across ' : 'penonton dari ') + reportNumber(metrics.cities || financeSummary.city_count, 0) + ' ' + (isEnglish() ? 'cities.' : 'kota.'),
-            (isEnglish() ? 'Production House Revenue: ' : 'Pendapatan Production House: ') + reportCurrency(financeSummary.total_ph, 0) + '.',
+            (isEnglish() ? 'Estimated Producer Proceeds: ' : 'Estimasi Pendapatan Produser: ') + reportCurrency(financeSummary.total_ph, 0) + '.',
             (isEnglish() ? 'This summary is prepared for investor review and is not an audited financial statement.' : 'Ringkasan ini disiapkan untuk peninjauan investor dan bukan laporan keuangan teraudit.')
         ], 153, 31);
         doc.addPage('a4', 'landscape');
-        pageTitle(
-            isEnglish() ? 'Executive Investment Overview' : 'Ikhtisar Investasi Eksekutif',
-            isEnglish() ? 'Decision-relevant performance, concentration, conversion and data-quality signals.' : 'Sinyal performa, konsentrasi, konversi pendapatan, dan kualitas data yang relevan untuk pengambilan keputusan.',
-            text('executiveSummary')
-        );
-        metricCard(text('totalAudience'), reportNumber(totalAdmissions, 0), marginX, 50, cardW, colors.purple);
-        metricCard(text('grossBoxOffice'), reportCurrency(grossBoxOffice, 0), marginX + cardW + gap, 50, cardW, colors.primary);
-        metricCard(text('producerProceeds'), reportCurrency(productionHouseRevenue, 0), marginX + ((cardW + gap) * 2), 50, cardW, colors.green);
-        metricCard(isEnglish() ? 'PH Revenue / GBO' : 'Pendapatan PH / GBO', reportPercent(phRevenueRatio), marginX + ((cardW + gap) * 3), 50, cardW, colors.blue);
+        pageTitle(text('summaryReport'), isEnglish() ? 'Executive overview of the selected theatrical reporting period.' : 'Ringkasan eksekutif berdasarkan periode pelaporan theatrical yang dipilih.', text('executiveSummary'));
+        filterBox(48);
+        metricCard(text('totalAudience'), reportNumber(metrics.audience || financeSummary.audience, 0), marginX, 79, cardW, colors.purple);
+        metricCard(text('totalCities'), reportNumber(metrics.cities || financeSummary.city_count, 0), marginX + cardW + gap, 79, cardW, colors.blue);
+        metricCard(text('totalCinemas'), reportNumber(metrics.cinemas || financeSummary.cinema_count, 0), marginX + ((cardW + gap) * 2), 79, cardW, colors.green);
+        metricCard(text('totalShows'), reportNumber(metrics.shows, 0), marginX + ((cardW + gap) * 3), 79, cardW, colors.orange);
+        metricCard(text('grossBoxOffice'), reportCurrency(financeSummary.gross, 0), marginX, 104, cardW, colors.primary);
+        metricCard(text('netBoxOffice'), reportCurrency(financeSummary.net, 0), marginX + cardW + gap, 104, cardW, colors.green);
+        metricCard(text('producerProceeds'), reportCurrency(financeSummary.total_ph, 0), marginX + ((cardW + gap) * 2), 104, cardW, colors.purple);
+        metricCard(text('detailRows'), reportNumber(detail.row_count || detailRows.length, 0), marginX + ((cardW + gap) * 3), 104, cardW, colors.accent);
 
-        insightBox(isEnglish() ? 'EXECUTIVE READOUT' : 'RINGKASAN EKSEKUTIF', [
-            isEnglish()
-                ? 'Reach: ' + reportNumber(totalAdmissions, 0) + ' admissions across ' + reportNumber(metrics.cities || financeSummary.city_count, 0) + ' cities and ' + reportNumber(metrics.cinemas || financeSummary.cinema_count, 0) + ' cinemas.'
-                : 'Jangkauan: ' + reportNumber(totalAdmissions, 0) + ' penonton di ' + reportNumber(metrics.cities || financeSummary.city_count, 0) + ' kota dan ' + reportNumber(metrics.cinemas || financeSummary.cinema_count, 0) + ' bioskop.',
-            topCities.length
-                ? (isEnglish() ? 'Geographic concentration: ' : 'Konsentrasi geografis: ') + String(topCities[0].kota || '-').toUpperCase() + (isEnglish() ? ' contributes ' : ' menyumbang ') + reportPercent(topCityShare) + (isEnglish() ? ' of total admissions.' : ' dari total penonton.')
-                : reportText('noData'),
-            topCinemas.length
-                ? (isEnglish() ? 'Leading venue: ' : 'Bioskop teratas: ') + String(topCinemas[0].bioskop || '-').toUpperCase() + (isEnglish() ? ' contributes ' : ' menyumbang ') + reportPercent(topCinemaShare) + (isEnglish() ? ' of total admissions.' : ' dari total penonton.')
-                : reportText('noData')
-        ], 82, 42);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor.apply(doc, colors.text);
+        doc.text(text('reportScope'), marginX, 140);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor.apply(doc, colors.muted);
+        doc.text([
+            isEnglish() ? '1. Audience Performance Dashboard' : '1. Dashboard Audience Performance',
+            isEnglish() ? '2. Top 20 City Analysis' : '2. Grafik TOP 20 Kota',
+            isEnglish() ? '3. Trend Analysis' : '3. Trend Analysis',
+            isEnglish() ? '4. Box Office Performance Summary' : '4. Ringkasan Performa Box Office',
+            isEnglish() ? '5. Daily Theatrical Performance Report' : '5. Laporan Performa Theatrical Harian',
+            isEnglish() ? '6. Finance Insight' : '6. Finance Insight'
+        ], marginX, 148);
 
-        var qualityNotes = [];
-        if (unmappedProvince && numberValue(unmappedProvince.audience) > 0) {
-            qualityNotes.push(isEnglish()
-                ? 'Geographic mapping note: ' + reportNumber(unmappedProvince.audience, 0) + ' admissions are currently classified as ' + String(unmappedProvince.provinsi || 'Unmapped') + '.'
-                : 'Catatan mapping geografis: ' + reportNumber(unmappedProvince.audience, 0) + ' penonton saat ini diklasifikasikan sebagai ' + String(unmappedProvince.provinsi || 'Belum Terpetakan') + '.');
-        }
-        if (invalidOccupancyCount) {
-            qualityNotes.push(isEnglish()
-                ? 'Occupancy note: ' + reportNumber(invalidOccupancyCount, 0) + ' cinema aggregate(s) exceed 100%; confirm the capacity aggregation basis before external use.'
-                : 'Catatan okupansi: ' + reportNumber(invalidOccupancyCount, 0) + ' agregat bioskop melebihi 100%; konfirmasi basis agregasi kapasitas sebelum distribusi eksternal.');
-        }
-        if (suspiciousPriceCount) {
-            qualityNotes.push(isEnglish()
-                ? 'Ticket-price note: ' + reportNumber(suspiciousPriceCount, 0) + ' detail row(s) have ticket prices below IDR 1,000 and require source-data review.'
-                : 'Catatan harga tiket: ' + reportNumber(suspiciousPriceCount, 0) + ' baris detail memiliki harga tiket di bawah IDR 1.000 dan memerlukan peninjauan data sumber.');
-        }
-        insightBox(isEnglish() ? 'DATA QUALITY & REVIEW ITEMS' : 'KUALITAS DATA & HAL YANG PERLU DITINJAU', qualityNotes.length ? qualityNotes : [
-            isEnglish() ? 'No material source-data flags were detected by the report checks.' : 'Tidak ada flag material dari pemeriksaan data oleh report.'
-        ], 132, 36);
+        var topCities = dashboard.top_cities || [];
+        var shows = dashboard.shows_over_time || [];
+        var cinemaGroups = dashboard.viewers_by_cinema || [];
+        var topCinemas = dashboard.top_cinemas || [];
+        var underCities = dashboard.underperf_cities || [];
+        var underCinemas = dashboard.underperf_cinemas || [];
 
         nextPage(reportText('dashboardAudiencePerformance'), reportText('dashboardSubtitle'), reportText('dashboardSummary'));
         metricCard(text('totalAudience'), reportNumber(metrics.audience, 0), marginX, 50, cardW, colors.purple);
@@ -1111,12 +1075,7 @@
                 totals.totalPh = numberValue(financeSummary.total_ph);
             }
 
-            totals.gross = Math.round(totals.gross);
-            totals.tax = Math.round(totals.tax);
-            totals.net = totals.gross - totals.tax;
-            totals.share = Math.round(totals.net * 0.5);
-            totals.royalty = Math.round(totals.share * 0.015);
-            totals.totalPh = totals.net - totals.share - totals.royalty;
+            totals.royalty = totals.share * 0.015;
             var occupancy = totals.seats ? (totals.audience / totals.seats) * 100 : 0;
             var atp = totals.audience ? totals.gross / totals.audience : 0;
 
@@ -1135,59 +1094,45 @@
             doc.setTextColor.apply(doc, colors.text);
             doc.text(reportText('revenueWaterfall'), marginX, 105);
 
-            // Premium three-stage revenue flow: visual, connected, and still fully auditable.
-            var flowY = 112;
-            var flowH = 30;
-            var flowGap = 14;
-            var flowW = (usableW - (flowGap * 2)) / 3;
-            var flowCards = [
-                { label: text('grossBoxOffice'), value: totals.gross, color: colors.primary, fill: [241, 238, 255] },
-                { label: text('netBoxOffice'), value: totals.net, color: colors.blue, fill: [236, 246, 253] },
-                { label: text('producerProceeds'), value: totals.totalPh, color: colors.green, fill: [232, 248, 239] }
+            var waterfall = [
+                { label: text('grossBoxOffice'), value: totals.gross, color: [124, 58, 237] },
+                { label: reportText('lessTax'), value: totals.tax, prefix: '-', color: [220, 38, 38] },
+                { label: text('netBoxOffice'), value: totals.net, color: [2, 132, 199] },
+                { label: reportText('lessRevenueShare'), value: totals.share, prefix: '-', color: [234, 88, 12] },
+                { label: reportText('lessRoyalty'), value: totals.royalty, prefix: '-', color: [219, 39, 119] },
+                { label: text('producerProceeds'), value: totals.totalPh, color: [5, 150, 105] }
             ];
-            flowCards.forEach(function (card, index) {
-                var x = marginX + (index * (flowW + flowGap));
-                doc.setFillColor.apply(doc, card.fill);
-                doc.setDrawColor.apply(doc, colors.border);
-                doc.roundedRect(x, flowY, flowW, flowH, 2.5, 2.5, 'FD');
-                doc.setFillColor.apply(doc, card.color);
-                doc.roundedRect(x, flowY, 3, flowH, 1.5, 1.5, 'F');
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(7.5);
-                doc.setTextColor.apply(doc, colors.text);
-                doc.text(card.label, x + 7, flowY + 8, { maxWidth: flowW - 12 });
-                doc.setFontSize(11.5);
-                doc.text(reportCurrency(card.value, 0), x + 7, flowY + 19, { maxWidth: flowW - 12 });
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(6.8);
-                doc.setTextColor.apply(doc, colors.muted);
-                doc.text(reportPercent(totals.gross ? (card.value / totals.gross) * 100 : 0) + (isEnglish() ? ' of GBO' : ' dari GBO'), x + 7, flowY + 26, { maxWidth: flowW - 12 });
-                if (index < flowCards.length - 1) {
-                    var arrowX = x + flowW + 2;
-                    doc.setDrawColor.apply(doc, colors.muted);
-                    doc.setLineWidth(0.7);
-                    doc.line(arrowX, flowY + 14, arrowX + flowGap - 4, flowY + 14);
-                    doc.line(arrowX + flowGap - 7, flowY + 12, arrowX + flowGap - 4, flowY + 14);
-                    doc.line(arrowX + flowGap - 7, flowY + 16, arrowX + flowGap - 4, flowY + 14);
-                }
-            });
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.6);
-            doc.setTextColor(185, 28, 28);
-            var taxCaption = doc.splitTextToSize((isEnglish() ? 'Less tax: ' : 'Dikurangi pajak: ') + reportCurrency(totals.tax, 0), 62);
-            var shareCaption = doc.splitTextToSize((isEnglish() ? 'Less cinema share + royalty: ' : 'Dikurangi bagi hasil bioskop + royalti: ') + reportCurrency(totals.share + totals.royalty, 0), 72);
-            doc.text(taxCaption, marginX + flowW + (flowGap / 2), flowY + flowH + 5, { align: 'center' });
-            doc.text(shareCaption, marginX + (flowW * 2) + (flowGap * 1.5), flowY + flowH + 5, { align: 'center' });
+            var maximumWaterfall = Math.max(totals.gross, 1);
+            var waterfallLabelW = 45;
+            var waterfallValueW = 50;
+            var waterfallTrackX = marginX + waterfallLabelW;
+            var waterfallTrackW = usableW - waterfallLabelW - waterfallValueW;
 
-            var bridgeInsightY = flowY + flowH + 18;
+            waterfall.forEach(function (step, index) {
+                var y = 110 + (index * 8.2);
+                var barW = Math.max(1.5, waterfallTrackW * (Math.abs(step.value) / maximumWaterfall));
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(7.2);
+                doc.setTextColor.apply(doc, colors.text);
+                doc.text(step.label, marginX, y + 4.8, { maxWidth: waterfallLabelW - 3 });
+                doc.setFillColor(243, 244, 246);
+                doc.roundedRect(waterfallTrackX, y, waterfallTrackW, 6, 2, 2, 'F');
+                doc.setFillColor.apply(doc, step.color);
+                doc.roundedRect(waterfallTrackX, y, Math.min(barW, waterfallTrackW), 6, 2, 2, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(7);
+                doc.setTextColor.apply(doc, colors.text);
+                doc.text((step.prefix || '') + reportCurrency(step.value, 0), pageW - marginX, y + 4.7, { align: 'right' });
+            });
+
             insightBox(reportText('boxOfficeInsight'), [
                 isEnglish()
                     ? reportCurrency(totals.gross, 0) + ' Gross Box Office converts into ' + reportCurrency(totals.net, 0) + ' Net Box Office after tax.'
                     : reportCurrency(totals.gross, 0) + ' Gross Box Office menghasilkan ' + reportCurrency(totals.net, 0) + ' Net Box Office setelah pajak.',
                 isEnglish()
-                    ? 'After cinema revenue share and royalty, Production House Revenue reaches ' + reportCurrency(totals.totalPh, 0) + ' (' + reportPercent(totals.gross ? (totals.totalPh / totals.gross) * 100 : 0) + ' of GBO).'
-                    : 'Setelah bagi hasil bioskop dan royalti, Pendapatan Production House mencapai ' + reportCurrency(totals.totalPh, 0) + ' (' + reportPercent(totals.gross ? (totals.totalPh / totals.gross) * 100 : 0) + ' dari GBO).'
-            ], bridgeInsightY, 24);
+                    ? 'After cinema revenue share and royalty, Estimated Producer Proceeds reach ' + reportCurrency(totals.totalPh, 0) + '.'
+                    : 'Setelah bagi hasil bioskop dan royalti, Estimasi Pendapatan Produser mencapai ' + reportCurrency(totals.totalPh, 0) + '.'
+            ], 162, 24);
 
             function addRekapTable(title, headers, rows, columnStyles, fontSize, totalRow) {
                 var tableRows = rows.length ? rows.slice() : [[{
@@ -1231,56 +1176,30 @@
                 });
             }
 
-            var categoryGroups = rekapSummaryRows.reduce(function (groups, row) {
-                var category = String(row.kategori || '').trim();
-                category = category && category !== '-' ? category : (isEnglish() ? 'Unmapped Category' : 'Kategori Belum Terpetakan');
-                if (!groups[category]) {
-                    groups[category] = { kategori: category, jumlah: 0, seats_available: 0, gross: 0, tax: 0, net: 0, share: 0, total: 0 };
-                }
-                var item = groups[category];
-                item.jumlah += numberValue(row.jumlah);
-                item.seats_available += numberValue(row.seats_available);
-                item.gross += numberValue(row.gross);
-                item.tax += numberValue(row.tax);
-                item.net += numberValue(row.net);
-                item.share += numberValue(row.share);
-                item.total += numberValue(row.total);
-                return groups;
-            }, {});
-            var categoryRows = Object.keys(categoryGroups).map(function (category) {
-                var row = categoryGroups[category];
-                var occupancyRate = row.seats_available ? (row.jumlah / row.seats_available) * 100 : 0;
-                return [row.kategori, reportNumber(row.jumlah, 0), reportNumber(row.seats_available, 0), reportPercent(occupancyRate), reportNumber(row.gross, 0), reportNumber(row.net, 0), reportNumber(row.share, 0), reportNumber(row.total, 0)];
-            }).sort(function (a, b) {
-                return numberValue(String(b[1]).replace(/\./g, '')) - numberValue(String(a[1]).replace(/\./g, ''));
-            });
-
             addRekapTable(
                 text('summaryByCinemaCategory'),
-                [text('category'), text('audience'), isEnglish() ? 'Available Seats' : 'Kapasitas Tersedia', reportText('occupancy'), text('grossBoxOffice') + ' (IDR)', text('netBoxOffice') + ' (IDR)', reportText('revenueShare') + ' (IDR)', text('finalTotal') + ' (IDR)'],
-                categoryRows,
-                { 0: { cellWidth: 34 }, 1: { cellWidth: 20, halign: 'right' }, 2: { cellWidth: 25, halign: 'right' }, 3: { cellWidth: 20, halign: 'right' }, 4: { cellWidth: 36, halign: 'right' }, 5: { cellWidth: 36, halign: 'right' }, 6: { cellWidth: 42, halign: 'right' }, 7: { cellWidth: 56, halign: 'right' } },
-                7.2,
+                ['No', text('category'), text('audience'), isEnglish() ? 'Available Seats' : 'Kapasitas Tersedia', 'Occupancy', 'Gross', 'ATP', isEnglish() ? 'Effective Tax Rate' : 'Pajak Efektif', 'Net', isEnglish() ? 'Revenue Share 50%' : 'Share 50%', 'Royalty', text('finalTotal')],
+                rekapSummaryRows.map(function (row, index) {
+                    return [index + 1, row.kategori || '-', reportNumber(row.jumlah, 0), reportNumber(row.seats_available, 0), row.occupancy_rate || '0.00%', reportCurrency(row.gross, 0), reportCurrency(row.atp, 0), row.effective_tax_rate || '0.00%', reportCurrency(row.net, 0), reportCurrency(row.share, 0), row.royalty || '1.5%', reportCurrency(row.total, 0)];
+                }),
+                { 0: { cellWidth: 8 }, 1: { cellWidth: 24 }, 2: { cellWidth: 19 }, 3: { cellWidth: 24 }, 4: { cellWidth: 18 }, 5: { cellWidth: 28 }, 6: { cellWidth: 21 }, 7: { cellWidth: 21 }, 8: { cellWidth: 27 }, 9: { cellWidth: 26 }, 10: { cellWidth: 16 }, 11: { cellWidth: 28 } },
+                5.8,
                 [
-                    { content: text('total'), styles: { halign: 'right', fontStyle: 'bold' } },
+                    { content: text('total'), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
                     { content: reportNumber(totals.audience, 0), styles: { halign: 'right', fontStyle: 'bold' } },
-                    { content: reportNumber(totals.seats, 0), styles: { halign: 'right', fontStyle: 'bold' } },
-                    { content: reportPercent(occupancy), styles: { halign: 'right', fontStyle: 'bold' } },
-                    { content: reportNumber(totals.gross, 0), styles: { halign: 'right', fontStyle: 'bold' } },
-                    { content: reportNumber(totals.net, 0), styles: { halign: 'right', fontStyle: 'bold' } },
-                    { content: reportNumber(totals.share, 0), styles: { halign: 'right', fontStyle: 'bold' } },
-                    { content: reportNumber(totals.totalPh, 0), styles: { halign: 'right', fontStyle: 'bold' } }
+                    { content: '', colSpan: 8 },
+                    { content: reportCurrency(totals.totalPh, 0), styles: { halign: 'right', fontStyle: 'bold' } }
                 ]
             );
 
             addRekapTable(
                 reportText('cinemaPerformanceRanking'),
-                [reportText('rank'), reportText('city'), reportText('cinemaName'), text('audience'), reportText('occupancy'), text('grossBoxOffice') + ' (IDR)', text('producerProceeds') + ' (IDR)'],
-                rekapPerformanceRows.slice(0, 20).map(function (row, index) {
-                    return [index + 1, row.kota || '-', String(row.nama_bioskop || '-').toUpperCase(), reportNumber(row.jumlah, 0), reportPercent(row.occupancy_rate), reportNumber(row.gross, 0), reportNumber(row.total_ph, 0)];
+                [reportText('rank'), reportText('city'), reportText('cinemaName'), text('audience'), reportText('availableSeats'), reportText('occupancy'), text('grossBoxOffice'), 'ATP', text('netBoxOffice'), text('producerProceeds')],
+                rekapPerformanceRows.map(function (row, index) {
+                    return [index + 1, row.kota || '-', String(row.nama_bioskop || '-').toUpperCase(), reportNumber(row.jumlah, 0), reportNumber(row.seats_available, 0), row.occupancy_rate || '0.00%', reportCurrency(row.gross, 0), reportCurrency(row.atp, 0), reportCurrency(row.net, 0), reportCurrency(row.total_ph, 0)];
                 }),
-                { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 28 }, 2: { cellWidth: 65 }, 3: { cellWidth: 28, halign: 'right' }, 4: { cellWidth: 25, halign: 'right' }, 5: { cellWidth: 48, halign: 'right' }, 6: { cellWidth: 65, halign: 'right' } },
-                7.1
+                { 0: { cellWidth: 10 }, 1: { cellWidth: 22 }, 2: { cellWidth: 45 }, 3: { cellWidth: 20 }, 4: { cellWidth: 25 }, 5: { cellWidth: 20 }, 6: { cellWidth: 30 }, 7: { cellWidth: 24 }, 8: { cellWidth: 30 }, 9: { cellWidth: 35 } },
+                rekapPerformanceRows.length > 35 ? 5.5 : 6.3
             );
 
         }
@@ -1291,19 +1210,13 @@
             nextPage(reportText('financeInsight'), reportText('financeSubtitle'), reportText('financeInsight'));
             var provinceData = finance.province_leaderboard || [];
             var cinemaData = finance.leaderboard || [];
-            var unmappedProvinceRows = provinceData.filter(function (row) {
-                return /belum|unmapped|unknown|tidak/i.test(String(row.provinsi || ''));
-            });
-            var mappedProvinceData = provinceData.filter(function (row) {
-                return !/belum|unmapped|unknown|tidak/i.test(String(row.provinsi || ''));
-            });
-            var provinceRows = mappedProvinceData.map(function (row, index) {
-                return [index + 1, row.provinsi || '-', reportNumber(row.city_count, 0), reportNumber(row.cinema_count, 0), reportNumber(row.audience, 0), reportNumber(row.gross, 0), reportNumber(row.total_ph, 0)];
+            var provinceRows = provinceData.map(function (row, index) {
+                return [index + 1, row.provinsi || '-', reportNumber(row.city_count, 0), reportNumber(row.cinema_count, 0), reportNumber(row.audience, 0), reportCurrency(row.gross, 0), reportCurrency(row.total_ph, 0)];
             });
             doc.autoTable({
                 startY: 48,
                 margin: { left: marginX, right: marginX, bottom: 18 },
-                head: [[reportText('rank'), reportText('province'), reportText('cityCount'), reportText('cinemaCount'), text('audience'), text('grossBoxOffice'), text('producerProceeds')]],
+                head: [[reportText('rank'), reportText('province'), text('cities'), text('cinemas'), text('audience'), text('grossBoxOffice'), text('producerProceeds')]],
                 body: provinceRows.length ? provinceRows : [[{ content: reportText('noData'), colSpan: 7, styles: { halign: 'center' } }]],
                 theme: 'grid',
                 styles: { font: 'helvetica', fontSize: 7, cellPadding: 1.5, textColor: colors.text },
@@ -1311,7 +1224,7 @@
                 alternateRowStyles: { fillColor: colors.soft }
             });
             var cinemaRows = cinemaData.map(function (row, index) {
-                return [index + 1, String(row.nama_bioskop || '-').toUpperCase(), row.kota || '-', reportNumber(row.audience, 0), reportNumber(row.gross, 0), reportNumber(row.total_ph, 0)];
+                return [index + 1, String(row.nama_bioskop || '-').toUpperCase(), row.kota || '-', reportNumber(row.audience, 0), reportCurrency(row.gross, 0), reportCurrency(row.total_ph, 0)];
             });
             doc.autoTable({
                 startY: doc.lastAutoTable.finalY + 7,
@@ -1324,26 +1237,18 @@
                 alternateRowStyles: { fillColor: colors.soft }
             });
             var financeNotes = [];
-            if (mappedProvinceData.length) {
+            if (provinceData.length) {
                 financeNotes.push(isEnglish()
-                    ? 'Leading mapped province: ' + String(mappedProvinceData[0].provinsi || '-').toUpperCase() + ' with ' + reportNumber(mappedProvinceData[0].audience, 0) + ' admissions and ' + reportCurrency(mappedProvinceData[0].gross, 0) + ' Gross Box Office.'
-                    : 'Provinsi terpetakan teratas: ' + String(mappedProvinceData[0].provinsi || '-').toUpperCase() + ' dengan ' + reportNumber(mappedProvinceData[0].audience, 0) + ' penonton dan Gross Box Office ' + reportCurrency(mappedProvinceData[0].gross, 0) + '.');
-            }
-            if (unmappedProvinceRows.length) {
-                financeNotes.push(isEnglish()
-                    ? 'Data-quality disclosure: ' + reportNumber(unmappedProvinceRows[0].audience, 0) + ' admissions remain in an unmapped territory bucket and are excluded from the province ranking above.'
-                    : 'Disclosure kualitas data: ' + reportNumber(unmappedProvinceRows[0].audience, 0) + ' penonton masih berada pada kelompok wilayah belum terpetakan dan tidak dimasukkan dalam ranking provinsi di atas.');
+                    ? 'Leading province: ' + String(provinceData[0].provinsi || '-').toUpperCase() + ' with ' + reportNumber(provinceData[0].audience, 0) + ' admissions and ' + reportCurrency(provinceData[0].gross, 0) + ' Gross Box Office.'
+                    : 'Provinsi teratas: ' + String(provinceData[0].provinsi || '-').toUpperCase() + ' dengan ' + reportNumber(provinceData[0].audience, 0) + ' penonton dan Gross Box Office ' + reportCurrency(provinceData[0].gross, 0) + '.');
             }
             if (cinemaData.length) {
                 financeNotes.push(isEnglish()
                     ? 'Leading cinema: ' + String(cinemaData[0].nama_bioskop || '-').toUpperCase() + ' in ' + String(cinemaData[0].kota || '-') + '.'
                     : 'Bioskop teratas: ' + String(cinemaData[0].nama_bioskop || '-').toUpperCase() + ' di ' + String(cinemaData[0].kota || '-') + '.');
             }
-            var financeInsightY = Math.min(doc.lastAutoTable.finalY + 5, 158);
-            insightBox(reportText('managementInsight'), financeNotes.length ? financeNotes : [reportText('noFinanceNotes')], financeInsightY, 34);
+            insightBox(reportText('managementInsight'), financeNotes.length ? financeNotes : [reportText('noFinanceNotes')], doc.lastAutoTable.finalY + 5, 32);
         }
-
-        addFinanceSection();
 
         nextPage(reportText('trendAnalysis'), reportText('trendSubtitle'), reportText('trendAnalysis'));
         var trendImage = createTrendImage(trendDaily);
@@ -1351,13 +1256,13 @@
         var trendNotes = [];
         if (trendSummary.period_change !== null && typeof trendSummary.period_change !== 'undefined') {
             trendNotes.push(isEnglish()
-                ? 'Production House Revenue moved ' + (numberValue(trendSummary.period_change) >= 0 ? 'up' : 'down') + ' by ' + reportPercent(Math.abs(numberValue(trendSummary.period_change))) + ' from the first reporting day to the last.'
-                : 'Pendapatan Production House bergerak ' + (numberValue(trendSummary.period_change) >= 0 ? 'naik' : 'turun') + ' ' + reportPercent(Math.abs(numberValue(trendSummary.period_change))) + ' dari hari pertama ke hari terakhir.');
+                ? 'Estimated Producer Proceeds moved ' + (numberValue(trendSummary.period_change) >= 0 ? 'up' : 'down') + ' by ' + reportPercent(Math.abs(numberValue(trendSummary.period_change))) + ' from the first reporting day to the last.'
+                : 'Estimasi Pendapatan Produser bergerak ' + (numberValue(trendSummary.period_change) >= 0 ? 'naik' : 'turun') + ' ' + reportPercent(Math.abs(numberValue(trendSummary.period_change))) + ' dari hari pertama ke hari terakhir.');
         }
         if (trendSummary.best_day && trendSummary.best_day.tanggal) {
             trendNotes.push(isEnglish()
-                ? 'Best day by Production House Revenue: ' + displayDate(trendSummary.best_day.tanggal) + '.'
-                : 'Hari terbaik berdasarkan Pendapatan Production House: ' + displayDate(trendSummary.best_day.tanggal) + '.');
+                ? 'Best day by Estimated Producer Proceeds: ' + displayDate(trendSummary.best_day.tanggal) + '.'
+                : 'Hari terbaik berdasarkan Estimasi Pendapatan Produser: ' + displayDate(trendSummary.best_day.tanggal) + '.');
         }
         insightBox(reportText('trendInsight'), trendNotes.length ? trendNotes.slice(0, 2) : [reportText('noTrendData')], 164, 23);
 
@@ -1405,10 +1310,14 @@
                 String(row.nama_bioskop || '-').toUpperCase(),
                 reportNumber(row.Total, 0),
                 reportPercent(row.occupancy_rate),
-                reportNumber(row.harga, 0),
-                reportNumber(row.gross, 0),
-                reportNumber(row.net, 0),
-                reportNumber(row.total_akhir, 0)
+                reportCurrency(row.harga, 0),
+                reportCurrency(row.gross, 0),
+                reportPercent(row.pajak_persen),
+                reportCurrency(row.pajak, 0),
+                reportCurrency(row.net, 0),
+                reportCurrency(row.share_ph, 0),
+                reportCurrency(row.royalty, 0),
+                reportCurrency(row.total_akhir, 0)
             ];
         });
         var detailTotals = detailRows.reduce(function (result, row) {
@@ -1426,34 +1335,42 @@
                 { content: text('total'), colSpan: 3, styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: reportNumber(detailTotals.audience, 0), styles: { halign: 'right', fontStyle: 'bold' } },
                 '', '',
-                { content: reportNumber(detailTotals.gross, 0), styles: { halign: 'right', fontStyle: 'bold' } },
-                { content: reportNumber(detailTotals.net, 0), styles: { halign: 'right', fontStyle: 'bold' } },
-                { content: reportNumber(detailTotals.proceeds, 0), styles: { halign: 'right', fontStyle: 'bold' } }
+                { content: reportCurrency(detailTotals.gross, 0), styles: { halign: 'right', fontStyle: 'bold' } },
+                '',
+                { content: reportCurrency(detailTotals.tax, 0), styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: reportCurrency(detailTotals.net, 0), styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: reportCurrency(detailTotals.share, 0), styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: reportCurrency(detailTotals.royalty, 0), styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: reportCurrency(detailTotals.proceeds, 0), styles: { halign: 'right', fontStyle: 'bold' } }
             ]);
         }
         doc.autoTable({
             startY: 43,
             margin: { top: 43, left: marginX, right: marginX, bottom: 18 },
             head: [[
-                reportText('date'), reportText('city'), reportText('cinemaName'), reportText('totalAdmissions'), reportText('occupancy'), reportText('ticketPrice') + ' (IDR)', text('grossBoxOffice') + ' (IDR)',
-                text('netBoxOffice') + ' (IDR)', text('producerProceeds') + ' (IDR)'
+                reportText('date'), reportText('city'), reportText('cinemaName'), reportText('totalAdmissions'), reportText('occupancy'), reportText('ticketPrice'), text('grossBoxOffice'),
+                reportText('taxRate'), reportText('tax'), text('netBoxOffice'), reportText('revenueShare'), reportText('royalty'), text('producerProceeds')
             ]],
             body: pdfDetailRows,
             theme: 'grid',
             showHead: 'everyPage',
-            styles: { font: 'helvetica', fontSize: 7, cellPadding: 1.55, textColor: colors.text, overflow: 'linebreak', valign: 'middle' },
+            styles: { font: 'helvetica', fontSize: 6, cellPadding: 1.25, textColor: colors.text, overflow: 'linebreak', valign: 'middle' },
             headStyles: { fillColor: colors.brand, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
             alternateRowStyles: { fillColor: colors.soft },
             columnStyles: {
-                0: { cellWidth: 18 },
-                1: { cellWidth: 22 },
-                2: { cellWidth: 52 },
+                0: { cellWidth: 17 },
+                1: { cellWidth: 20 },
+                2: { cellWidth: 35 },
                 3: { halign: 'right', cellWidth: 20 },
-                4: { halign: 'right', cellWidth: 18 },
-                5: { halign: 'right', cellWidth: 25 },
-                6: { halign: 'right', cellWidth: 35 },
-                7: { halign: 'right', cellWidth: 35 },
-                8: { halign: 'right', cellWidth: 44 }
+                4: { halign: 'right', cellWidth: 15 },
+                5: { halign: 'right', cellWidth: 17 },
+                6: { halign: 'right', cellWidth: 23 },
+                7: { halign: 'right', cellWidth: 11 },
+                8: { halign: 'right', cellWidth: 21 },
+                9: { halign: 'right', cellWidth: 22 },
+                10: { halign: 'right', cellWidth: 22 },
+                11: { halign: 'right', cellWidth: 22 },
+                12: { halign: 'right', cellWidth: 24 }
             },
             didDrawPage: function () {
                 addHeader(reportText('dailyPerformance'));
@@ -1464,8 +1381,11 @@
             }
         });
 
+        // Finance Insight ditempatkan paling akhir setelah laporan detail.
+        addFinanceSection();
+
         nextPage(text('methodology'), reportText('methodologySubtitle'), text('methodology'));
-        insightBox(isEnglish() ? 'DATA BASIS, FORMULA & DISCLAIMER' : 'BASIS DATA, FORMULA & DISCLAIMER', reportLines('methodology'), 52, 68);
+        insightBox(text('methodology'), reportLines('methodology'), 52, 43);
 
         addFooter();
         var safeFilm = String(labels.film || (isEnglish() ? 'all-films' : 'semua-film')).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
