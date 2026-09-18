@@ -15,7 +15,6 @@ use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\PelaporanController;
 use App\Http\Controllers\GrafikKotaController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\CinepointDailyController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use SebastianBergmann\CodeCoverage\Report\Html\Dashboard;
@@ -60,9 +59,6 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::get('finance-insight-data', [LaporanController::class, 'financeInsightData'])->name('finance-insight.data');
     Route::get('trend-analysis', [LaporanController::class, 'trendAnalysis'])->name('trend-analysis.index');
     Route::get('trend-analysis-data', [LaporanController::class, 'trendAnalysisData'])->name('trend-analysis.data');
-    Route::get('audience-estimate', [CinepointDailyController::class, 'index'])->name('seatmap-monitor.index');
-    Route::get('audience-estimate/ranking', [CinepointDailyController::class, 'ranking'])->name('seatmap-monitor.ranking');
-    Route::post('audience-estimate/cinepoint/sync', [CinepointDailyController::class, 'sync'])->name('seatmap-monitor.cinepoint.sync');
     Route::get('get-cinema', [PelaporanController::class,'getCinemaByCategory'])->name('ref.cinema');
     Route::get('get-kota', [PelaporanController::class,'getCityByCinema'])->name('ref.kota');
     Route::get('get-pajak', [PelaporanController::class,'getTaxByCinema'])->name('ref.pajak');

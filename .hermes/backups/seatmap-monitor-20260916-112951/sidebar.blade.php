@@ -20,20 +20,6 @@
         @endphp
         @include('partials.menu', ['menu' => $menu])
 
-        <ul class="nav-menu mt-2">
-            <li class="{{ request()->routeIs('seatmap-monitor.*') ? 'active open' : '' }}">
-                <a href="{{ route('seatmap-monitor.index') }}" title="Audience Estimate Ranking">
-                    <i class="fal fa-signal-stream"></i>
-                    <span class="nav-link-text">Audience Estimate</span>
-                </a>
-                <ul>
-                    <li class="{{ request()->routeIs('seatmap-monitor.index') ? 'active' : '' }}">
-                        <a href="{{ route('seatmap-monitor.index') }}"><span class="nav-link-text">Cinepoint Daily</span></a>
-                    </li>
-                </ul>
-            </li>
-        </ul>
-
         <div class="sidebar-profile-card">
             @if (!is_null(Auth::user()->avatar))
                 <img src="{{asset('img/avatar').'/'.'user'.'/'.Auth::user()->avatar}}" alt="{{Auth::user()->name}}">
