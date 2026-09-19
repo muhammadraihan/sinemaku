@@ -69,6 +69,7 @@
                 <form method="post" action="{{ route('seatmap-monitor.cinepoint.sync') }}">
                     @csrf
                     <button class="btn btn-primary" type="submit"><i class="fal fa-sync mr-1"></i> Sync sekarang</button>
+                    @if(config('services.cinepoint.mode', 'remote') !== 'local')<small class="d-block">Permintaan dimasukkan ke antrean; VPS mengambilnya secara aman.</small>@endif
                 </form>
             </div>
         </div>
@@ -82,10 +83,18 @@
         <div class="alert alert-info cinepoint-status">Belum ada snapshot sukses. Jalankan sync untuk memulai.</div>
     @endif
 
+    @if($remote_job)
+        <div class="alert {{ $remote_job['status'] === 'failed' ? 'alert-warning' : ($remote_job['status'] === 'success' ? 'alert-success' : 'alert-info') }} cinepoint-status" role="status">
+            <strong>Permintaan VPS #{{ $remote_job['id'] }}: {{ $remote_job['status'] }}</strong>
+            · Percobaan {{ $remote_job['attempts'] }}
+            @if($remote_job['failure_reason']) · {{ ['browser_failed'=>'Browser collector gagal.','worker_failed'=>'Worker collector gagal.','invalid_snapshot'=>'Snapshot collector tidak valid.','max_attempts_exceeded'=>'Batas percobaan worker tercapai.'][$remote_job['failure_reason']] ?? 'Collector gagal.' }} @endif
+            @if(in_array($remote_job['status'], ['queued','running']))<span> · Snapshot sukses sebelumnya tetap ditampilkan sampai proses selesai.</span>@endif
+        </div>
+    @endif
+
     @if($latest_attempt && $latest_attempt->status === 'failed' && $latest_attempt->error_message)
         <div class="alert alert-warning cinepoint-attempt-error" role="status">
-            <strong>Sinkronisasi terakhir gagal.</strong> {{ $latest_attempt->error_message }}
-            <span>Snapshot sukses tetap ditampilkan. Gunakan <strong>Sync sekarang</strong> untuk mencoba lagi.</span>
+            <strong>Sinkronisasi snapshot terakhir gagal.</strong> Snapshot sukses tetap ditampilkan.
         </div>
     @endif
 
@@ -125,7 +134,7 @@
                     <dl class="cinepoint-meta">
                         <div><dt>Jadwal refresh</dt><dd>07:00 · 12:00 · 18:00 WIB</dd></div>
                         <div><dt>Sinkronisasi berikutnya</dt><dd>{{ $next_scheduled_at }}</dd></div>
-                        <div><dt>Status cron</dt><dd>{{ $scheduler_heartbeat ? 'Heartbeat: '.$scheduler_heartbeat : 'Belum terverifikasi; scheduler host harus menjalankan schedule:run.' }}</dd></div>
+                        <div><dt>Heartbeat collector</dt><dd>{{ config('services.cinepoint.mode') !== 'local' ? ($collector_heartbeat ?: 'Belum terverifikasi; aktifkan polling VPS setiap menit.') : ($scheduler_heartbeat ?: 'Scheduler lokal belum terverifikasi.') }}</dd></div>
                         <div><dt>Percobaan terakhir</dt><dd>{{ $latest_attempt && $latest_attempt->finished_at ? \Carbon\Carbon::parse($latest_attempt->finished_at)->timezone('Asia/Jakarta')->format('d M Y H:i').' WIB · '.$latest_attempt->status : 'Belum ada' }}</dd></div>
                     </dl>
                 </div></div>
@@ -140,11 +149,11 @@
 <script src="{{ asset('js/notifications/sweetalert2/sweetalert2.bundle.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var text = {!! json_encode(session('cinepoint_success') ?: session('cinepoint_error')) !!};
+    var text = {!! json_encode(session('cinepoint_success') ?: session('cinepoint_error'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!};
     var ok = {!! session('cinepoint_success') ? 'true' : 'false' !!};
     Swal.fire({
         icon: ok ? 'success' : 'error',
-        title: ok ? 'Sinkronisasi berhasil' : 'Sinkronisasi gagal',
+        title: ok ? 'Permintaan diterima' : 'Sinkronisasi gagal',
         text: text,
         confirmButtonText: ok ? 'Tutup' : 'Coba lagi',
         showCancelButton: !ok,

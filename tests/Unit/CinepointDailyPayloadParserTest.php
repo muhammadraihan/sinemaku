@@ -20,7 +20,7 @@ class CinepointDailyPayloadParserTest extends TestCase
     {
         $parser = new CinepointDailyPayloadParser();
         $result = $parser->parsePages([["b" => ["response_output" => ["list" => ["pagination" => ["page" => 0, "limit" => 10, "total" => 2], "content" => [
-            ["id" => 1, "title" => "Film A", "image_title" => "https://example.test/a.jpg", "admission" => 10, "total_admission" => 20, "rank" => ["current_rank" => 1]],
+            ["id" => 1, "title" => "Film A", "image_title" => "https://cinepoint-assets.s3.amazonaws.com/a.jpg", "admission" => 10, "total_admission" => 20, "rank" => ["current_rank" => 1]],
             ["id" => 2, "title" => "Film B", "image_title" => null, "admission" => 5, "total_admission" => 8, "rank" => ["current_rank" => 2]],
         ]]]]]], '2026-09-17');
         $this->assertSame(2, $result['source_total']);

@@ -25,6 +25,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         // Legacy discovery remains available manually, but is no longer scheduled.
+        if (config('services.cinepoint.mode', 'remote') !== 'local') return;
         $schedule->command('cinepoint:collect-daily')
             ->cron('0 7,12,18 * * *')->timezone('Asia/Jakarta')
             ->withoutOverlapping(10);

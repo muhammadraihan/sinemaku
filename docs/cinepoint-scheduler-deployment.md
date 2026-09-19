@@ -1,30 +1,136 @@
 # Cinepoint daily scheduler deployment
 
-Collector uses ordinary public browser-rendered DOM pagination. It is **not** a PHP-only/shared-host job: the runtime needs Node.js, `playwright-core`, and a Chrome/Chromium executable. Set `CINEPOINT_NODE_BINARY`, `CINEPOINT_BROWSER_SCRIPT`, and `CINEPOINT_BROWSER_CHANNEL` when the host paths are non-default.
+## Runtime requirement — read before deployment
 
-## Application setup
+Collector Cinepoint membaca seluruh pagination dari DOM browser publik. Ia **bukan** job PHP-only dan tidak dapat berjalan jika server hanya memiliki PHP/Laravel.
+
+Runtime yang wajib tersedia pada **host yang menjalankan command collector**:
+
+- Node.js (`node --version`)
+- npm (`npm --version`)
+- dependency project (`npm ci`)
+- Chrome atau Chromium executable yang dapat diluncurkan oleh user cron
+- akses HTTPS keluar ke `https://cinepoint.com/`
+
+Jika menjalankan:
+
+```sh
+node scripts/cinepoint-daily-browser.cjs
+```
+
+lalu muncul:
+
+```text
+node: command not found
+```
+
+maka collector **belum dapat dijalankan** pada host tersebut. Jangan memasang cron `cinepoint:collect-daily` sebelum semua requirement di atas tersedia; setiap cron hanya akan gagal dan mencatat error.
+
+## Pilih deployment yang sesuai
+
+### A. Server dengan runtime browser yang telah diverifikasi
+
+VPS dengan izin instalasi software dapat dikonfigurasi untuk collector. Jangan menyamakan paket Cloud/Node.js hosting dengan VPS: adanya Node.js saja tidak membuktikan dukungan Chrome, library OS, atau subprocess PHP. Verifikasi kemampuan paket dengan provider terlebih dahulu.
+
+```sh
+node --version
+npm --version
+command -v google-chrome || command -v chromium || command -v chromium-browser
+```
+
+Jika Node.js memang belum ada tetapi Anda memiliki akses memasang software, install melalui metode yang didukung server/provider. Contoh NVM untuk shell Linux yang mengizinkannya:
+
+```sh
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.7/install.sh | bash
+source ~/.bashrc
+nvm install --lts
+nvm use --lts
+node --version
+npm --version
+```
+
+Lalu pastikan Chrome/Chromium tersedia untuk user yang sama dengan user cron. Path executable dapat berbeda pada tiap OS/provider.
+
+> Jangan jalankan perintah instalasi ini di shared hosting tanpa memastikan Hostinger mengizinkannya. Banyak paket shared hosting tidak mengizinkan service browser/headless Chrome berjalan terus-menerus.
+
+### B. Hostinger shared hosting tanpa Node.js/Chrome
+
+Shared hosting tersebut dapat tetap menjalankan Laravel, UI, database, dan cron PHP, tetapi **tidak dapat menjalankan collector browser Cinepoint**.
+
+Gunakan satu runtime collector terpisah yang mendukung Node.js + Chrome/Chromium, misalnya:
+
+- VPS kecil;
+- Hostinger Cloud/VPS yang menyediakan Node dan browser runtime;
+- managed browser/worker yang memang mendukung Playwright;
+- server internal/worker yang selalu tersedia.
+
+Aplikasi Sinemaku tetap dapat di shared hosting, tetapi collector perlu dikonfigurasikan untuk mengirim snapshot tervalidasi ke aplikasi melalui endpoint internal yang diautentikasi. Endpoint HMAC dan polling VPS telah diimplementasikan; gunakan [panduan VPS → Hostinger](cinepoint-vps-hostinger-deployment.md). Jangan gunakan jadwal lokal di bawah pada Hostinger; `CINEPOINT_MODE=remote` menonaktifkannya.
+
+## Application setup on a compatible collector host
 
 ```sh
 cd /path/to/sinemaku
+composer install --no-dev --optimize-autoloader
 npm ci
-# verify the configured browser runtime
+node --version
+npm --version
+command -v google-chrome || command -v chromium || command -v chromium-browser
 node scripts/cinepoint-daily-browser.cjs > /tmp/cinepoint.json
-php artisan config:clear
-php artisan view:cache
-php artisan route:list --path=backoffice/audience-estimate
+php artisan cinepoint:collect-daily
 ```
 
-The browser probe must report `source_total: 21`, 21 entries, and 21 unique IDs. Do not deploy if it reports fewer rows.
+Verifikasi output browser sebelum menjadwalkan:
+
+```sh
+python3 - <<'PY'
+import json
+p = json.load(open('/tmp/cinepoint.json'))
+print({
+  'source_total': p['source_total'],
+  'entries': len(p['entries']),
+  'unique_ids': len({row['source_movie_id'] for row in p['entries']}),
+})
+PY
+```
+
+`source_total`, `entries`, dan `unique_ids` harus sama. Jangan deploy jika ada row kurang, ID duplikat, atau output tidak valid.
+
+Jika path runtime tidak standar, konfigurasi environment server:
+
+```env
+CINEPOINT_NODE_BINARY=/absolute/path/to/node
+CINEPOINT_BROWSER_SCRIPT=/absolute/path/to/sinemaku/scripts/cinepoint-daily-browser.cjs
+# Gunakan salah satu saja:
+CINEPOINT_BROWSER_EXECUTABLE=/usr/bin/chromium
+# CINEPOINT_BROWSER_CHANNEL=chrome
+```
+
+Setelah mengubah environment:
+
+```sh
+php artisan config:clear
+php artisan config:cache
+php artisan view:cache
+```
 
 ## Laravel scheduler
 
-The application schedule runs at 07:00, 12:00, and 18:00 `Asia/Jakarta`, with a ten-minute overlap lock. The host should invoke Laravel every minute:
+Aplikasi telah menjadwalkan collection pada:
 
-```cron
-* * * * * cd /path/to/sinemaku && /usr/bin/php artisan schedule:run >> /path/to/sinemaku/storage/logs/scheduler.log 2>&1
+```text
+07:00 WIB
+12:00 WIB
+18:00 WIB
+Timezone: Asia/Jakarta
 ```
 
-Discover the real PHP binary before installing cron:
+Jalankan Laravel scheduler setiap menit **hanya pada host yang memiliki runtime browser lengkap**:
+
+```cron
+* * * * * cd /path/to/sinemaku && /absolute/path/to/php artisan schedule:run >> /path/to/sinemaku/storage/logs/scheduler.log 2>&1
+```
+
+Cari binary PHP yang benar:
 
 ```sh
 command -v php
@@ -33,11 +139,7 @@ php artisan schedule:list
 php artisan schedule:run -v
 ```
 
-If the host uses a separate PHP binary, replace `/usr/bin/php` with the path printed by `command -v php`. Ensure `storage/` and `bootstrap/cache/` are writable by the web/cron user, and confirm the PHP/application timezone:
-
-```sh
-php artisan tinker --execute="dump(config('app.timezone'), now('Asia/Jakarta')->toIso8601String());"
-```
+Pastikan `storage/` dan `bootstrap/cache/` writable oleh user cron.
 
 ## Manual run and diagnosis
 
@@ -48,14 +150,24 @@ php artisan schedule:run -v
 php artisan optimize:clear
 ```
 
-The command exits non-zero on browser failure, incomplete rows, duplicates, database verification failure, stale running recovery, or any other exception. The command message includes the safe cause and retry guidance. A failed attempt never replaces the latest successful snapshot. The admin page at `/backoffice/audience-estimate` shows the latest attempt and manual Sync button; failure feedback uses SweetAlert2 when loaded and an inline fallback otherwise.
+Command berstatus non-zero apabila Node/Chrome tidak tersedia, browser gagal, source tidak lengkap, ada ID duplikat, parser berubah, atau verifikasi database gagal. Snapshot sukses sebelumnya tidak diganti jika percobaan baru gagal. Halaman admin `/backoffice/audience-estimate` menampilkan error terakhir dan menyediakan tombol **Sync sekarang**.
 
-Check `storage/logs/laravel.log`, `storage/logs/scheduler.log`, Chrome availability, Node/npm availability, writable directories, and network access to `https://cinepoint.com/`.
+Periksa:
+
+```sh
+node --version
+npm --version
+command -v google-chrome || command -v chromium || command -v chromium-browser
+tail -n 100 storage/logs/laravel.log
+tail -n 100 storage/logs/scheduler.log
+```
 
 ## Rollback
 
-Removed legacy TIX/Cinepolis seatmap code was backed up outside the application at:
+Backup kode seat-map TIX/Cinepolis yang telah dihapus berada di:
 
-`/Users/mumuraihan/.hermes/backups/sinemaku-seatmap-tix-20260918`
+```text
+/Users/mumuraihan/.hermes/backups/sinemaku-seatmap-tix-20260918
+```
 
-The old seatmap migrations and database rows are retained in the backup/database; no data-dropping migration is included in this change. Cinepolis distributor/report import code remains untouched.
+Migration dan data lama tidak dihapus. Modul import laporan/distributor Cinepolis tidak diubah.

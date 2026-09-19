@@ -7,83 +7,96 @@ use UnexpectedValueException;
 
 class CinepointDailyPayloadParser
 {
+    private const MAX_ENTRIES = 100;
+    private const MAX_ADMISSIONS = 999999999999;
+
+    public function parseBrowser(array $payload): array
+    {
+        $this->assertKeys($payload, ['period_label', 'source_total', 'entries'], 'payload');
+        if (!is_string($payload['period_label']) || !is_int($payload['source_total']) || !is_array($payload['entries'])) {
+            throw new UnexpectedValueException('Tipe payload collector tidak valid.');
+        }
+        $label = $payload['period_label'];
+        try {
+            $date = Carbon::createFromFormat('!M j, Y', $label, 'Asia/Jakarta');
+            if (!$date || $date->format('M j, Y') !== $label) throw new UnexpectedValueException();
+        } catch (\Throwable $e) {
+            throw new UnexpectedValueException('Periode daily tidak valid.');
+        }
+        if ($date->startOfDay()->greaterThan(Carbon::now('Asia/Jakarta')->startOfDay())) {
+            throw new UnexpectedValueException('Periode daily tidak boleh di masa depan.');
+        }
+        $total = $payload['source_total'];
+        if ($total < 1 || $total > self::MAX_ENTRIES || count($payload['entries']) !== $total) {
+            throw new UnexpectedValueException('Payload browser tidak lengkap atau melampaui batas.');
+        }
+        $seen = []; $ranks = []; $entries = [];
+        foreach ($payload['entries'] as $row) {
+            if (!is_array($row)) throw new UnexpectedValueException('Baris film harus berupa object.');
+            $this->assertKeys($row, ['source_movie_id','rank','title','poster_url','daily_admissions','total_admissions'], 'baris film');
+            if (!is_string($row['source_movie_id']) || !is_int($row['rank']) || !is_string($row['title']) ||
+                !is_int($row['daily_admissions']) || !is_int($row['total_admissions']) ||
+                (!is_null($row['poster_url']) && !is_string($row['poster_url']))) {
+                throw new UnexpectedValueException('Tipe baris film tidak valid.');
+            }
+            $id = trim($row['source_movie_id']); $title = trim($row['title']); $rank = $row['rank'];
+            if ($id === '' || strlen($id) > 191 || isset($seen[$id]) || $title === '' || mb_strlen($title) > 255 ||
+                $rank < 1 || $rank > $total || isset($ranks[$rank]) || $row['daily_admissions'] < 0 ||
+                $row['total_admissions'] < $row['daily_admissions'] || $row['total_admissions'] > self::MAX_ADMISSIONS) {
+                throw new UnexpectedValueException('Nilai baris film tidak valid.');
+            }
+            $seen[$id] = true; $ranks[$rank] = true;
+            $entries[] = ['source_movie_id'=>$id,'rank'=>$rank,'title'=>$title,
+                'poster_url'=>$this->safeHttpsUrl($row['poster_url']),
+                'daily_admissions'=>$row['daily_admissions'],'total_admissions'=>$row['total_admissions']];
+        }
+        $rankValues = array_keys($ranks); sort($rankValues);
+        if ($rankValues !== range(1, $total)) throw new UnexpectedValueException('Rank film harus berurutan tanpa celah.');
+        usort($entries, function ($a, $b) { return $a['rank'] <=> $b['rank']; });
+        return ['period_date'=>$date->toDateString(),'source_total'=>$total,'collected_count'=>$total,'partial'=>false,'pages'=>[],'entries'=>$entries];
+    }
+
     public function parseHtml(string $html, string $period): array
     {
-        if (!preg_match('/<script[^>]+id=["\']ng-state["\'][^>]*>(.*?)<\/script>/s', $html, $match)) {
-            throw new UnexpectedValueException('Cinepoint ng-state tidak ditemukan.');
-        }
+        if (!preg_match('/<script[^>]+id=["\']ng-state["\'][^>]*>(.*?)<\/script>/s', $html, $match)) throw new UnexpectedValueException('Cinepoint ng-state tidak ditemukan.');
         $state = json_decode(html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5), true, 512, JSON_THROW_ON_ERROR);
-        $pages = [];
-        foreach ($state as $item) {
-            if (is_array($item) && strpos((string) ($item['u'] ?? ''), '/box-office/daily') !== false) {
-                $pages[] = $item;
-            }
-        }
+        $pages = array_values(array_filter($state, function ($item) { return is_array($item) && strpos((string)($item['u'] ?? ''), '/box-office/daily') !== false; }));
         if (!$pages) throw new UnexpectedValueException('Payload daily ranking tidak ditemukan.');
         return $this->parsePages($pages, $period);
     }
 
-    public function parseBrowser(array $payload): array
-    {
-        $label = trim((string) ($payload['period_label'] ?? ''));
-        try {
-            $date = Carbon::createFromFormat('!M j, Y', $label, 'Asia/Jakarta');
-            if (!$date || $date->format('M j, Y') !== $label) throw new UnexpectedValueException('Periode daily tidak valid.');
-            $period = $date->toDateString();
-        } catch (\Throwable $e) { throw new UnexpectedValueException('Periode daily tidak valid.'); }
-        $total = (int) ($payload['source_total'] ?? 0);
-        $rows = $payload['entries'] ?? null;
-        if ($total < 1 || !is_array($rows) || count($rows) !== $total) {
-            throw new UnexpectedValueException("Payload browser tidak lengkap: {$total} film diharapkan, " . (is_array($rows) ? count($rows) : 0) . ' diterima.');
-        }
-        $seen = [];
-        $ranks = [];
-        $entries = [];
-        foreach ($rows as $row) {
-            foreach (['source_movie_id','rank','title','daily_admissions','total_admissions'] as $key) if (!array_key_exists($key, $row)) throw new UnexpectedValueException("Field {$key} browser tidak tersedia.");
-            $id = (string) $row['source_movie_id'];
-            $rank = filter_var($row['rank'], FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
-            $daily = filter_var($row['daily_admissions'], FILTER_VALIDATE_INT, ['options'=>['min_range'=>0]]);
-            $cumulative = filter_var($row['total_admissions'], FILTER_VALIDATE_INT, ['options'=>['min_range'=>0]]);
-            if ($id === '' || isset($seen[$id])) throw new UnexpectedValueException("Duplikat atau ID film kosong: {$id}.");
-            if ($rank === false || isset($ranks[$rank]) || trim((string) $row['title']) === '' || $daily === false || $cumulative === false) throw new UnexpectedValueException("Baris film {$id} tidak valid atau rank duplikat.");
-            $seen[$id] = true;
-            $ranks[$rank] = true;
-            $entries[] = ['source_movie_id'=>$id,'title'=>trim((string)$row['title']),'poster_url'=>$this->safeUrl($row['poster_url'] ?? null),'daily_admissions'=>(int)$row['daily_admissions'],'total_admissions'=>(int)$row['total_admissions'],'rank'=>(int)$row['rank']];
-        }
-        usort($entries, fn($a,$b)=>$a['rank'] <=> $b['rank']);
-        return ['period_date'=>$period,'source_total'=>$total,'collected_count'=>count($entries),'partial'=>false,'pages'=>[],'entries'=>$entries];
-    }
-
     public function parsePages(array $pages, string $period): array
     {
-        try { $date = Carbon::createFromFormat('Y-m-d', $period)->format('Y-m-d'); }
+        try { $date = Carbon::createFromFormat('!Y-m-d', $period, 'Asia/Jakarta'); if ($date->format('Y-m-d') !== $period) throw new UnexpectedValueException(); }
         catch (\Throwable $e) { throw new UnexpectedValueException('Periode daily tidak valid.'); }
-        $entries = []; $seen = []; $total = null; $limit = null; $pageNumbers = [];
+        $rows=[]; $total=null;
         foreach ($pages as $page) {
-            $list = $page['b']['response_output']['list'] ?? null;
-            if (!is_array($list) || !isset($list['pagination'], $list['content']) || !is_array($list['content'])) throw new UnexpectedValueException('Struktur pagination daily tidak valid.');
-            $pagination = $list['pagination'];
-            $total = $total === null ? (int) ($pagination['total'] ?? -1) : $total;
-            $limit = (int) ($pagination['limit'] ?? 0); $pageNumbers[] = (int) ($pagination['page'] ?? -1);
-            if ($total < 0 || $limit < 1) throw new UnexpectedValueException('Metadata pagination daily tidak valid.');
-            foreach ($list['content'] as $row) {
-                foreach (['id','title','admission','total_admission'] as $key) if (!array_key_exists($key, $row)) throw new UnexpectedValueException("Field {$key} daily tidak tersedia.");
-                $id = (string) $row['id'];
-                if (isset($seen[$id])) throw new UnexpectedValueException("Duplikat film {$id} pada pagination.");
-                if (!is_numeric($row['admission']) || !is_numeric($row['total_admission']) || (int)$row['admission'] < 0 || (int)$row['total_admission'] < 0) throw new UnexpectedValueException("Admissions film {$id} tidak valid.");
-                $seen[$id] = true;
-                $entries[] = ['source_movie_id'=>$id,'title'=>trim((string)$row['title']),'poster_url'=>$this->safeUrl($row['image_title'] ?? null),'daily_admissions'=>(int)$row['admission'],'total_admissions'=>(int)$row['total_admission'],'rank'=>(int)($row['rank']['current_rank'] ?? count($entries)+1)];
-            }
+            $list=$page['b']['response_output']['list']??null;
+            if (!is_array($list) || !is_array($list['content']??null)) throw new UnexpectedValueException('Struktur pagination daily tidak valid.');
+            $total=$total===null?(int)($list['pagination']['total']??0):$total;
+            foreach($list['content'] as $row) $rows[]=['source_movie_id'=>(string)($row['id']??''),'rank'=>(int)($row['rank']['current_rank']??0),'title'=>(string)($row['title']??''),'poster_url'=>$row['image_title']??null,'daily_admissions'=>$this->strictExternalInt($row['admission']??null),'total_admissions'=>$this->strictExternalInt($row['total_admission']??null)];
         }
-        usort($entries, fn($a,$b)=>$a['rank'] <=> $b['rank']);
-        return ['period_date'=>$date,'source_total'=>$total,'collected_count'=>count($entries),'partial'=>count($entries)!==$total,'pages'=>$pageNumbers,'entries'=>$entries];
+        return $this->parseBrowser(['period_label'=>$date->format('M j, Y'),'source_total'=>$total,'entries'=>$rows]);
     }
 
-    private function safeUrl($url): ?string
+    private function strictExternalInt($value): int
     {
-        if (!$url) return null;
-        $parts = parse_url((string)$url);
-        return isset($parts['scheme'], $parts['host']) && in_array(strtolower($parts['scheme']), ['http','https'], true) ? (string)$url : null;
+        if (!is_int($value) && !(is_string($value) && preg_match('/^\d+$/D', $value))) throw new UnexpectedValueException('Admissions film tidak valid.');
+        return (int)$value;
+    }
+
+    private function safeHttpsUrl($url): ?string
+    {
+        if ($url === null) return null;
+        if (strlen($url) > 2048 || filter_var($url, FILTER_VALIDATE_URL) === false || strtolower((string)parse_url($url, PHP_URL_SCHEME)) !== 'https' || strtolower((string) parse_url($url, PHP_URL_HOST)) !== 'cinepoint-assets.s3.amazonaws.com' || parse_url($url, PHP_URL_USER) !== null || parse_url($url, PHP_URL_PASS) !== null || parse_url($url, PHP_URL_PORT) !== null) {
+            throw new UnexpectedValueException('URL poster harus HTTPS yang valid.');
+        }
+        return $url;
+    }
+
+    private function assertKeys(array $value, array $expected, string $label): void
+    {
+        $keys=array_keys($value); sort($keys); sort($expected);
+        if ($keys !== $expected) throw new UnexpectedValueException("Struktur {$label} tidak valid.");
     }
 }

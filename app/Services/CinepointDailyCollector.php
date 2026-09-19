@@ -9,6 +9,7 @@ class CinepointDailyCollector
 {
     public function collect(): array
     {
+        if (config('services.cinepoint.mode', 'remote') !== 'local') throw new \RuntimeException('Remote mode: gunakan antrean Sync sekarang; collector berjalan pada VPS.');
         $lock = Cache::lock('cinepoint-daily-collection', 600);
         if (!$lock->get()) throw new \RuntimeException('Sinkronisasi Cinepoint sedang berjalan. Tunggu maksimal 10 menit lalu coba lagi.');
         $id = null;
@@ -33,9 +34,13 @@ class CinepointDailyCollector
 
     private function runBrowserCollector(): array
     {
-        $node = env('CINEPOINT_NODE_BINARY', 'node');
-        $script = env('CINEPOINT_BROWSER_SCRIPT', base_path('scripts/cinepoint-daily-browser.cjs'));
-        $process = new Process([$node, $script], base_path(), null, null, 120);
+        $node = config('services.cinepoint.node_binary', 'node');
+        $script = config('services.cinepoint.browser_script');
+        $environment = array_filter([
+            'CINEPOINT_BROWSER_EXECUTABLE' => config('services.cinepoint.browser_executable'),
+            'CINEPOINT_PLAYWRIGHT_PATH' => config('services.cinepoint.playwright_path'),
+        ], function ($value) { return $value !== null; });
+        $process = new Process([$node, $script], base_path(), $environment, null, 120);
         $process->run();
         if (!$process->isSuccessful()) throw new \RuntimeException('Browser collector gagal: '.trim($process->getErrorOutput() ?: $process->getOutput()).' Pastikan Node.js, Chrome, dan npm install tersedia.');
         try { return json_decode($process->getOutput(), true, 512, JSON_THROW_ON_ERROR); }
