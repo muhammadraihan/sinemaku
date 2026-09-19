@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function harness(responses) {
+function harness(responses, globalName = 'Swal') {
     let submit, reloads = 0, confirm;
     const popups = [], requests = [], timers = new Map();
     let nextTimer = 0;
@@ -13,8 +13,10 @@ function harness(responses) {
         fire(options) { popups.push(options); if (options.onOpen) options.onOpen(); return new Promise(resolve => { confirm = resolve; }); },
         update(options) { popups.push(options); }, showLoading() {},
     };
+    const window = { location: { reload() { reloads++; } }, addEventListener() {} };
+    window[globalName] = Swal;
     const context = { document: { getElementById: id => id === 'cinepoint-sync-form' ? form : button },
-        window: { Swal, location: { reload() { reloads++; } }, addEventListener() {} }, Swal,
+        window, [globalName]: Swal,
         AbortController, URL, FormData: class {}, Date,
         setTimeout(fn, ms) { const id = ++nextTimer; timers.set(id, { fn, ms }); return id; },
         clearTimeout(id) { timers.delete(id); },
@@ -27,6 +29,13 @@ function harness(responses) {
         async poll() { const entry = [...timers].find(([, t]) => t.ms === 2000); assert.ok(entry); timers.delete(entry[0]); entry[1].fn(); await this.flush(); },
     };
 }
+
+test('SweetAlert lowercase global fallback still intercepts submit', async () => {
+    const h = harness([{ status: 'success' }], 'swal');
+    h.submit(); await h.flush();
+    assert.equal(h.requests.length, 1); assert.equal(h.reloads(), 0);
+    assert.equal(h.popups.at(-1).type, 'success');
+});
 
 test('queued → running → success: prevents native submit, guards duplicates, reloads only after acknowledgement', async () => {
     const h = harness([{ status: 'queued', job: { id: 7, status: 'queued' }, status_url: '/sync/7' }, { job: { id: 7, status: 'running' } }, { job: { id: 7, status: 'success' } }]);

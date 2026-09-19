@@ -3,7 +3,9 @@
 
     var form = document.getElementById('cinepoint-sync-form');
     var button = document.getElementById('cinepoint-sync-button');
-    if (!form || !button || !window.Swal) return;
+    var Swal = window.Swal || window.swal || window.Sweetalert2 || window.sweetAlert;
+    if (!form || !button || !Swal || typeof Swal.fire !== 'function') return;
+    if (!window.Swal) window.Swal = Swal;
 
     var busy = false;
     var pollTimer = null;

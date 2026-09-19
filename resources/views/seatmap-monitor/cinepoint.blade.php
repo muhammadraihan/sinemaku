@@ -2,6 +2,7 @@
 @section('title','Audience Estimate · Cinepoint Daily Ranking')
 
 @section('css')
+<link rel="stylesheet" media="screen" href="{{ asset('css/notifications/sweetalert2/sweetalert2.bundle.css') }}">
 <style>
     .cinepoint-page { max-width: 1360px; margin: 0 auto; }
     .cinepoint-page .panel { border-radius: 12px !important; overflow: hidden; }
@@ -77,7 +78,7 @@
 
     @if($snapshot)
         <div class="alert alert-success cinepoint-status" role="status">
-            <strong>Snapshot lengkap</strong> · Periode harian {{ \Carbon\Carbon::parse($snapshot->period_date)->format('d M Y') }} · {{ number_format($snapshot->collected_count) }}/{{ number_format($snapshot->source_total) }} film · Disinkronkan {{ \Carbon\Carbon::parse($snapshot->finished_at)->timezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
+            <strong>Snapshot lengkap</strong> · Periode harian {{ \Carbon\Carbon::parse($snapshot->period_date)->format('d M Y') }} · {{ number_format($snapshot->collected_count) }}/{{ number_format($snapshot->source_total) }} film · Disinkronkan {{ $last_successful_sync_at ? \Carbon\Carbon::parse($last_successful_sync_at)->timezone('Asia/Jakarta')->format('d M Y H:i') : \Carbon\Carbon::parse($snapshot->finished_at)->timezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
         </div>
     @else
         <div class="alert alert-info cinepoint-status">Belum ada snapshot sukses. Jalankan sync untuk memulai.</div>
@@ -146,21 +147,21 @@
 
 @section('js')
 <script src="{{ asset('js/notifications/sweetalert2/sweetalert2.bundle.js') }}"></script>
-<script src="{{ asset('js/cinepoint-sync.js') }}"></script>
+<script src="{{ asset('js/cinepoint-sync.js') }}?v=20260919-2"></script>
 @if(session('cinepoint_success') || session('cinepoint_error'))
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var text = {!! json_encode(session('cinepoint_success') ?: session('cinepoint_error'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!};
     var ok = {!! session('cinepoint_success') ? 'true' : 'false' !!};
     Swal.fire({
-        icon: ok ? 'success' : 'error',
+        type: ok ? 'success' : 'error',
         title: ok ? 'Permintaan diterima' : 'Sinkronisasi gagal',
         text: text,
         confirmButtonText: ok ? 'Tutup' : 'Coba lagi',
         showCancelButton: !ok,
         cancelButtonText: 'Tutup'
     }).then(function (result) {
-        if (!ok && result.value) document.querySelector('form[action="{{ route('seatmap-monitor.cinepoint.sync') }}"]').submit();
+        if (!ok && result.value) document.getElementById('cinepoint-sync-form').requestSubmit();
     });
 });
 </script>

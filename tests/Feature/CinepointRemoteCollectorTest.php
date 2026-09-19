@@ -49,6 +49,7 @@ class CinepointRemoteCollectorTest extends TestCase
             $table->text('error_message')->nullable();
             $table->timestamp('started_at')->nullable();
             $table->timestamp('finished_at')->nullable();
+            $table->timestamp('last_verified_at')->nullable();
             $table->timestamps();
         });
         Schema::create('cinepoint_daily_entries', function (Blueprint $table) {
@@ -116,6 +117,53 @@ class CinepointRemoteCollectorTest extends TestCase
         $this->assertNotSame($first['snapshot_id'], $second['snapshot_id']);
         $this->assertSame(2, DB::table('cinepoint_daily_snapshots')->where('period_date', '2026-09-19')->count());
         $this->assertSame(11, DB::table('cinepoint_daily_entries')->where('snapshot_id', $second['snapshot_id'])->where('rank', 1)->value('daily_admissions'));
+    }
+
+    public function test_duplicate_sync_advances_success_time_without_changing_snapshot_and_failures_do_not(): void
+    {
+        $controller = app(\App\Http\Controllers\CinepointDailyController::class);
+        Carbon::setTestNow('2026-09-19 10:00:00');
+        $first = $this->signedJson('POST', '/api/internal/cinepoint/snapshots', $this->payload(10))->assertCreated()->json();
+        $original = DB::table('cinepoint_daily_snapshots')->find($first['snapshot_id']);
+        Carbon::setTestNow('2026-09-19 11:00:00');
+        $this->signedJson('POST', '/api/internal/cinepoint/snapshots', $this->payload(10))->assertOk();
+        $data = $controller->ranking()->getData(true);
+        $this->assertSame('2026-09-19 11:00:00', $data['last_successful_sync_at'] ?? null);
+        $this->assertSame(1, DB::table('cinepoint_daily_snapshots')->count());
+        $this->assertSame($original->finished_at, $data['snapshot']['finished_at']);
+        $this->assertSame($original->created_at, $data['snapshot']['created_at']);
+
+        Carbon::setTestNow('2026-09-19 12:00:00');
+        $queue = app(\App\Services\CinepointRemoteSyncQueue::class);
+        $queue->enqueue(); $job = $queue->claim('test')['job'];
+        $queue->finish($job['id'], $job['lease_token'], 'success', $this->payload(10));
+        $this->assertSame('2026-09-19 12:00:00', $controller->ranking()->getData(true)['last_successful_sync_at']);
+        $this->assertSame(1, DB::table('cinepoint_daily_snapshots')->count());
+        $this->assertSame($original->finished_at, DB::table('cinepoint_daily_snapshots')->value('finished_at'));
+
+        Carbon::setTestNow('2026-09-19 13:00:00');
+        $queue->enqueue(); $job = $queue->claim('test')['job'];
+        $queue->finish($job['id'], $job['lease_token'], 'failed', null, 'browser_failed');
+        $invalid = $this->payload(10); $invalid['source_total'] = 3;
+        $this->signedJson('POST', '/api/internal/cinepoint/snapshots', $invalid)->assertStatus(422);
+        $this->assertSame('2026-09-19 12:00:00', $controller->ranking()->getData(true)['last_successful_sync_at']);
+    }
+
+    public function test_old_period_delivery_does_not_replace_latest_ranking_and_replay_does_not_advance_sync(): void
+    {
+        Carbon::setTestNow('2026-09-19 10:00:00');
+        $first = $this->signedJson('POST', '/api/internal/cinepoint/snapshots', $this->payload(10))->assertCreated()->json();
+        Carbon::setTestNow('2026-09-19 11:00:00');
+        $older = $this->payload(11); $older['period_label'] = 'Sep 18, 2026';
+        $path = '/api/internal/cinepoint/snapshots'; $body = json_encode($older);
+        $headers = $this->serverHeaders($this->signedHeaders('POST', $path, $body));
+        $this->call('POST', $path, [], [], [], $headers, $body)->assertCreated();
+        Carbon::setTestNow('2026-09-19 12:00:00');
+        $this->call('POST', $path, [], [], [], $headers, $body)->assertOk();
+        $data = app(\App\Http\Controllers\CinepointDailyController::class)->ranking()->getData(true);
+        $this->assertSame($first['snapshot_id'], $data['snapshot']['id']);
+        $this->assertSame('2026-09-19 11:00:00', $data['last_successful_sync_at']);
+        $this->assertSame(10, $data['entries'][0]['daily_admissions']);
     }
 
     public function test_ingest_strictly_rejects_malformed_json_shape_and_values_without_writes(): void
