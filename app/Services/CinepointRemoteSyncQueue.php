@@ -13,7 +13,7 @@ class CinepointRemoteSyncQueue
             $existing = DB::table('cinepoint_sync_requests')
                 ->whereIn('status', ['queued', 'running'])
                 ->orderByDesc('id')->first();
-            if ($existing) return $this->publicJob($existing, 'already_queued');
+            if ($existing) return ['status' => 'already_queued', 'job' => $this->publicJob($existing)];
 
             $now = now();
             $id = DB::table('cinepoint_sync_requests')->insertGetId([
@@ -23,7 +23,7 @@ class CinepointRemoteSyncQueue
             return ['status' => 'queued', 'job' => $this->publicJob(DB::table('cinepoint_sync_requests')->find($id))];
         }, 3); } catch (\Illuminate\Database\QueryException $e) {
             $existing = DB::table('cinepoint_sync_requests')->where('active_slot',1)->first();
-            if ($existing) return $this->publicJob($existing, 'already_queued');
+            if ($existing) return ['status' => 'already_queued', 'job' => $this->publicJob($existing)];
             throw $e;
         }
     }

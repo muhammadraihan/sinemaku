@@ -66,9 +66,9 @@
                     <h2 class="cinepoint-title">Ranking penonton harian</h2>
                     <div class="cinepoint-source">Sumber: <a href="{{ $source_url }}" target="_blank" rel="noopener">Cinepoint</a> · {{ $attribution }}</div>
                 </div>
-                <form method="post" action="{{ route('seatmap-monitor.cinepoint.sync') }}">
+                <form id="cinepoint-sync-form" method="post" action="{{ route('seatmap-monitor.cinepoint.sync') }}">
                     @csrf
-                    <button class="btn btn-primary" type="submit"><i class="fal fa-sync mr-1"></i> Sync sekarang</button>
+                    <button id="cinepoint-sync-button" class="btn btn-primary" type="submit"><i class="fal fa-sync mr-1"></i> Sync sekarang</button>
                     @if(config('services.cinepoint.mode', 'remote') !== 'local')<small class="d-block">Permintaan dimasukkan ke antrean; VPS mengambilnya secara aman.</small>@endif
                 </form>
             </div>
@@ -145,8 +145,9 @@
 @endsection
 
 @section('js')
-@if(session('cinepoint_success') || session('cinepoint_error'))
 <script src="{{ asset('js/notifications/sweetalert2/sweetalert2.bundle.js') }}"></script>
+<script src="{{ asset('js/cinepoint-sync.js') }}"></script>
+@if(session('cinepoint_success') || session('cinepoint_error'))
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var text = {!! json_encode(session('cinepoint_success') ?: session('cinepoint_error'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!};

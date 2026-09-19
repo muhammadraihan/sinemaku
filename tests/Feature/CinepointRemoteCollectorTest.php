@@ -235,6 +235,40 @@ class CinepointRemoteCollectorTest extends TestCase
         foreach ($schedule->events() as $event) $this->assertStringNotContainsString('cinepoint:collect-daily', (string)$event->command);
     }
 
+    public function test_json_sync_returns_same_job_when_already_queued_or_running(): void
+    {
+        $user = new \App\Models\User;
+        $user->id = 1;
+        $this->actingAs($user);
+        $path = '/backoffice/audience-estimate/cinepoint/sync';
+        $first = $this->postJson($path)->assertStatus(202)->assertJsonPath('status', 'queued')->json();
+        $this->postJson($path)->assertStatus(202)->assertJsonPath('status', 'already_queued')
+            ->assertJsonPath('job.id', $first['job']['id'])->assertJsonPath('job.status', 'queued');
+        app(\App\Services\CinepointRemoteSyncQueue::class)->claim('test');
+        $this->postJson($path)->assertStatus(202)->assertJsonPath('job.id', $first['job']['id'])
+            ->assertJsonPath('job.status', 'running');
+        $this->assertSame(1, DB::table('cinepoint_sync_requests')->count());
+    }
+
+    public function test_authenticated_status_returns_only_requested_job_with_safe_failure_reason(): void
+    {
+        $user = new \App\Models\User;
+        $user->id = 1;
+        $this->actingAs($user);
+        $first = app(\App\Services\CinepointRemoteSyncQueue::class)->enqueue()['job'];
+        DB::table('cinepoint_sync_requests')->where('id', $first['id'])->update([
+            'status' => 'failed', 'failure_reason' => 'browser_failed', 'active_slot' => null,
+            'finished_at' => now(), 'updated_at' => now(),
+        ]);
+        $second = app(\App\Services\CinepointRemoteSyncQueue::class)->enqueue()['job'];
+
+        $this->getJson('/backoffice/audience-estimate/cinepoint/sync/'.$first['id'])
+            ->assertOk()->assertJsonPath('job.id', $first['id'])->assertJsonPath('job.status', 'failed')
+            ->assertJsonPath('job.failure_reason', 'browser_failed');
+        $this->assertNotSame($second['id'], $first['id']);
+        $this->getJson('/backoffice/audience-estimate/cinepoint/sync/999999')->assertNotFound();
+    }
+
     public function test_auth_binds_key_body_path_and_enforces_tls_and_size(): void
     {
         $path='/api/internal/cinepoint/snapshots';

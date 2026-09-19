@@ -63,6 +63,7 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::get('audience-estimate', [CinepointDailyController::class, 'index'])->name('seatmap-monitor.index');
     Route::get('audience-estimate/ranking', [CinepointDailyController::class, 'ranking'])->name('seatmap-monitor.ranking');
     Route::post('audience-estimate/cinepoint/sync', [CinepointDailyController::class, 'sync'])->name('seatmap-monitor.cinepoint.sync');
+    Route::get('audience-estimate/cinepoint/sync/{id}', [CinepointDailyController::class, 'status'])->where('id', '[0-9]+')->name('seatmap-monitor.cinepoint.status');
     Route::get('get-cinema', [PelaporanController::class,'getCinemaByCategory'])->name('ref.cinema');
     Route::get('get-kota', [PelaporanController::class,'getCityByCinema'])->name('ref.kota');
     Route::get('get-pajak', [PelaporanController::class,'getTaxByCinema'])->name('ref.pajak');
