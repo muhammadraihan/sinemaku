@@ -16,6 +16,7 @@ use App\Http\Controllers\PelaporanController;
 use App\Http\Controllers\GrafikKotaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CinepointDailyController;
+use App\Http\Controllers\CityPerformanceController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use SebastianBergmann\CodeCoverage\Report\Html\Dashboard;
@@ -61,6 +62,7 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::get('trend-analysis', [LaporanController::class, 'trendAnalysis'])->name('trend-analysis.index');
     Route::get('trend-analysis-data', [LaporanController::class, 'trendAnalysisData'])->name('trend-analysis.data');
     Route::get('audience-estimate', [CinepointDailyController::class, 'index'])->name('seatmap-monitor.index');
+    Route::get('city-performance', [CityPerformanceController::class, 'index'])->name('backoffice.city-performance.index');
     Route::get('audience-estimate/ranking', [CinepointDailyController::class, 'ranking'])->name('seatmap-monitor.ranking');
     Route::post('audience-estimate/cinepoint/sync', [CinepointDailyController::class, 'sync'])->name('seatmap-monitor.cinepoint.sync');
     Route::get('audience-estimate/cinepoint/sync/{id}', [CinepointDailyController::class, 'status'])->where('id', '[0-9]+')->name('seatmap-monitor.cinepoint.status');

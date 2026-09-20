@@ -32,6 +32,12 @@
                     </li>
                 </ul>
             </li>
+            <li class="{{ request()->routeIs('backoffice.city-performance.*') ? 'active' : '' }}">
+                <a href="{{ route('backoffice.city-performance.index') }}" title="City Performance">
+                    <i class="fal fa-city"></i>
+                    <span class="nav-link-text">City Performance</span>
+                </a>
+            </li>
         </ul>
 
         <div class="sidebar-profile-card">
