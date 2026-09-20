@@ -27,8 +27,11 @@ Cinepoint provides national daily admissions and total admissions, but not a ver
 - Mixing city estimates with Cinepoint figures as if they were the same metric.
 - Automatic fuzzy mapping when multiple films are plausible.
 
+## Coverage target
+Production target is **all cities published by an approved public showtime source**, discovered dynamically from that source's city catalogue. The system must never hard-code a five-city production limit. Every run records `requested_city_count`, `collected_city_count`, and each failed city, so completeness is measurable.
+
 ## Phase 0 — Source feasibility probe
-Target cities: Jakarta, Bandung, Surabaya, Medan, and Makassar.
+Probe cities: Jakarta, Bandung, Surabaya, Medan, and Makassar. These are a deliberately small, geographically varied validation sample—not the product coverage limit.
 
 For one date and a small sample of currently showing films:
 - Identify a permitted public non-transactional showtime source.
