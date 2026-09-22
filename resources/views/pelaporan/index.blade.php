@@ -106,6 +106,14 @@
 
 /* Optional: lock scroll ketika modal terbuka */
 .body-modal-open { overflow: hidden; }
+.cinepolis-preview-modal .modal-dialog { max-width: 96vw; }
+.cinepolis-preview-table { font-size: 11px; white-space: nowrap; }
+.cinepolis-preview-table th { background: #1f2937; color: #fff; }
+.cinepolis-preview-table .is-blocked { background: #fff1f2; color: #991b1b; }
+.cinepolis-preview-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; }
+.cinepolis-preview-summary .metric { padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f8fafc; }
+.cinepolis-preview-summary .label { display: block; color: #6b7280; font-size: 11px; }
+.cinepolis-preview-summary .value { display: block; font-weight: 700; margin-top: 3px; }
 </style>
 @endsection
 
@@ -137,6 +145,7 @@
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="XXI">XXI</a>
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="CGV">CGV</a>
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="SAMS STUDIOS">SAMS STUDIOS</a>
+                                    <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="CINEPOLIS PDF">CINEPOLIS PDF</a>
                                 </div>
                             </div>
                         {{-- </div> --}}
@@ -318,6 +327,32 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade cinepolis-preview-modal" id="modal-cinepolis-preview" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+  <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">Preview Import Cinepolis PDF <small class="m-0 text-muted">Periksa mapping sebelum menyimpan</small></h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true"><i class="fal fa-times"></i></span></button>
+      </div>
+      <div class="modal-body">
+        <div id="cinepolis-preview-summary" class="cinepolis-preview-summary mb-3"></div>
+        <div id="cinepolis-preview-issues" class="alert alert-danger d-none"></div>
+        <div id="cinepolis-preview-warnings" class="alert alert-warning d-none"></div>
+        <div class="table-responsive">
+          <table id="cinepolis-preview-table" class="table table-bordered table-hover cinepolis-preview-table w-100">
+            <thead><tr><th>Status</th><th>Tanggal</th><th>Jam</th><th>Kategori</th><th>Bioskop</th><th>Kota</th><th>Film</th><th>Studio</th><th>Tipe Tiket</th><th>Harga</th><th>Admits</th><th>Gross</th><th>Tax Amount</th><th>Tax Rate</th><th>Net</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+        <button type="button" id="btn-confirm-cinepolis-import" class="btn btn-primary" disabled>Konfirmasi Import</button>
+      </div>
+    </div>
+  </div>
+</div>
 @endsection
 
 @section('js')
@@ -357,6 +392,12 @@
     $(document).on('click', '.open-upload-modal', function(e){
         e.preventDefault();
         bioskop = $(this).attr("data-bioskop");
+        var isCinepolisPdf = bioskop === 'CINEPOLIS PDF';
+        $('#uploadFile').attr('accept', isCinepolisPdf ? '.pdf,application/pdf' : '.xlsx,.xls');
+        $('#modal-upload .modal-title').html(isCinepolisPdf
+            ? 'Upload Cinepolis PDF <small class="m-0 text-muted">File akan diparse dan ditampilkan terlebih dahulu untuk review</small>'
+            : 'Upload File <small class="m-0 text-muted">Pilih file untuk diunggah</small>');
+        $('#modal-upload .form-text').text(isCinepolisPdf ? 'Format: .pdf (maks. 20MB). Data belum disimpan sebelum Konfirmasi Import.' : 'Format: .xlsx / .xls');
         $(".custom-dropdown-menu").hide();
         $('#modal-upload').appendTo('body');
         $('#modal-upload').modal('show');
@@ -424,11 +465,85 @@
     });
 
     $('#uploadForm').on('submit', function (e) {
-        e.preventDefault();
-        const formData = new FormData(this);
+    e.preventDefault();
+    const formData = new FormData(this);
 
+    if (bioskop === 'CINEPOLIS PDF') {
         setProcessingUI(true);
         startDummyProgress();
+        $.ajax({
+            url: @json(route('pelaporan.upload.cinepolis.preview')),
+            method: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+        }).done(function (res) {
+            stopDummyProgress();
+            setProcessingUI(false);
+            $('#modal-upload').modal('hide');
+            $('#modal-upload').one('hidden.bs.modal', function () {
+                bindCinepolisConfirm();
+                showCinepolisPreview(res);
+            });
+        }).fail(function (xhr) {
+            stopDummyProgress();
+            const msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'PDF Cinepolis gagal dibaca.';
+            updateProgress(currentPct, 'Gagal', msg);
+            setProcessingUI(false);
+            Swal.fire({ icon: 'error', title: 'Preview gagal', text: msg });
+        });
+        return;
+    }
+
+    setProcessingUI(true);
+    startDummyProgress();
+
+    function showCinepolisPreview(res) {
+        var summary = res.summary || {};
+        var money = function (value) { return 'IDR ' + Number(value || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+        var metrics = [
+            ['Kategori', summary.category], ['Bioskop', summary.cinema], ['Film', summary.film], ['Tanggal', summary.date],
+            ['Admits', summary.admits], ['Gross', money(summary.gross)], ['Tax', money(summary.tax_amount)], ['Net', money(summary.net)]
+        ];
+        $('#cinepolis-preview-summary').html(metrics.map(function (item) { return '<div class="metric"><span class="label">' + escapeHtml(item[0]) + '</span><span class="value">' + escapeHtml(item[1]) + '</span></div>'; }).join(''));
+        var issues = res.blocking_issues || [];
+        var warnings = res.warnings || [];
+        $('#cinepolis-preview-issues').toggleClass('d-none', !issues.length).html(issues.length ? '<strong>Import diblokir:</strong><ul class="mb-0">' + issues.map(function (issue) { return '<li>' + escapeHtml(issue) + '</li>'; }).join('') + '</ul>' : '');
+        $('#cinepolis-preview-warnings').toggleClass('d-none', !warnings.length).html(warnings.length ? '<strong>Perhatian:</strong><ul class="mb-0">' + warnings.map(function (warning) { return '<li>' + escapeHtml(warning) + '</li>'; }).join('') + '</ul>' : '');
+        var rows = (res.preview || []).map(function (row) {
+            var blocked = row.mapping_status !== 'Siap';
+            return '<tr class="' + (blocked ? 'is-blocked' : '') + '"><td>' + escapeHtml(row.mapping_status) + '</td><td>' + escapeHtml(row.tanggal) + '</td><td>' + escapeHtml(row.jam_tayang) + '</td><td>' + escapeHtml(row.kategori) + '</td><td>' + escapeHtml(row.bioskop) + '</td><td>' + escapeHtml(row.kota || '-') + '</td><td>' + escapeHtml(summary.film) + '</td><td>CINEMA ' + escapeHtml(summary.studio || '') + '</td><td>' + escapeHtml(row.type_tiket) + '</td><td>' + money(row.harga) + '</td><td>' + escapeHtml(row.jumlah) + '</td><td>' + money(row.gross) + '</td><td>' + money(row.tax_amount) + '</td><td>' + escapeHtml(row.tax_rate) + '%</td><td>' + money(row.net) + '</td></tr>';
+        }).join('');
+        $('#cinepolis-preview-table tbody').html(rows);
+        var canImport = !!res.token && !issues.length;
+        $('#btn-confirm-cinepolis-import').data('token', res.token || '').prop('disabled', !canImport);
+        $('#modal-cinepolis-preview').modal('show');
+    }
+
+    function escapeHtml(value) {
+        return $('<div>').text(value == null ? '' : value).html();
+    }
+
+    function bindCinepolisConfirm() {
+    $('#btn-confirm-cinepolis-import').off('click').on('click', function () {
+        var button = $(this);
+        var token = button.data('token');
+        if (!token) return;
+        Swal.fire({ title: 'Konfirmasi Import', text: 'Data preview akan disimpan ke laporan. Lanjutkan?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya, Import', cancelButtonText: 'Batal' }).then(function (choice) {
+            if (!choice.isConfirmed) return;
+            button.prop('disabled', true);
+            $.post(@json(route('pelaporan.upload.cinepolis.confirm')), { token: token })
+                .done(function (result) {
+                    $('#modal-cinepolis-preview').modal('hide');
+                    Swal.fire({ icon: 'success', title: 'Berhasil', text: result.message }).then(function () { $('#datatable').DataTable().ajax.reload(null, false); });
+                })
+                .fail(function (xhr) {
+                    button.prop('disabled', false);
+                    Swal.fire({ icon: 'error', title: 'Import diblokir', text: xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Import gagal.' });
+                });
+        });
+    });
+    }
 
         if(bioskop === 'XXI'){
             $.ajax({

@@ -91,6 +91,10 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     ->name('pelaporan.upload.cgv.errors');
     Route::post('/pelaporan/upload-sams', [PelaporanController::class, 'uploadSAMS'])
     ->name('pelaporan.upload.sams');
+    Route::post('/pelaporan/upload-cinepolis-pdf/preview', [PelaporanController::class, 'previewCinepolisPdf'])
+    ->name('pelaporan.upload.cinepolis.preview');
+    Route::post('/pelaporan/upload-cinepolis-pdf/confirm', [PelaporanController::class, 'confirmCinepolisPdf'])
+    ->name('pelaporan.upload.cinepolis.confirm');
     Route::get('/pelaporan/upload/sams/errors/{token}', [PelaporanController::class, 'downloadSamsErrors'])
     ->name('pelaporan.upload.sams.errors');
     // web.php

@@ -27,6 +27,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Cache;
+use App\Services\Reports\CinepolisPdfParser;
 
 class PelaporanController extends Controller
 {
@@ -424,6 +425,211 @@ class PelaporanController extends Controller
                     ->pluck('studio', 'uuid');
 
         return response()->json($type);
+    }
+
+    public function previewCinepolisPdf(Request $request, CinepolisPdfParser $parser)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf|max:20480',
+        ], [
+            'file.required' => 'File PDF wajib diunggah.',
+            'file.mimes' => 'Format file harus PDF.',
+            'file.max' => 'Ukuran file maksimal 20MB.',
+        ]);
+
+        try {
+            $parsed = $parser->parse($request->file('file')->getPathname());
+            $mapping = $this->mapCinepolisPreview($parsed);
+            $token = (string) Str::uuid();
+            Cache::put('cinepolis_pdf_preview:' . $token, [
+                'parsed' => $parsed,
+                'mapping' => $mapping,
+                'created_by' => Auth::user()->uuid ?? null,
+            ], now()->addMinutes(30));
+
+            return response()->json([
+                'status' => 'success',
+                'token' => $token,
+                'preview' => $mapping['preview'],
+                'summary' => $mapping['summary'],
+                'blocking_issues' => $mapping['blocking_issues'],
+                'warnings' => $mapping['warnings'],
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json([
+                'status' => 'failed',
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function confirmCinepolisPdf(Request $request)
+    {
+        $request->validate(['token' => 'required|string']);
+        $cacheKey = 'cinepolis_pdf_preview:' . $request->input('token');
+        $cached = Cache::get($cacheKey);
+        if (!$cached) {
+            return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa. Silakan upload ulang PDF.'], 422);
+        }
+        if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) {
+            return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
+        }
+        if (!empty($cached['mapping']['blocking_issues'])) {
+            return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena mapping belum lengkap.', 'issues' => $cached['mapping']['blocking_issues']], 422);
+        }
+
+        $parsed = $cached['parsed'];
+        $mapping = $cached['mapping'];
+        $rows = [];
+        $duplicateRows = [];
+        foreach ($parsed['rows'] as $row) {
+            $resolved = $mapping['row_mappings'][$row['type_tiket'] . '|' . $row['jam_tayang'] . '|' . $row['show'] . '|' . $row['harga']];
+            $duplicate = Pelaporan::where('kategori', $mapping['category_uuid'])
+                ->where('nama_bioskop', $mapping['cinema_uuid'])
+                ->where('nama_film', $mapping['film_name'])
+                ->whereDate('tgl_tayang', $row['tanggal'])
+                ->where('jam_tayang', $row['jam_tayang'])
+                ->where('show', $row['show'])
+                ->where('type_tiket', $resolved['ticket_uuid'])
+                ->where('harga', $row['harga'])
+                ->where('jumlah', $row['jumlah'])
+                ->where('gross', $row['gross'])
+                ->where('net', $row['net'])
+                ->exists();
+            if ($duplicate) {
+                $duplicateRows[] = $row['type_tiket'] . ' ' . $row['jam_tayang'] . ' show ' . $row['show'];
+            }
+            $rows[] = [
+                'uuid' => Uuid::generate(),
+                'kategori' => $mapping['category_uuid'],
+                'provinsi' => $mapping['province'],
+                'kota' => $mapping['city'],
+                'nama_bioskop' => $mapping['cinema_uuid'],
+                'nama_film' => $mapping['film_name'],
+                'tgl_tayang' => $row['tanggal'],
+                'jam_tayang' => $row['jam_tayang'],
+                'show' => $row['show'],
+                'type_tiket' => $resolved['ticket_uuid'],
+                'harga' => $row['harga'],
+                'jumlah' => $row['jumlah'],
+                'gross' => $row['gross'],
+                'tax' => $row['tax_rate'],
+                'net' => $row['net'],
+                'studio' => $resolved['studio_uuid'],
+                'created_by' => Auth::user()->uuid ?? $cached['created_by'],
+                'created_at' => now(),
+            ];
+        }
+
+        if ($duplicateRows) {
+            return response()->json([
+                'status' => 'failed',
+                'message' => 'Import diblokir karena terdapat data yang sudah pernah diimport.',
+                'issues' => $duplicateRows,
+            ], 422);
+        }
+
+        DB::transaction(function () use ($rows) {
+            Pelaporan::insert($rows);
+        });
+        Cache::forget($cacheKey);
+
+        return response()->json(['status' => 'success', 'message' => count($rows) . ' baris Cinepolis berhasil diimport.', 'inserted' => count($rows)]);
+    }
+
+    private function mapCinepolisPreview(array $parsed): array
+    {
+        $category = KategoriBioskop::whereRaw('UPPER(name) = ?', ['CINEPOLIS'])->first();
+        $cinemaCandidates = $this->cinepolisCinemaCandidates($parsed['cinema_name']);
+        $cinema = $category ? MasterBioskop::where('type', $category->uuid)
+            ->whereIn(DB::raw('UPPER(TRIM(nama_bioskop))'), $cinemaCandidates)
+            ->first() : null;
+        $film = MasterFilm::whereRaw('UPPER(TRIM(name)) = ?', [$parsed['film_name']])->first();
+        $city = $cinema ? $cinema->kota : null;
+        $cityRecord = $city ? Kota::where(function ($query) use ($city) {
+            $query->where('nama', $city)->orWhere('nama', 'Kota ' . $city);
+        })->first() : null;
+        $province = $cityRecord ? optional(Province::where('uuid', $cityRecord->provinsi_id)->first())->nama : null;
+        $blocking = [];
+        $warnings = [];
+        if (!$category) $blocking[] = 'Kategori CINEPOLIS belum tersedia di Master Kategori Bioskop.';
+        if (!$cinema) $blocking[] = 'Bioskop ' . $parsed['cinema_name'] . ' belum terdaftar sebagai bioskop kategori CINEPOLIS.';
+        if (!$film) $blocking[] = 'Film ' . $parsed['film_name'] . ' belum terdaftar di Master Film.';
+        if (!$city) $blocking[] = 'Kota bioskop belum tersedia di Master Bioskop.';
+        if (!$province) $warnings[] = 'Provinsi belum dapat dipetakan dari master kota.';
+
+        $rowMappings = [];
+        foreach ($parsed['rows'] as $row) {
+            $ticket = $category ? TypeTiket::where('kategori', $category->uuid)->whereRaw('UPPER(TRIM(name)) = ?', [$row['type_tiket']])->first() : null;
+            $capacity = null;
+            if ($ticket && $cinema) {
+                $capacity = Kapasitas::where('kategori', $category->uuid)
+                    ->where('nama_bioskop', $cinema->uuid)
+                    ->where('type_tiket', $ticket->uuid)
+                    ->get()
+                    ->first(function ($item) use ($parsed) {
+                        $masterStudio = preg_replace('/[^0-9]/', '', (string) $item->studio);
+                        return $masterStudio === (string) $parsed['studio'];
+                    });
+            }
+            if (!$ticket) $blocking[] = 'Tipe tiket ' . $row['type_tiket'] . ' belum tersedia untuk kategori CINEPOLIS.';
+            if (!$capacity) $blocking[] = 'Studio CINEMA ' . $parsed['studio'] . ' belum memiliki mapping kapasitas untuk tipe tiket ' . $row['type_tiket'] . '.';
+            $key = $row['type_tiket'] . '|' . $row['jam_tayang'] . '|' . $row['show'] . '|' . $row['harga'];
+            $rowMappings[$key] = [
+                'ticket_uuid' => optional($ticket)->uuid,
+                'studio_uuid' => optional($capacity)->uuid,
+                'status' => ($cinema && $ticket && $capacity) ? 'Siap' : 'Diblokir',
+            ];
+        }
+        $blocking = array_values(array_unique($blocking));
+        return [
+            'category_uuid' => optional($category)->uuid,
+            'cinema_uuid' => optional($cinema)->uuid,
+            'film_name' => optional($film)->name ?: $parsed['film_name'],
+            'city' => $city,
+            'province' => $province,
+            'row_mappings' => $rowMappings,
+            'blocking_issues' => $blocking,
+            'warnings' => array_values(array_unique($warnings)),
+            'preview' => array_map(function ($row) use ($parsed, $city, $rowMappings) {
+                $key = $row['type_tiket'] . '|' . $row['jam_tayang'] . '|' . $row['show'] . '|' . $row['harga'];
+                return array_merge($row, [
+                    'kategori' => 'CINEPOLIS',
+                    'bioskop' => $parsed['cinema_name'],
+                    'kota' => $city,
+                    'mapping_status' => $rowMappings[$key]['status'] ?? 'Diblokir',
+                ]);
+            }, $parsed['rows']),
+            'summary' => [
+                'cinema' => $parsed['cinema_name'],
+                'category' => 'CINEPOLIS',
+                'film' => $parsed['film_name'],
+                'studio' => $parsed['studio'],
+                'date' => $parsed['report_date'],
+                'admits' => $parsed['totals']['admits'],
+                'gross' => $parsed['totals']['gross'],
+                'tax_amount' => $parsed['totals']['tax_amount'],
+                'net' => $parsed['totals']['net'],
+                'source_admits' => $parsed['source_totals']['admits'],
+                'source_gross' => $parsed['source_totals']['gross'],
+                'source_tax_amount' => $parsed['source_totals']['tax_amount'],
+                'source_net' => $parsed['source_totals']['net'],
+            ],
+        ];
+    }
+
+    private function cinepolisCinemaCandidates(string $cinemaName): array
+    {
+        $normalized = mb_strtoupper(trim(preg_replace('/\s+/', ' ', $cinemaName)));
+        $candidates = [$normalized];
+        if ($normalized === 'MAXXBOX LIPPO VILLAGE') {
+            $candidates[] = 'MAXBOXX LIPPO VILLAGE';
+        }
+        if ($normalized === 'MAXBOXX LIPPO VILLAGE') {
+            $candidates[] = 'MAXXBOX LIPPO VILLAGE';
+        }
+        return array_values(array_unique($candidates));
     }
 
     public function uploadXXI(Request $request)
