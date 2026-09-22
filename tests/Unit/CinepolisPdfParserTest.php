@@ -35,6 +35,7 @@ class CinepolisPdfParserTest extends TestCase
             'tanggal' => '2024-10-23',
             'jam_tayang' => '13:55',
             'show' => 1,
+            'studio' => '5',
             'type_tiket' => 'REGULAR',
             'harga' => 30000.0,
             'jumlah' => 10,
@@ -79,6 +80,23 @@ class CinepolisPdfParserTest extends TestCase
         $this->expectExceptionMessage('Total detail PDF tidak sama dengan Day Total sumber');
 
         $parser->parseText($text);
+    }
+
+    /** @test */
+    public function it_extracts_multiple_film_screen_blocks_from_one_pdf()
+    {
+        $parser = new CinepolisPdfParser();
+        $result = $parser->parse(__DIR__ . '/../Fixtures/cinepolis-jember-two-screens.pdf');
+
+        $this->assertSame('LIPPO PLAZA JEMBER', $result['cinema_name']);
+        $this->assertSame('PATAH HATI YANG KUPILIH', $result['film_name']);
+        $this->assertSame(2, count($result['rows']));
+        $this->assertSame(['04', '06'], array_column($result['rows'], 'studio'));
+        $this->assertSame(['18:45', '13:05'], array_column($result['rows'], 'jam_tayang'));
+        $this->assertSame(43, $result['totals']['admits']);
+        $this->assertSame(1161000.0, $result['totals']['gross']);
+        $this->assertSame(105545.65, $result['totals']['tax_amount']);
+        $this->assertSame(1055454.35, $result['totals']['net']);
     }
 
     /** @test */

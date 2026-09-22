@@ -484,7 +484,7 @@ class PelaporanController extends Controller
         $rows = [];
         $duplicateRows = [];
         foreach ($parsed['rows'] as $row) {
-            $resolved = $mapping['row_mappings'][$row['type_tiket'] . '|' . $row['jam_tayang'] . '|' . $row['show'] . '|' . $row['harga']];
+            $resolved = $mapping['row_mappings'][$this->cinepolisRowKey($row)];
             $duplicate = Pelaporan::where('kategori', $mapping['category_uuid'])
                 ->where('nama_bioskop', $mapping['cinema_uuid'])
                 ->where('nama_film', $mapping['film_name'])
@@ -568,14 +568,15 @@ class PelaporanController extends Controller
                     ->where('nama_bioskop', $cinema->uuid)
                     ->where('type_tiket', $ticket->uuid)
                     ->get()
-                    ->first(function ($item) use ($parsed) {
+                    ->first(function ($item) use ($row) {
                         $masterStudio = preg_replace('/[^0-9]/', '', (string) $item->studio);
-                        return $masterStudio === (string) $parsed['studio'];
+                        $reportStudio = preg_replace('/[^0-9]/', '', (string) ($row['studio'] ?? ''));
+                        return $masterStudio === $reportStudio;
                     });
             }
             if (!$ticket) $blocking[] = 'Tipe tiket ' . $row['type_tiket'] . ' belum tersedia untuk kategori CINEPOLIS.';
-            if (!$capacity) $blocking[] = 'Studio CINEMA ' . $parsed['studio'] . ' belum memiliki mapping kapasitas untuk tipe tiket ' . $row['type_tiket'] . '.';
-            $key = $row['type_tiket'] . '|' . $row['jam_tayang'] . '|' . $row['show'] . '|' . $row['harga'];
+            if (!$capacity) $blocking[] = 'Studio CINEMA ' . ($row['studio'] ?? '-') . ' belum memiliki mapping kapasitas untuk tipe tiket ' . $row['type_tiket'] . '.';
+            $key = $this->cinepolisRowKey($row);
             $rowMappings[$key] = [
                 'ticket_uuid' => optional($ticket)->uuid,
                 'studio_uuid' => optional($capacity)->uuid,
@@ -593,7 +594,7 @@ class PelaporanController extends Controller
             'blocking_issues' => $blocking,
             'warnings' => array_values(array_unique($warnings)),
             'preview' => array_map(function ($row) use ($parsed, $city, $rowMappings) {
-                $key = $row['type_tiket'] . '|' . $row['jam_tayang'] . '|' . $row['show'] . '|' . $row['harga'];
+                $key = $this->cinepolisRowKey($row);
                 return array_merge($row, [
                     'kategori' => 'CINEPOLIS',
                     'bioskop' => $parsed['cinema_name'],
@@ -617,6 +618,17 @@ class PelaporanController extends Controller
                 'source_net' => $parsed['source_totals']['net'],
             ],
         ];
+    }
+
+    private function cinepolisRowKey(array $row): string
+    {
+        return implode('|', [
+            $row['studio'] ?? '',
+            $row['type_tiket'],
+            $row['jam_tayang'],
+            $row['show'],
+            $row['harga'],
+        ]);
     }
 
     private function cinepolisCinemaCandidates(string $cinemaName): array

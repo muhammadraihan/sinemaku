@@ -47,29 +47,77 @@ class CinepolisPdfParser
         }
         $reportDate = Carbon::createFromFormat('d/m/Y', $dateMatch[1])->toDateString();
 
-        $cinemaMatch = null;
-        foreach ($lines as $line) {
-            if (preg_match('/(.+?)\\s+CINEMA\\s*(\\d+)/i', $line, $match)) {
-                $cinemaMatch = $match;
-                break;
-            }
-        }
-        if (!$cinemaMatch) {
+        $blocks = $this->screenBlocks($lines);
+        if (!$blocks) {
             throw new \InvalidArgumentException('Studio/screen tidak dapat dibaca dari PDF.');
         }
-        $filmName = $this->normalizeName($cinemaMatch[1]);
-        $studio = $cinemaMatch[2];
-        if ($filmName === '') {
-            throw new \InvalidArgumentException('Nama film tidak dapat dibaca dari PDF.');
+
+        $filmName = $blocks[0]['film_name'];
+        $studio = $blocks[0]['studio'];
+        $rows = [];
+        foreach ($blocks as $block) {
+            $rows = array_merge($rows, $this->parseBlockRows($block, $reportDate));
+        }
+        if (!$rows) {
+            throw new \InvalidArgumentException('Tidak ada detail tiket yang dapat diparse dari PDF.');
         }
 
-        if ($this->findLineIndex($lines, function ($line) {
-            return stripos($line, 'Ticket Type') !== false && stripos($line, 'Admits') !== false;
-        }) === null) {
-            throw new \InvalidArgumentException('Kolom detail ticket PDF tidak dapat dibaca.');
+        $totals = [
+            'admits' => array_sum(array_column($rows, 'jumlah')),
+            'gross' => round(array_sum(array_column($rows, 'gross')), 2),
+            'tax_amount' => round(array_sum(array_column($rows, 'tax_amount')), 2),
+            'net' => round(array_sum(array_column($rows, 'net')), 2),
+        ];
+        $totals['tax_rate'] = $totals['gross'] > 0 ? round(($totals['tax_amount'] / $totals['gross']) * 100, 4) : 0.0;
+        $sourceTotals = $this->parseSourceTotals($text);
+        if (
+            $totals['admits'] !== $sourceTotals['admits']
+            || abs($totals['gross'] - $sourceTotals['gross']) > 0.02
+            || abs($totals['tax_amount'] - $sourceTotals['tax_amount']) > 0.02
+            || abs($totals['net'] - $sourceTotals['net']) > 0.02
+        ) {
+            throw new \InvalidArgumentException('Total detail PDF tidak sama dengan Day Total sumber.');
         }
 
-        $raw = preg_replace('/\\s+/', ' ', str_replace("\\t", ' ', $text));
+        return [
+            'cinema_name' => $cinemaName,
+            'film_name' => $filmName,
+            'studio' => $studio,
+            'report_date' => $reportDate,
+            'rows' => $rows,
+            'totals' => $totals,
+            'source_totals' => $sourceTotals,
+        ];
+    }
+
+    private function screenBlocks(array $lines): array
+    {
+        $starts = [];
+        foreach ($lines as $index => $line) {
+            if (preg_match('/^(.+?)\s+CINEMA\s*(\d+)$/i', $line, $match)) {
+                $filmName = $this->normalizeName($match[1]);
+                if ($filmName !== '') {
+                    $starts[] = ['index' => $index, 'film_name' => $filmName, 'studio' => $match[2]];
+                }
+            }
+        }
+
+        $blocks = [];
+        foreach ($starts as $position => $start) {
+            $end = $starts[$position + 1]['index'] ?? count($lines);
+            $blocks[] = [
+                'film_name' => $start['film_name'],
+                'studio' => $start['studio'],
+                'text' => implode(' ', array_slice($lines, $start['index'], $end - $start['index'])),
+            ];
+        }
+
+        return $blocks;
+    }
+
+    private function parseBlockRows(array $block, string $reportDate): array
+    {
+        $raw = preg_replace('/\\s+/', ' ', str_replace("\\t", ' ', $block['text']));
         $raw = preg_replace('/.*?Attribute\\s+/s', '', $raw, 1);
         $raw = preg_replace('/Day Total.*$/s', '', $raw);
         $rowPattern = '/(?:(\\d{1,2}:\\d{2})\\s+)?(REGULAR(?:-O)?)\\s+([\\d,]+(?:\\.\\d{1,2})?)\\s+(\\d+)\\s+([\\d,]+(?:\\.\\d{1,2})?)\\s+([\\d,]+(?:\\.\\d{1,2})?)\\s+([\\d,]+(?:\\.\\d{1,2})?)\\s*2D/i';
@@ -103,6 +151,7 @@ class CinepolisPdfParser
                 'tanggal' => $reportDate,
                 'jam_tayang' => $currentTime,
                 'show' => $showByTime[$currentTime],
+                'studio' => $block['studio'],
                 'type_tiket' => $this->normalizeName($match[2]),
                 'harga' => $price,
                 'jumlah' => $admits,
@@ -114,49 +163,29 @@ class CinepolisPdfParser
             ];
         }
 
-        if (!$rows) {
-            throw new \InvalidArgumentException('Tidak ada detail tiket yang dapat diparse dari PDF.');
-        }
-
-        $totals = [
-            'admits' => array_sum(array_column($rows, 'jumlah')),
-            'gross' => round(array_sum(array_column($rows, 'gross')), 2),
-            'tax_amount' => round(array_sum(array_column($rows, 'tax_amount')), 2),
-            'net' => round(array_sum(array_column($rows, 'net')), 2),
-        ];
-        $totals['tax_rate'] = $totals['gross'] > 0 ? round(($totals['tax_amount'] / $totals['gross']) * 100, 4) : 0.0;
-        $sourceTotals = $this->parseSourceTotals($text);
-        if (
-            $totals['admits'] !== $sourceTotals['admits']
-            || abs($totals['gross'] - $sourceTotals['gross']) > 0.02
-            || abs($totals['tax_amount'] - $sourceTotals['tax_amount']) > 0.02
-            || abs($totals['net'] - $sourceTotals['net']) > 0.02
-        ) {
-            throw new \InvalidArgumentException('Total detail PDF tidak sama dengan Day Total sumber.');
-        }
-
-        return [
-            'cinema_name' => $cinemaName,
-            'film_name' => $filmName,
-            'studio' => $studio,
-            'report_date' => $reportDate,
-            'rows' => $rows,
-            'totals' => $totals,
-            'source_totals' => $sourceTotals,
-        ];
+        return $rows;
     }
 
     private function parseSourceTotals(string $text): array
     {
-        if (!preg_match('/Day\s+Total\s+Paid\s+(\d+)\s+([\d,]+(?:\.\d{1,2})?)\s+([\d,]+(?:\.\d{1,2})?)\s+([\d,]+(?:\.\d{1,2})?)/i', $text, $match)) {
+        preg_match_all('/Day\s+Total\s+Paid\s+(\d+)\s+([\d,]+(?:\.\d{1,2})?)\s+([\d,]+(?:\.\d{1,2})?)\s+([\d,]+(?:\.\d{1,2})?)/i', $text, $matches, PREG_SET_ORDER);
+        if (!$matches) {
             throw new \InvalidArgumentException('Total harian sumber tidak dapat dibaca dari PDF.');
         }
 
+        $totals = ['admits' => 0, 'gross' => 0.0, 'tax_amount' => 0.0, 'net' => 0.0];
+        foreach ($matches as $match) {
+            $totals['admits'] += $this->parseInteger($match[1]);
+            $totals['gross'] += $this->parseMoney($match[2]);
+            $totals['tax_amount'] += $this->parseMoney($match[3]);
+            $totals['net'] += $this->parseMoney($match[4]);
+        }
+
         return [
-            'admits' => $this->parseInteger($match[1]),
-            'gross' => $this->parseMoney($match[2]),
-            'tax_amount' => $this->parseMoney($match[3]),
-            'net' => $this->parseMoney($match[4]),
+            'admits' => $totals['admits'],
+            'gross' => round($totals['gross'], 2),
+            'tax_amount' => round($totals['tax_amount'], 2),
+            'net' => round($totals['net'], 2),
         ];
     }
 
