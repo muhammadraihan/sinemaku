@@ -24,15 +24,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // Legacy discovery remains available manually, but is no longer scheduled.
-        if (config('services.cinepoint.mode', 'remote') !== 'local') return;
-        $schedule->command('cinepoint:collect-daily')
-            ->cron('0 7,12,18 * * *')->timezone('Asia/Jakarta')
-            ->withoutOverlapping(10);
-        $schedule->call(function () {
-            \Illuminate\Support\Facades\Cache::put('cinepoint-scheduler-heartbeat',
-                \Carbon\Carbon::now('Asia/Jakarta')->toIso8601String(), 86400);
-        })->everyMinute()->name('cinepoint-scheduler-heartbeat');
+        // Public read-only discovery only. This does not open order, seat, or payment flows.
+        $schedule->command('seatmap:collect-showtimes --provider=cinepolis --max-movies=40')
+            ->everyThirtyMinutes()
+            ->withoutOverlapping(25)
+            ->runInBackground();
     }
 
     /**

@@ -30,4 +30,20 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'cinepoint_ingest' => [
+        'key_id' => env('CINEPOINT_INGEST_KEY_ID', 'cinepoint-vps-1'),
+        'secret' => env('CINEPOINT_INGEST_SECRET'),
+    ],
+
+    'cinepoint' => [
+
+        'mode' => env('CINEPOINT_MODE', 'remote'),
+        'lease_seconds' => (int) env('CINEPOINT_LEASE_SECONDS', 600),
+        'max_attempts' => (int) env('CINEPOINT_MAX_ATTEMPTS', 3),
+        'node_binary' => env('CINEPOINT_NODE_BINARY', 'node'),
+        'browser_script' => env('CINEPOINT_BROWSER_SCRIPT', base_path('scripts/cinepoint-daily-browser.cjs')),
+        'browser_executable' => env('CINEPOINT_BROWSER_EXECUTABLE'),
+        'playwright_path' => env('CINEPOINT_PLAYWRIGHT_PATH'),
+    ],
+
 ];

@@ -65,6 +65,7 @@ class Kernel extends HttpKernel
         'permission' => \Spatie\Permission\Middlewares\PermissionMiddleware::class,
         // custom jwt auth middleware
         'jwt' => \App\Http\Middleware\JwtMiddleware::class,
+        'cinepoint.collector' => \App\Http\Middleware\AuthenticateCinepointCollector::class,
     ];
 
     /**
