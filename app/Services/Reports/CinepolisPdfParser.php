@@ -120,7 +120,7 @@ class CinepolisPdfParser
         $raw = preg_replace('/\\s+/', ' ', str_replace("\\t", ' ', $block['text']));
         $raw = preg_replace('/.*?Attribute\\s+/s', '', $raw, 1);
         $raw = preg_replace('/Day Total.*$/s', '', $raw);
-        $rowPattern = '/(?:(\\d{1,2}:\\d{2})\\s+)?(REGULAR(?:-O)?)\\s+([\\d,]+(?:\\.\\d{1,2})?)\\s+(\\d+)\\s+([\\d,]+(?:\\.\\d{1,2})?)\\s+([\\d,]+(?:\\.\\d{1,2})?)\\s+([\\d,]+(?:\\.\\d{1,2})?)\\s*2D/i';
+        $rowPattern = '/(?:(\d{1,2}:\d{2})\s+)?([A-Z][A-Z0-9\- ]*?)\s+([\d,]+(?:\.\d{1,2})?)\s+(\d+)\s+([\d,]+(?:\.\d{1,2})?)\s+([\d,]+(?:\.\d{1,2})?)\s+([\d,]+(?:\.\d{1,2})?)\s*2D/i';
         preg_match_all($rowPattern, $raw, $matches, PREG_SET_ORDER);
 
         $rows = [];
@@ -157,7 +157,7 @@ class CinepolisPdfParser
                 'jumlah' => $admits,
                 'gross' => $gross,
                 'tax_amount' => $taxAmount,
-                'tax_rate' => round(($taxAmount / $gross) * 100, 4),
+                'tax_rate' => $gross > 0 ? round(($taxAmount / $gross) * 100, 4) : 0.0,
                 'net' => $net,
                 'attribute' => '2D',
             ];
@@ -180,6 +180,8 @@ class CinepolisPdfParser
             $totals['tax_amount'] += $this->parseMoney($match[3]);
             $totals['net'] += $this->parseMoney($match[4]);
         }
+        preg_match_all('/(\d+)\s*Day\s+Total\s+Complement(?:o|a)ry/i', $text, $complimentaryMatches);
+        $totals['admits'] += array_sum(array_map('intval', $complimentaryMatches[1] ?? []));
 
         return [
             'admits' => $totals['admits'],

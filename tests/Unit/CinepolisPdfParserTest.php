@@ -100,6 +100,22 @@ class CinepolisPdfParserTest extends TestCase
     }
 
     /** @test */
+    public function it_extracts_all_ticket_types_within_each_show()
+    {
+        $parser = new CinepolisPdfParser();
+        $result = $parser->parse(__DIR__ . '/../Fixtures/cinepolis-palembang-icon-multi-ticket.pdf');
+
+        $this->assertSame(3, count($result['rows']));
+        $this->assertSame(['REGULAR', 'REGULAR', 'COMPLIMENTRY VOUCHER'], array_column($result['rows'], 'type_tiket'));
+        $this->assertSame(['12:10', '20:15', '20:15'], array_column($result['rows'], 'jam_tayang'));
+        $this->assertSame([1, 1, 1], array_column($result['rows'], 'show'));
+        $this->assertSame(['2', '3', '3'], array_column($result['rows'], 'studio'));
+        $this->assertSame([14, 11, 1], array_column($result['rows'], 'jumlah'));
+        $this->assertSame(26, $result['totals']['admits']);
+        $this->assertSame(26, $result['source_totals']['admits']);
+    }
+
+    /** @test */
     public function it_rejects_pdf_without_parseable_cinema_name()
     {
         $parser = new CinepolisPdfParser();
