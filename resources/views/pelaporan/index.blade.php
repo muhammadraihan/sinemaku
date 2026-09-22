@@ -337,6 +337,7 @@
       </div>
       <div class="modal-body">
         <div id="cinepolis-preview-summary" class="cinepolis-preview-summary mb-3"></div>
+        <div id="cinepolis-preview-cinema-mapping" class="alert alert-info d-none"></div>
         <div id="cinepolis-preview-issues" class="alert alert-danger d-none"></div>
         <div id="cinepolis-preview-warnings" class="alert alert-warning d-none"></div>
         <div class="table-responsive">
@@ -506,6 +507,13 @@
             ['Admits', summary.admits], ['Gross', money(summary.gross)], ['Tax', money(summary.tax_amount)], ['Net', money(summary.net)]
         ];
         $('#cinepolis-preview-summary').html(metrics.map(function (item) { return '<div class="metric"><span class="label">' + escapeHtml(item[0]) + '</span><span class="value">' + escapeHtml(item[1]) + '</span></div>'; }).join(''));
+        var cinemaMapping = res.cinema_mapping || {};
+        var mappingConfirmation = !!cinemaMapping.requires_confirmation;
+        $('#cinepolis-preview-cinema-mapping')
+            .toggleClass('d-none', !mappingConfirmation)
+            .html(mappingConfirmation
+                ? '<label class="mb-0 d-flex align-items-start"><input type="checkbox" id="confirm-cinepolis-cinema-mapping" class="mr-2 mt-1"> <span>Nama pada laporan <strong>“' + escapeHtml(cinemaMapping.report_name) + '”</strong> akan dipetakan ke Master Bioskop <strong>“' + escapeHtml(cinemaMapping.master_name) + '”</strong>. Saya sudah memeriksa dan menyetujui mapping ini.</span></label>'
+                : '');
         var issues = res.blocking_issues || [];
         var warnings = res.warnings || [];
         $('#cinepolis-preview-issues').toggleClass('d-none', !issues.length).html(issues.length ? '<strong>Import diblokir:</strong><ul class="mb-0">' + issues.map(function (issue) { return '<li>' + escapeHtml(issue) + '</li>'; }).join('') + '</ul>' : '');
@@ -515,8 +523,14 @@
             return '<tr class="' + (blocked ? 'is-blocked' : '') + '"><td>' + escapeHtml(row.mapping_status) + '</td><td>' + escapeHtml(row.tanggal) + '</td><td>' + escapeHtml(row.jam_tayang) + '</td><td>' + escapeHtml(row.kategori) + '</td><td>' + escapeHtml(row.bioskop) + '</td><td>' + escapeHtml(row.kota || '-') + '</td><td>' + escapeHtml(summary.film) + '</td><td>CINEMA ' + escapeHtml(row.studio || summary.studio || '') + '</td><td>' + escapeHtml(row.type_tiket) + '</td><td>' + money(row.harga) + '</td><td>' + escapeHtml(row.jumlah) + '</td><td>' + money(row.gross) + '</td><td>' + money(row.tax_amount) + '</td><td>' + escapeHtml(row.tax_rate) + '%</td><td>' + money(row.net) + '</td></tr>';
         }).join('');
         $('#cinepolis-preview-table tbody').html(rows);
-        var canImport = !!res.token && !issues.length;
-        $('#btn-confirm-cinepolis-import').data('token', res.token || '').prop('disabled', !canImport);
+        var canImport = !!res.token && !issues.length && !mappingConfirmation;
+        $('#btn-confirm-cinepolis-import')
+            .data('token', res.token || '')
+            .data('requires-cinema-confirmation', mappingConfirmation)
+            .prop('disabled', !canImport);
+        $('#confirm-cinepolis-cinema-mapping').off('change').on('change', function () {
+            $('#btn-confirm-cinepolis-import').prop('disabled', !this.checked || !res.token || issues.length > 0);
+        });
         $('#modal-cinepolis-preview').modal('show');
     }
 
@@ -532,7 +546,10 @@
         Swal.fire({ title: 'Konfirmasi Import', text: 'Data preview akan disimpan ke laporan. Lanjutkan?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya, Import', cancelButtonText: 'Batal' }).then(function (choice) {
             if (!choice.isConfirmed) return;
             button.prop('disabled', true);
-            $.post(@json(route('pelaporan.upload.cinepolis.confirm')), { token: token })
+            $.post(@json(route('pelaporan.upload.cinepolis.confirm')), {
+                token: token,
+                confirm_cinema_mapping: $('#confirm-cinepolis-cinema-mapping').is(':checked') ? 1 : 0
+            })
                 .done(function (result) {
                     $('#modal-cinepolis-preview').modal('hide');
                     Swal.fire({ icon: 'success', title: 'Berhasil', text: result.message }).then(function () { $('#datatable').DataTable().ajax.reload(null, false); });

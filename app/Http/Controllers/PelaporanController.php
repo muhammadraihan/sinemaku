@@ -454,6 +454,7 @@ class PelaporanController extends Controller
                 'summary' => $mapping['summary'],
                 'blocking_issues' => $mapping['blocking_issues'],
                 'warnings' => $mapping['warnings'],
+                'cinema_mapping' => $mapping['cinema_mapping'],
             ]);
         } catch (\Throwable $e) {
             report($e);
@@ -474,6 +475,9 @@ class PelaporanController extends Controller
         }
         if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) {
             return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
+        }
+        if (!empty($cached['mapping']['cinema_mapping']['requires_confirmation']) && !$request->boolean('confirm_cinema_mapping')) {
+            return response()->json(['status' => 'failed', 'message' => 'Konfirmasi nama bioskop diperlukan sebelum import.'], 422);
         }
         if (!empty($cached['mapping']['blocking_issues'])) {
             return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena mapping belum lengkap.', 'issues' => $cached['mapping']['blocking_issues']], 422);
@@ -541,10 +545,13 @@ class PelaporanController extends Controller
     private function mapCinepolisPreview(array $parsed): array
     {
         $category = KategoriBioskop::whereRaw('UPPER(name) = ?', ['CINEPOLIS'])->first();
-        $cinemaCandidates = $this->cinepolisCinemaCandidates($parsed['cinema_name']);
-        $cinema = $category ? MasterBioskop::where('type', $category->uuid)
-            ->whereIn(DB::raw('UPPER(TRIM(nama_bioskop))'), $cinemaCandidates)
-            ->first() : null;
+        $cinemaMatch = $category ? $this->resolveCinepolisCinema($category->uuid, $parsed['cinema_name']) : [
+            'cinema' => null,
+            'candidates' => [],
+            'requires_confirmation' => false,
+            'ambiguous' => false,
+        ];
+        $cinema = $cinemaMatch['cinema'];
         $film = MasterFilm::whereRaw('UPPER(TRIM(name)) = ?', [$parsed['film_name']])->first();
         $city = $cinema ? $cinema->kota : null;
         $cityRecord = $city ? Kota::where(function ($query) use ($city) {
@@ -554,7 +561,14 @@ class PelaporanController extends Controller
         $blocking = [];
         $warnings = [];
         if (!$category) $blocking[] = 'Kategori CINEPOLIS belum tersedia di Master Kategori Bioskop.';
-        if (!$cinema) $blocking[] = 'Bioskop ' . $parsed['cinema_name'] . ' belum terdaftar sebagai bioskop kategori CINEPOLIS.';
+        if ($cinemaMatch['ambiguous']) {
+            $blocking[] = 'Nama bioskop laporan ' . $parsed['cinema_name'] . ' cocok dengan lebih dari satu Master Bioskop: ' . implode(', ', $cinemaMatch['candidates']) . '. Perbaiki nama master agar mapping tidak ambigu.';
+        } elseif (!$cinema) {
+            $blocking[] = 'Bioskop ' . $parsed['cinema_name'] . ' belum terdaftar sebagai bioskop kategori CINEPOLIS.';
+        }
+        if ($cinemaMatch['requires_confirmation']) {
+            $warnings[] = 'Konfirmasi mapping nama bioskop: laporan “' . $parsed['cinema_name'] . '” akan dipetakan ke master “' . $cinema->nama_bioskop . '”.';
+        }
         if (!$film) $blocking[] = 'Film ' . $parsed['film_name'] . ' belum terdaftar di Master Film.';
         if (!$city) $blocking[] = 'Kota bioskop belum tersedia di Master Bioskop.';
         if (!$province) $warnings[] = 'Provinsi belum dapat dipetakan dari master kota.';
@@ -590,6 +604,13 @@ class PelaporanController extends Controller
             'film_name' => optional($film)->name ?: $parsed['film_name'],
             'city' => $city,
             'province' => $province,
+            'cinema_mapping' => [
+                'report_name' => $parsed['cinema_name'],
+                'master_name' => optional($cinema)->nama_bioskop,
+                'requires_confirmation' => $cinemaMatch['requires_confirmation'],
+                'ambiguous' => $cinemaMatch['ambiguous'],
+                'candidates' => $cinemaMatch['candidates'],
+            ],
             'row_mappings' => $rowMappings,
             'blocking_issues' => $blocking,
             'warnings' => array_values(array_unique($warnings)),
@@ -631,17 +652,47 @@ class PelaporanController extends Controller
         ]);
     }
 
-    private function cinepolisCinemaCandidates(string $cinemaName): array
+    private function resolveCinepolisCinema(string $categoryUuid, string $reportCinemaName): array
     {
-        $normalized = mb_strtoupper(trim(preg_replace('/\s+/', ' ', $cinemaName)));
-        $candidates = [$normalized];
-        if ($normalized === 'MAXXBOX LIPPO VILLAGE') {
-            $candidates[] = 'MAXBOXX LIPPO VILLAGE';
+        $reportDisplayName = $this->normalizeCinepolisCinemaDisplayName($reportCinemaName);
+        $reportNormalized = $this->normalizeCinepolisCinemaName($reportCinemaName);
+        $cinemas = MasterBioskop::where('type', $categoryUuid)->get();
+        $exact = $cinemas->filter(function ($cinema) use ($reportDisplayName) {
+            return $this->normalizeCinepolisCinemaDisplayName($cinema->nama_bioskop) === $reportDisplayName;
+        })->values();
+        if ($exact->count() === 1) {
+            return ['cinema' => $exact->first(), 'candidates' => [], 'requires_confirmation' => false, 'ambiguous' => false];
         }
-        if ($normalized === 'MAXBOXX LIPPO VILLAGE') {
-            $candidates[] = 'MAXXBOX LIPPO VILLAGE';
+
+        $likeMatches = $cinemas->filter(function ($cinema) use ($reportNormalized) {
+            $masterNormalized = $this->normalizeCinepolisCinemaName($cinema->nama_bioskop);
+            return $reportNormalized !== '' && (str_contains($masterNormalized, $reportNormalized) || str_contains($reportNormalized, $masterNormalized));
+        })->values();
+        if ($likeMatches->count() === 1) {
+            return ['cinema' => $likeMatches->first(), 'candidates' => [], 'requires_confirmation' => true, 'ambiguous' => false];
         }
-        return array_values(array_unique($candidates));
+
+        return [
+            'cinema' => null,
+            'candidates' => $likeMatches->pluck('nama_bioskop')->all(),
+            'requires_confirmation' => false,
+            'ambiguous' => $likeMatches->count() > 1,
+        ];
+    }
+
+    private function normalizeCinepolisCinemaName(?string $name): string
+    {
+        $value = $this->normalizeCinepolisCinemaDisplayName($name);
+        $value = preg_replace('/\bCINEPOLIS\b/u', '', $value);
+        $value = preg_replace('/\bMAXXBOX\b/u', 'MAXBOXX', $value);
+        return trim(preg_replace('/\s+/', ' ', $value));
+    }
+
+    private function normalizeCinepolisCinemaDisplayName(?string $name): string
+    {
+        $value = mb_strtoupper((string) $name);
+        $value = strtr($value, ['É' => 'E', 'È' => 'E', 'Ê' => 'E', 'Ë' => 'E']);
+        return trim(preg_replace('/\s+/', ' ', $value));
     }
 
     public function uploadXXI(Request $request)

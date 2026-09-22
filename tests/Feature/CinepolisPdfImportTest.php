@@ -108,6 +108,33 @@ class CinepolisPdfImportTest extends TestCase
         $this->assertSame(['studio-04', 'studio-06'], DB::table('pelaporans')->orderBy('jam_tayang', 'desc')->pluck('studio')->all());
     }
 
+    public function test_name_like_match_is_shown_and_requires_explicit_confirmation(): void
+    {
+        $user = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'category-1', 'name' => 'CINEPOLIS']);
+        DB::table('master_bioskops')->insert(['uuid' => 'cinema-1', 'nama_bioskop' => 'CINÉPOLIS LIPPO PLAZA JEMBER', 'type' => 'category-1', 'kota' => 'JEMBER']);
+        DB::table('master_films')->insert(['uuid' => 'film-1', 'name' => 'PATAH HATI YANG KUPILIH']);
+        DB::table('kotas')->insert(['uuid' => 'city-1', 'nama' => 'JEMBER', 'provinsi_id' => 'province-1']);
+        DB::table('provinces')->insert(['uuid' => 'province-1', 'nama' => 'JAWA TIMUR']);
+        DB::table('type_tikets')->insert(['uuid' => 'ticket-1', 'name' => 'REGULAR', 'kategori' => 'category-1']);
+        DB::table('kapasitas')->insert([
+            ['uuid' => 'studio-04', 'kategori' => 'category-1', 'nama_bioskop' => 'cinema-1', 'type_tiket' => 'ticket-1', 'studio' => 'CINEMA 04'],
+            ['uuid' => 'studio-06', 'kategori' => 'category-1', 'nama_bioskop' => 'cinema-1', 'type_tiket' => 'ticket-1', 'studio' => 'CINEMA 06'],
+        ]);
+        $file = new UploadedFile(base_path('tests/Fixtures/cinepolis-jember-two-screens.pdf'), 'cinepolis-jember.pdf', 'application/pdf', null, true);
+
+        $preview = $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.preview'), ['file' => $file]);
+        $preview->assertOk()->assertJsonPath('cinema_mapping.requires_confirmation', true)
+            ->assertJsonPath('cinema_mapping.report_name', 'LIPPO PLAZA JEMBER')
+            ->assertJsonPath('cinema_mapping.master_name', 'CINÉPOLIS LIPPO PLAZA JEMBER');
+        $token = $preview->json('token');
+
+        $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.confirm'), ['token' => $token])
+            ->assertStatus(422)->assertJsonPath('message', 'Konfirmasi nama bioskop diperlukan sebelum import.');
+        $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.confirm'), ['token' => $token, 'confirm_cinema_mapping' => 1])
+            ->assertOk()->assertJsonPath('inserted', 2);
+    }
+
     public function test_preview_token_is_user_bound_and_same_report_cannot_be_imported_twice(): void
     {
         $owner = $this->seedResolvedMappings();
