@@ -114,6 +114,9 @@
 .cinepolis-preview-summary .metric { padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f8fafc; }
 .cinepolis-preview-summary .label { display: block; color: #6b7280; font-size: 11px; }
 .cinepolis-preview-summary .value { display: block; font-weight: 700; margin-top: 3px; }
+/* SweetAlert konfirmasi harus berada di dalam modal preview, bukan layer body terpisah. */
+.cinepolis-preview-modal .cinepolis-preview-swal-target { position: absolute; inset: 0; z-index: 1060; pointer-events: none; }
+.cinepolis-preview-modal .cinepolis-preview-swal-target .swal2-container { position: absolute; inset: 0; pointer-events: auto; }
 </style>
 @endsection
 
@@ -351,6 +354,7 @@
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
         <button type="button" id="btn-confirm-cinepolis-import" class="btn btn-primary" disabled>Konfirmasi Import</button>
       </div>
+      <div class="cinepolis-preview-swal-target"></div>
     </div>
   </div>
 </div>
@@ -561,12 +565,25 @@
         var button = $(this);
         var token = button.data('token');
         if (!token) return;
-        Swal.fire({ title: 'Konfirmasi Import', text: 'Data preview akan disimpan ke laporan. Lanjutkan?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya, Import', cancelButtonText: 'Batal' }).then(function (choice) {
-            if (!choice.isConfirmed) return;
+        var swalTarget = document.querySelector('#modal-cinepolis-preview .cinepolis-preview-swal-target');
+        var selectedCinemaUuid = button.data('selected-cinema-uuid') || '';
+        Swal.fire({
+            target: swalTarget,
+            title: 'Konfirmasi Import',
+            text: 'Data preview akan disimpan ke laporan. Lanjutkan?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Import',
+            cancelButtonText: 'Batal'
+        }).then(function (choice) {
+            if (!choice.isConfirmed) {
+                button.trigger('focus');
+                return;
+            }
             button.prop('disabled', true);
             $.post(@json(route('pelaporan.upload.cinepolis.confirm')), {
                 token: token,
-                cinema_uuid: $(this).data('selected-cinema-uuid') || '',
+                cinema_uuid: selectedCinemaUuid,
                 confirm_cinema_mapping: $('#confirm-cinepolis-cinema-mapping').is(':checked') ? 1 : 0
             })
                 .done(function (result) {
