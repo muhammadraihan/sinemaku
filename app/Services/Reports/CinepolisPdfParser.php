@@ -151,7 +151,7 @@ class CinepolisPdfParser
                 'tanggal' => $reportDate,
                 'jam_tayang' => $currentTime,
                 'show' => $showByTime[$currentTime],
-                'studio' => $block['studio'],
+                'studio' => $this->normalizeStudioNumber($block['studio']),
                 'type_tiket' => $this->normalizeName($match[2]),
                 'harga' => $price,
                 'jumlah' => $admits,
@@ -219,6 +219,12 @@ class CinepolisPdfParser
         return preg_match('/^[A-Z][A-Z0-9\- ]+$/i', $value) === 1
             && stripos($value, 'TOTAL') === false
             && stripos($value, 'CINEMA') === false;
+    }
+
+    private function normalizeStudioNumber(string $value): string
+    {
+        $digits = preg_replace('/[^0-9]/', '', $value);
+        return $digits === '' ? '' : (string) ((int) $digits);
     }
 
     private function parseMoney(string $value): ?float

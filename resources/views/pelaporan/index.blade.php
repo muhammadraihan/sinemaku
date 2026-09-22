@@ -509,11 +509,17 @@
         $('#cinepolis-preview-summary').html(metrics.map(function (item) { return '<div class="metric"><span class="label">' + escapeHtml(item[0]) + '</span><span class="value">' + escapeHtml(item[1]) + '</span></div>'; }).join(''));
         var cinemaMapping = res.cinema_mapping || {};
         var mappingConfirmation = !!cinemaMapping.requires_confirmation;
+        var ambiguousCinema = !!cinemaMapping.ambiguous;
+        var cinemaOptions = (cinemaMapping.candidates || []).map(function (candidate) {
+            return '<option value="' + escapeHtml(candidate.uuid) + '">' + escapeHtml(candidate.name) + ' — ' + escapeHtml(candidate.city || 'Kota belum diisi') + '</option>';
+        }).join('');
         $('#cinepolis-preview-cinema-mapping')
-            .toggleClass('d-none', !mappingConfirmation)
-            .html(mappingConfirmation
-                ? '<label class="mb-0 d-flex align-items-start"><input type="checkbox" id="confirm-cinepolis-cinema-mapping" class="mr-2 mt-1"> <span>Nama pada laporan <strong>“' + escapeHtml(cinemaMapping.report_name) + '”</strong> akan dipetakan ke Master Bioskop <strong>“' + escapeHtml(cinemaMapping.master_name) + '”</strong>. Saya sudah memeriksa dan menyetujui mapping ini.</span></label>'
-                : '');
+            .toggleClass('d-none', !mappingConfirmation && !ambiguousCinema)
+            .html(ambiguousCinema
+                ? '<label class="font-weight-bold d-block mb-2" for="select-cinepolis-cinema">Nama laporan “' + escapeHtml(cinemaMapping.report_name) + '” cocok dengan beberapa Master Bioskop. Pilih bioskop yang benar:</label><select id="select-cinepolis-cinema" class="form-control"><option value="">Pilih bioskop dan kota</option>' + cinemaOptions + '</select>'
+                : (mappingConfirmation
+                    ? '<label class="mb-0 d-flex align-items-start"><input type="checkbox" id="confirm-cinepolis-cinema-mapping" class="mr-2 mt-1"> <span>Nama pada laporan <strong>“' + escapeHtml(cinemaMapping.report_name) + '”</strong> akan dipetakan ke Master Bioskop <strong>“' + escapeHtml(cinemaMapping.master_name) + '”</strong>. Saya sudah memeriksa dan menyetujui mapping ini.</span></label>'
+                    : ''));
         var issues = res.blocking_issues || [];
         var warnings = res.warnings || [];
         $('#cinepolis-preview-issues').toggleClass('d-none', !issues.length).html(issues.length ? '<strong>Import diblokir:</strong><ul class="mb-0">' + issues.map(function (issue) { return '<li>' + escapeHtml(issue) + '</li>'; }).join('') + '</ul>' : '');
@@ -523,14 +529,26 @@
             return '<tr class="' + (blocked ? 'is-blocked' : '') + '"><td>' + escapeHtml(row.mapping_status) + '</td><td>' + escapeHtml(row.tanggal) + '</td><td>' + escapeHtml(row.jam_tayang) + '</td><td>' + escapeHtml(row.kategori) + '</td><td>' + escapeHtml(row.bioskop) + '</td><td>' + escapeHtml(row.kota || '-') + '</td><td>' + escapeHtml(summary.film) + '</td><td>CINEMA ' + escapeHtml(row.studio || summary.studio || '') + '</td><td>' + escapeHtml(row.type_tiket) + '</td><td>' + money(row.harga) + '</td><td>' + escapeHtml(row.jumlah) + '</td><td>' + money(row.gross) + '</td><td>' + money(row.tax_amount) + '</td><td>' + escapeHtml(row.tax_rate) + '%</td><td>' + money(row.net) + '</td></tr>';
         }).join('');
         $('#cinepolis-preview-table tbody').html(rows);
-        var canImport = !!res.token && !issues.length && !mappingConfirmation;
+        var canImport = !!res.token && !issues.length && !mappingConfirmation && !ambiguousCinema;
         $('#btn-confirm-cinepolis-import')
             .data('token', res.token || '')
             .data('requires-cinema-confirmation', mappingConfirmation)
+            .data('ambiguous-cinema', ambiguousCinema)
             .prop('disabled', !canImport);
         $('#confirm-cinepolis-cinema-mapping').off('change').on('change', function () {
             $('#btn-confirm-cinepolis-import').prop('disabled', !this.checked || !res.token || issues.length > 0);
         });
+        $('#select-cinepolis-cinema').off('change').on('change', function () {
+            $('#btn-confirm-cinepolis-import').prop('disabled', !this.value || !res.token || issues.length > 0);
+        });
+        if (ambiguousCinema) {
+            $('#btn-confirm-cinepolis-import').data('selected-cinema-uuid', '');
+            $('#select-cinepolis-cinema').on('change', function () {
+                $('#btn-confirm-cinepolis-import').data('selected-cinema-uuid', this.value);
+            });
+        } else {
+            $('#btn-confirm-cinepolis-import').data('selected-cinema-uuid', '');
+        }
         $('#modal-cinepolis-preview').modal('show');
     }
 
@@ -548,6 +566,7 @@
             button.prop('disabled', true);
             $.post(@json(route('pelaporan.upload.cinepolis.confirm')), {
                 token: token,
+                cinema_uuid: $(this).data('selected-cinema-uuid') || '',
                 confirm_cinema_mapping: $('#confirm-cinepolis-cinema-mapping').is(':checked') ? 1 : 0
             })
                 .done(function (result) {

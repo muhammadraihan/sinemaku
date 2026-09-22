@@ -476,15 +476,23 @@ class PelaporanController extends Controller
         if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) {
             return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
         }
-        if (!empty($cached['mapping']['cinema_mapping']['requires_confirmation']) && !$request->boolean('confirm_cinema_mapping')) {
+        $mapping = $cached['mapping'];
+        if (!empty($mapping['cinema_mapping']['ambiguous'])) {
+            $selectedCinemaUuid = (string) $request->input('cinema_uuid');
+            $allowedCinemaUuids = array_column($mapping['cinema_mapping']['candidates'], 'uuid');
+            if (!$selectedCinemaUuid || !in_array($selectedCinemaUuid, $allowedCinemaUuids, true)) {
+                return response()->json(['status' => 'failed', 'message' => 'Pilih salah satu Master Bioskop yang sesuai sebelum import.'], 422);
+            }
+            $mapping = $this->mapCinepolisPreview($cached['parsed'], $selectedCinemaUuid);
+        }
+        if (!empty($mapping['cinema_mapping']['requires_confirmation']) && !$request->boolean('confirm_cinema_mapping')) {
             return response()->json(['status' => 'failed', 'message' => 'Konfirmasi nama bioskop diperlukan sebelum import.'], 422);
         }
-        if (!empty($cached['mapping']['blocking_issues'])) {
-            return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena mapping belum lengkap.', 'issues' => $cached['mapping']['blocking_issues']], 422);
+        if (!empty($mapping['blocking_issues'])) {
+            return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena mapping belum lengkap.', 'issues' => $mapping['blocking_issues']], 422);
         }
 
         $parsed = $cached['parsed'];
-        $mapping = $cached['mapping'];
         $rows = [];
         $duplicateRows = [];
         foreach ($parsed['rows'] as $row) {
@@ -542,10 +550,10 @@ class PelaporanController extends Controller
         return response()->json(['status' => 'success', 'message' => count($rows) . ' baris Cinepolis berhasil diimport.', 'inserted' => count($rows)]);
     }
 
-    private function mapCinepolisPreview(array $parsed): array
+    private function mapCinepolisPreview(array $parsed, ?string $selectedCinemaUuid = null): array
     {
         $category = KategoriBioskop::whereRaw('UPPER(name) = ?', ['CINEPOLIS'])->first();
-        $cinemaMatch = $category ? $this->resolveCinepolisCinema($category->uuid, $parsed['cinema_name']) : [
+        $cinemaMatch = $category ? $this->resolveCinepolisCinema($category->uuid, $parsed['cinema_name'], $selectedCinemaUuid) : [
             'cinema' => null,
             'candidates' => [],
             'requires_confirmation' => false,
@@ -561,17 +569,15 @@ class PelaporanController extends Controller
         $blocking = [];
         $warnings = [];
         if (!$category) $blocking[] = 'Kategori CINEPOLIS belum tersedia di Master Kategori Bioskop.';
-        if ($cinemaMatch['ambiguous']) {
-            $blocking[] = 'Nama bioskop laporan ' . $parsed['cinema_name'] . ' cocok dengan lebih dari satu Master Bioskop: ' . implode(', ', $cinemaMatch['candidates']) . '. Perbaiki nama master agar mapping tidak ambigu.';
-        } elseif (!$cinema) {
+        if (!$cinema && !$cinemaMatch['ambiguous']) {
             $blocking[] = 'Bioskop ' . $parsed['cinema_name'] . ' belum terdaftar sebagai bioskop kategori CINEPOLIS.';
         }
         if ($cinemaMatch['requires_confirmation']) {
             $warnings[] = 'Konfirmasi mapping nama bioskop: laporan “' . $parsed['cinema_name'] . '” akan dipetakan ke master “' . $cinema->nama_bioskop . '”.';
         }
         if (!$film) $blocking[] = 'Film ' . $parsed['film_name'] . ' belum terdaftar di Master Film.';
-        if (!$city) $blocking[] = 'Kota bioskop belum tersedia di Master Bioskop.';
-        if (!$province) $warnings[] = 'Provinsi belum dapat dipetakan dari master kota.';
+        if (!$city && !$cinemaMatch['ambiguous']) $blocking[] = 'Kota bioskop belum tersedia di Master Bioskop.';
+        if (!$province && !$cinemaMatch['ambiguous']) $warnings[] = 'Provinsi belum dapat dipetakan dari master kota.';
 
         $rowMappings = [];
         foreach ($parsed['rows'] as $row) {
@@ -583,13 +589,16 @@ class PelaporanController extends Controller
                     ->where('type_tiket', $ticket->uuid)
                     ->get()
                     ->first(function ($item) use ($row) {
-                        $masterStudio = preg_replace('/[^0-9]/', '', (string) $item->studio);
-                        $reportStudio = preg_replace('/[^0-9]/', '', (string) ($row['studio'] ?? ''));
-                        return $masterStudio === $reportStudio;
+                        $masterDigits = preg_replace('/[^0-9]/', '', (string) $item->studio);
+                        $reportDigits = preg_replace('/[^0-9]/', '', (string) ($row['studio'] ?? ''));
+                        if ($masterDigits === '' || $reportDigits === '') {
+                            return false;
+                        }
+                        return (int) $masterDigits === (int) $reportDigits;
                     });
             }
             if (!$ticket) $blocking[] = 'Tipe tiket ' . $row['type_tiket'] . ' belum tersedia untuk kategori CINEPOLIS.';
-            if (!$capacity) $blocking[] = 'Studio CINEMA ' . ($row['studio'] ?? '-') . ' belum memiliki mapping kapasitas untuk tipe tiket ' . $row['type_tiket'] . '.';
+            if (!$capacity && !$cinemaMatch['ambiguous']) $blocking[] = 'Studio CINEMA ' . ($row['studio'] ?? '-') . ' belum memiliki mapping kapasitas untuk tipe tiket ' . $row['type_tiket'] . '.';
             $key = $this->cinepolisRowKey($row);
             $rowMappings[$key] = [
                 'ticket_uuid' => optional($ticket)->uuid,
@@ -652,11 +661,20 @@ class PelaporanController extends Controller
         ]);
     }
 
-    private function resolveCinepolisCinema(string $categoryUuid, string $reportCinemaName): array
+    private function resolveCinepolisCinema(string $categoryUuid, string $reportCinemaName, ?string $selectedCinemaUuid = null): array
     {
         $reportDisplayName = $this->normalizeCinepolisCinemaDisplayName($reportCinemaName);
         $reportNormalized = $this->normalizeCinepolisCinemaName($reportCinemaName);
         $cinemas = MasterBioskop::where('type', $categoryUuid)->get();
+        $candidateRows = function ($items) {
+            return $items->map(function ($cinema) {
+                return [
+                    'uuid' => $cinema->uuid,
+                    'name' => $cinema->nama_bioskop,
+                    'city' => $cinema->kota,
+                ];
+            })->values()->all();
+        };
         $exact = $cinemas->filter(function ($cinema) use ($reportDisplayName) {
             return $this->normalizeCinepolisCinemaDisplayName($cinema->nama_bioskop) === $reportDisplayName;
         })->values();
@@ -671,10 +689,16 @@ class PelaporanController extends Controller
         if ($likeMatches->count() === 1) {
             return ['cinema' => $likeMatches->first(), 'candidates' => [], 'requires_confirmation' => true, 'ambiguous' => false];
         }
+        if ($likeMatches->count() > 1 && $selectedCinemaUuid) {
+            $selected = $likeMatches->firstWhere('uuid', $selectedCinemaUuid);
+            if ($selected) {
+                return ['cinema' => $selected, 'candidates' => $candidateRows($likeMatches), 'requires_confirmation' => false, 'ambiguous' => false];
+            }
+        }
 
         return [
             'cinema' => null,
-            'candidates' => $likeMatches->pluck('nama_bioskop')->all(),
+            'candidates' => $candidateRows($likeMatches),
             'requires_confirmation' => false,
             'ambiguous' => $likeMatches->count() > 1,
         ];

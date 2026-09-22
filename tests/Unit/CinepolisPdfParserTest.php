@@ -91,7 +91,7 @@ class CinepolisPdfParserTest extends TestCase
         $this->assertSame('LIPPO PLAZA JEMBER', $result['cinema_name']);
         $this->assertSame('PATAH HATI YANG KUPILIH', $result['film_name']);
         $this->assertSame(2, count($result['rows']));
-        $this->assertSame(['04', '06'], array_column($result['rows'], 'studio'));
+        $this->assertSame(['4', '6'], array_column($result['rows'], 'studio'));
         $this->assertSame(['18:45', '13:05'], array_column($result['rows'], 'jam_tayang'));
         $this->assertSame(43, $result['totals']['admits']);
         $this->assertSame(1161000.0, $result['totals']['gross']);

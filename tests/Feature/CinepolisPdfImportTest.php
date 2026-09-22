@@ -101,7 +101,7 @@ class CinepolisPdfImportTest extends TestCase
 
         $preview = $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.preview'), ['file' => $file]);
         $preview->assertOk()->assertJsonCount(2, 'preview')->assertJsonPath('blocking_issues', []);
-        $this->assertSame(['04', '06'], array_column($preview->json('preview'), 'studio'));
+        $this->assertSame(['4', '6'], array_column($preview->json('preview'), 'studio'));
 
         $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.confirm'), ['token' => $preview->json('token')])
             ->assertOk()->assertJsonPath('inserted', 2);
@@ -133,6 +133,43 @@ class CinepolisPdfImportTest extends TestCase
             ->assertStatus(422)->assertJsonPath('message', 'Konfirmasi nama bioskop diperlukan sebelum import.');
         $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.confirm'), ['token' => $token, 'confirm_cinema_mapping' => 1])
             ->assertOk()->assertJsonPath('inserted', 2);
+    }
+
+    public function test_ambiguous_name_returns_city_picklist_and_imports_only_selected_candidate(): void
+    {
+        $user = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'category-1', 'name' => 'CINEPOLIS']);
+        DB::table('master_bioskops')->insert([
+            ['uuid' => 'cinema-jember', 'nama_bioskop' => 'CINÉPOLIS LIPPO PLAZA JEMBER', 'type' => 'category-1', 'kota' => 'JEMBER'],
+            ['uuid' => 'cinema-jember-city', 'nama_bioskop' => 'CINÉPOLIS LIPPO PLAZA JEMBER CITY', 'type' => 'category-1', 'kota' => 'JEMBER CITY'],
+        ]);
+        DB::table('master_films')->insert(['uuid' => 'film-1', 'name' => 'PATAH HATI YANG KUPILIH']);
+        DB::table('kotas')->insert([
+            ['uuid' => 'city-1', 'nama' => 'JEMBER', 'provinsi_id' => 'province-1'],
+            ['uuid' => 'city-2', 'nama' => 'JEMBER CITY', 'provinsi_id' => 'province-1'],
+        ]);
+        DB::table('provinces')->insert(['uuid' => 'province-1', 'nama' => 'JAWA TIMUR']);
+        DB::table('type_tikets')->insert(['uuid' => 'ticket-1', 'name' => 'REGULAR', 'kategori' => 'category-1']);
+        DB::table('kapasitas')->insert([
+            ['uuid' => 'selected-studio-4', 'kategori' => 'category-1', 'nama_bioskop' => 'cinema-jember-city', 'type_tiket' => 'ticket-1', 'studio' => '4'],
+            ['uuid' => 'selected-studio-6', 'kategori' => 'category-1', 'nama_bioskop' => 'cinema-jember-city', 'type_tiket' => 'ticket-1', 'studio' => '6'],
+        ]);
+        $file = new UploadedFile(base_path('tests/Fixtures/cinepolis-jember-two-screens.pdf'), 'cinepolis-jember.pdf', 'application/pdf', null, true);
+
+        $preview = $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.preview'), ['file' => $file]);
+        $preview->assertOk()->assertJsonPath('cinema_mapping.ambiguous', true)
+            ->assertJsonPath('cinema_mapping.candidates.0.city', 'JEMBER')
+            ->assertJsonPath('cinema_mapping.candidates.1.city', 'JEMBER CITY');
+        $token = $preview->json('token');
+
+        $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.confirm'), ['token' => $token])
+            ->assertStatus(422)->assertJsonPath('message', 'Pilih salah satu Master Bioskop yang sesuai sebelum import.');
+        $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.confirm'), ['token' => $token, 'cinema_uuid' => 'not-a-candidate'])
+            ->assertStatus(422);
+        $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.confirm'), ['token' => $token, 'cinema_uuid' => 'cinema-jember-city'])
+            ->assertOk()->assertJsonPath('inserted', 2);
+        $this->assertSame(['cinema-jember-city'], DB::table('pelaporans')->distinct()->pluck('nama_bioskop')->all());
+        $this->assertSame(['selected-studio-4', 'selected-studio-6'], DB::table('pelaporans')->orderBy('jam_tayang', 'desc')->pluck('studio')->all());
     }
 
     public function test_preview_token_is_user_bound_and_same_report_cannot_be_imported_twice(): void
