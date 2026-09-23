@@ -161,6 +161,7 @@ class CinepolisPdfImportTest extends TestCase
         $preview->assertOk()->assertJsonPath('cinema_mapping.ambiguous', true)
             ->assertJsonPath('cinema_mapping.candidates.0.city', 'JEMBER')
             ->assertJsonPath('cinema_mapping.candidates.1.city', 'JEMBER CITY');
+        $this->assertContains('Nama bioskop LIPPO PLAZA JEMBER memiliki lebih dari satu kandidat master; pilih kota yang sesuai.', $preview->json('warnings'));
         $token = $preview->json('token');
 
         $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.confirm'), ['token' => $token])

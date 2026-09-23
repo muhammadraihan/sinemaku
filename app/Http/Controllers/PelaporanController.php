@@ -685,6 +685,10 @@ class PelaporanController extends Controller
         if (!$cinema && !$cinemaMatch['ambiguous']) {
             $blocking[] = 'Bioskop ' . $parsed['cinema_name'] . ' belum terdaftar sebagai bioskop kategori CINEPOLIS.';
         }
+        if ($cinemaMatch['ambiguous']) {
+            $warnings[] = 'Nama bioskop ' . $parsed['cinema_name'] . ' memiliki lebih dari satu kandidat master; pilih kota yang sesuai.';
+            $blocking[] = 'Bioskop ' . $parsed['cinema_name'] . ' memiliki mapping ambigu; pilih kandidat berdasarkan kota.';
+        }
         if ($cinemaMatch['requires_confirmation']) {
             $warnings[] = 'Konfirmasi mapping nama bioskop: laporan “' . $parsed['cinema_name'] . '” akan dipetakan ke master “' . $cinema->nama_bioskop . '”.';
         }
@@ -1015,11 +1019,21 @@ class PelaporanController extends Controller
         $cinemas=$category?MasterBioskop::where('type',$category->uuid)->get():collect(); $cinemaMap=[];
         foreach (collect($sourceRows)->unique(fn($row)=>$this->legacyCinemaKey($row['source_cinema'],$row['source_city'])) as $row) {
             $key=$this->legacyCinemaKey($row['source_cinema'],$row['source_city']);
-            // Cinema name is normalized, but the source city must match the master city exactly.
-            $matches=$cinemas->filter(fn($cinema)=>$this->legacyNormalize($cinema->nama_bioskop)===$this->legacyNormalize($row['source_cinema']) && (string)$cinema->kota === (string)$row['source_city']);
+            // If the source supplies a city, require an exact city match. Providers without a city
+            // must not guess when the same cinema name exists more than once.
+            $nameMatches=$cinemas->filter(fn($cinema)=>$this->legacyNormalize($cinema->nama_bioskop)===$this->legacyNormalize($row['source_cinema']));
+            $matches=(string)$row['source_city'] !== ''
+                ? $nameMatches->filter(fn($cinema)=>(string)$cinema->kota === (string)$row['source_city'])
+                : $nameMatches;
             if($matches->count()===1) $cinemaMap[$key]=$matches->first();
-            elseif($matches->count()===0) $issues[]='Bioskop '.$row['source_cinema'].' di kota '.$row['source_city'].' belum terdaftar sebagai bioskop kategori '.$provider.'.';
-            else { $warnings[]='Bioskop '.$row['source_cinema'].' di kota '.$row['source_city'].' memiliki lebih dari satu mapping master dan memerlukan pemilihan.'; $issues[]='Bioskop '.$row['source_cinema'].' di kota '.$row['source_city'].' memiliki mapping ambigu; perbaiki master bioskop sebelum import.'; }
+            elseif($matches->count()===0) {
+                $location=(string)$row['source_city'] !== '' ? ' di kota '.$row['source_city'] : '';
+                $issues[]='Bioskop '.$row['source_cinema'].$location.' belum terdaftar sebagai bioskop kategori '.$provider.'.';
+            } else {
+                $location=(string)$row['source_city'] !== '' ? ' di kota '.$row['source_city'] : '';
+                $warnings[]='Bioskop '.$row['source_cinema'].$location.' memiliki lebih dari satu mapping master dan memerlukan pemilihan.';
+                $issues[]='Bioskop '.$row['source_cinema'].$location.' memiliki mapping ambigu; perbaiki master bioskop sebelum import.';
+            }
         }
         if(!$category)$issues[]='Kategori '.$provider.' belum tersedia di Master Kategori Bioskop.';
         foreach($filmNames as $name)if(!$filmMap->has($this->legacyNormalize($name)))$issues[]='Film '.$name.' belum terdaftar di Master Film.';

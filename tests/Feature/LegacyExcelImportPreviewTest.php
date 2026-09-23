@@ -165,6 +165,38 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->assertSame(0, DB::table('pelaporans')->count());
     }
 
+    public function test_cgv_preview_warns_and_blocks_duplicate_cinema_names_without_source_city(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'cgv-category', 'name' => 'CGV']);
+        DB::table('master_bioskops')->insert([
+            ['uuid' => 'cgv-jakarta', 'nama_bioskop' => 'CGV TEST', 'type' => 'cgv-category', 'kota' => 'JAKARTA'],
+            ['uuid' => 'cgv-surabaya', 'nama_bioskop' => 'CGV TEST', 'type' => 'cgv-category', 'kota' => 'SURABAYA'],
+        ]);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.cgv'), ['file' => $this->makeCgvFile()]);
+
+        $preview->assertOk()->assertJsonPath('preview.0.cinema_uuid', null);
+        $this->assertStringContainsString('Bioskop CGV TEST memiliki mapping ambigu', implode(' ', $preview->json('blocking_issues')));
+        $this->assertContains('Bioskop CGV TEST memiliki lebih dari satu mapping master dan memerlukan pemilihan.', $preview->json('warnings'));
+    }
+
+    public function test_sams_preview_warns_and_blocks_duplicate_cinema_names_without_source_city(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'sams-category', 'name' => 'SAMS STUDIOS']);
+        DB::table('master_bioskops')->insert([
+            ['uuid' => 'sams-jakarta', 'nama_bioskop' => 'SAMS TEST', 'type' => 'sams-category', 'kota' => 'JAKARTA'],
+            ['uuid' => 'sams-bandung', 'nama_bioskop' => 'SAMS TEST', 'type' => 'sams-category', 'kota' => 'BANDUNG'],
+        ]);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.sams'), ['file' => $this->makeSamsFile()]);
+
+        $preview->assertOk()->assertJsonPath('preview.0.cinema_uuid', null);
+        $this->assertStringContainsString('Bioskop SAMS TEST memiliki mapping ambigu', implode(' ', $preview->json('blocking_issues')));
+        $this->assertContains('Bioskop SAMS TEST memiliki lebih dari satu mapping master dan memerlukan pemilihan.', $preview->json('warnings'));
+    }
+
     public function test_cgv_preview_preserves_ticket_type_and_six_showtime_columns_without_writing(): void
     {
         $owner = $this->createUser();
