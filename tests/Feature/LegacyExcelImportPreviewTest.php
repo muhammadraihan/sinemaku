@@ -60,6 +60,15 @@ class LegacyExcelImportPreviewTest extends TestCase
         }
     }
 
+    public function test_preview_ui_has_a_modal_transition_fallback(): void
+    {
+        $view = file_get_contents(resource_path('views/pelaporan/index.blade.php'));
+
+        $this->assertStringContainsString('function openPreviewAfterUploadModal(callback)', $view);
+        $this->assertStringContainsString("window.setTimeout(finish, 450);", $view);
+        $this->assertStringContainsString("openPreviewAfterUploadModal(function () { showLegacyPreview(res, bioskop, legacyUrls[bioskop]); });", $view);
+    }
+
     public function test_xxi_preview_writes_no_canonical_rows_then_confirm_consumes_its_user_bound_token(): void
     {
         $owner = $this->seedResolvedXxiMappings();

@@ -482,6 +482,20 @@
         $btnDownloadErr.addClass('d-none').attr('href', '#');
     });
 
+    function openPreviewAfterUploadModal(callback) {
+        var completed = false;
+        var finish = function () {
+            if (completed) return;
+            completed = true;
+            $('#modal-upload').off('hidden.bs.modal.previewFallback');
+            $('#modal-cinepolis-preview, #modal-legacy-preview').appendTo('body');
+            callback();
+        };
+        $('#modal-upload').one('hidden.bs.modal.previewFallback', finish);
+        $('#modal-upload').modal('hide');
+        window.setTimeout(finish, 450);
+    }
+
     $('#uploadForm').on('submit', function (e) {
     e.preventDefault();
     const formData = new FormData(this);
@@ -498,11 +512,10 @@
         }).done(function (res) {
             stopDummyProgress();
             setProcessingUI(false);
-            $('#modal-upload').one('hidden.bs.modal', function () {
+            openPreviewAfterUploadModal(function () {
                 bindCinepolisConfirm();
                 showCinepolisPreview(res);
             });
-            $('#modal-upload').modal('hide');
         }).fail(function (xhr) {
             stopDummyProgress();
             const msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'PDF Cinepolis gagal dibaca.';
@@ -728,8 +741,7 @@
             $.ajax({ url: legacyUrls[bioskop].preview, method: 'POST', data: formData, contentType: false, processData: false })
                 .done(function (res) {
                     stopDummyProgress(); setProcessingUI(false);
-                    $('#modal-upload').one('hidden.bs.modal', function () { showLegacyPreview(res, bioskop, legacyUrls[bioskop]); });
-                    $('#modal-upload').modal('hide');
+                    openPreviewAfterUploadModal(function () { showLegacyPreview(res, bioskop, legacyUrls[bioskop]); });
                 }).fail(function (xhr) {
                     stopDummyProgress(); setProcessingUI(false);
                     var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Preview gagal.';
