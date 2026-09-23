@@ -90,6 +90,46 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->actingAs($owner)->post(route('pelaporan.upload.xxi.confirm'), ['token' => $token])->assertStatus(422);
     }
 
+    public function test_xxi_preview_resolves_duplicate_cinema_names_by_exact_city(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'xxi-category', 'name' => 'XXI']);
+        DB::table('master_bioskops')->insert([
+            ['uuid' => 'xxi-jakarta', 'nama_bioskop' => 'XXI TEST', 'type' => 'xxi-category', 'kota' => 'JAKARTA', 'pajak' => '10'],
+            ['uuid' => 'xxi-surabaya', 'nama_bioskop' => 'XXI TEST', 'type' => 'xxi-category', 'kota' => 'SURABAYA', 'pajak' => '10'],
+        ]);
+        DB::table('master_films')->insert(['uuid' => 'xxi-film', 'name' => 'FILM TEST']);
+        DB::table('type_tikets')->insert(['uuid' => 'xxi-ticket', 'name' => 'REGULAR', 'kategori' => 'xxi-category']);
+        DB::table('kapasitas')->insert(['uuid' => 'xxi-capacity', 'kategori' => 'xxi-category', 'nama_bioskop' => 'xxi-jakarta', 'type_tiket' => 'xxi-ticket', 'studio' => '1', 'kapasitas' => '100']);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.xxi'), ['file' => $this->makeXxiFile()]);
+
+        $preview->assertOk()
+            ->assertJsonPath('blocking_issues', [])
+            ->assertJsonPath('preview.0.cinema_uuid', 'xxi-jakarta')
+            ->assertJsonPath('preview.0.mapping_status', 'Siap');
+    }
+
+    public function test_xxi_preview_warns_and_blocks_when_name_and_city_are_still_ambiguous(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'xxi-category', 'name' => 'XXI']);
+        DB::table('master_bioskops')->insert([
+            ['uuid' => 'xxi-jakarta-a', 'nama_bioskop' => 'XXI TEST', 'type' => 'xxi-category', 'kota' => 'JAKARTA', 'pajak' => '10'],
+            ['uuid' => 'xxi-jakarta-b', 'nama_bioskop' => 'XXI TEST', 'type' => 'xxi-category', 'kota' => 'JAKARTA', 'pajak' => '10'],
+        ]);
+        DB::table('master_films')->insert(['uuid' => 'xxi-film', 'name' => 'FILM TEST']);
+        DB::table('type_tikets')->insert(['uuid' => 'xxi-ticket', 'name' => 'REGULAR', 'kategori' => 'xxi-category']);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.xxi'), ['file' => $this->makeXxiFile()]);
+
+        $preview->assertOk()
+            ->assertJsonPath('preview.0.mapping_status', 'Diblokir')
+            ->assertJsonPath('preview.0.cinema_uuid', null)
+            ->assertJsonFragment(['warnings' => ['Bioskop XXI TEST di kota JAKARTA memiliki lebih dari satu mapping master dan memerlukan pemilihan.']]);
+        $this->assertStringContainsString('Bioskop XXI TEST di kota JAKARTA memiliki mapping ambigu', implode(' ', $preview->json('blocking_issues')));
+    }
+
     public function test_xxi_quick_master_capacity_uses_the_preview_row_mapping(): void
     {
         $owner = $this->createUser();
