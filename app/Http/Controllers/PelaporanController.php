@@ -951,7 +951,23 @@ class PelaporanController extends Controller
             $cinema=MasterBioskop::where('uuid',$cinemaUuid)->where('type',$category->uuid)->first(); $ticket=TypeTiket::where('uuid',$ticketUuid)->where('kategori',$category->uuid)->first();
             $allowed=collect($rows)->pluck('studio')->map(fn($v)=>$this->normalizeStudioNumber((string)$v));
             if (!$cinema || !$ticket || !$allowed->contains($studio)) return response()->json(['status'=>'failed','message'=>'Mapping kapasitas tidak sesuai preview.'],422);
-            $capacity=new Kapasitas(); $capacity->kategori=$category->uuid; $capacity->kota=$cinema->kota; $capacity->nama_bioskop=$cinema->uuid; $capacity->type_tiket=$ticket->uuid; $capacity->studio=$studio; $capacity->kapasitas=$request->input('kapasitas'); $capacity->save();
+            $capacity = Kapasitas::where('kategori', $category->uuid)
+                ->where('nama_bioskop', $cinema->uuid)
+                ->where('type_tiket', $ticket->uuid)
+                ->get()
+                ->first(fn ($item) => $this->normalizeStudioNumber((string) $item->studio) === $studio);
+
+            if (!$capacity) {
+                $capacity = new Kapasitas();
+                $capacity->kategori = $category->uuid;
+                $capacity->kota = $cinema->kota;
+                $capacity->nama_bioskop = $cinema->uuid;
+                $capacity->type_tiket = $ticket->uuid;
+                $capacity->studio = $studio;
+            }
+
+            $capacity->kapasitas = $request->input('kapasitas');
+            $capacity->save();
         }
         $fresh=$this->mapLegacyPreview($rows,$provider); $cached['mapping']=$fresh; Cache::put($cacheKey,$cached,now()->addMinutes(30));
         return response()->json(array_merge(['status'=>'success','message'=>'Master berhasil ditambahkan.','token'=>$request->input('token')],$fresh));

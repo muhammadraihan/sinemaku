@@ -110,8 +110,20 @@ class LegacyExcelImportPreviewTest extends TestCase
             'kapasitas' => 100,
         ]);
 
-        $refresh->assertOk()->assertJsonPath('blocking_issues', []);
-        $this->assertDatabaseHas('kapasitas', ['nama_bioskop' => 'xxi-cinema', 'type_tiket' => 'xxi-ticket', 'studio' => '1']);
+        $refresh->assertOk()->assertJsonPath('status', 'success')->assertJsonPath('blocking_issues', []);
+        $this->assertDatabaseHas('kapasitas', ['nama_bioskop' => 'xxi-cinema', 'type_tiket' => 'xxi-ticket', 'studio' => '1', 'kapasitas' => '100']);
+
+        $this->actingAs($owner)->post(route('pelaporan.upload.xxi.quick-master'), [
+            'token' => $preview->json('token'),
+            'resource' => 'capacity',
+            'cinema_uuid' => 'xxi-cinema',
+            'ticket_uuid' => 'xxi-ticket',
+            'studio' => '1',
+            'kapasitas' => 120,
+        ])->assertOk()->assertJsonPath('status', 'success');
+
+        $this->assertSame(1, DB::table('kapasitas')->count());
+        $this->assertDatabaseHas('kapasitas', ['nama_bioskop' => 'xxi-cinema', 'type_tiket' => 'xxi-ticket', 'studio' => '1', 'kapasitas' => '120']);
         $this->assertSame(0, DB::table('pelaporans')->count());
     }
 
