@@ -64,6 +64,7 @@ class LegacyExcelImportPreviewTest extends TestCase
     {
         $view = file_get_contents(resource_path('views/pelaporan/index.blade.php'));
 
+        $this->assertStringContainsString('function escapeHtml(value)', $view);
         $this->assertStringContainsString('function openPreviewAfterUploadModal(callback)', $view);
         $this->assertStringContainsString("window.setTimeout(finish, 450);", $view);
         $this->assertStringContainsString("openPreviewAfterUploadModal(function () { showLegacyPreview(res, bioskop, legacyUrls[bioskop]); });", $view);

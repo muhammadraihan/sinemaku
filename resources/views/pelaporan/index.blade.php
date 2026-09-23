@@ -482,6 +482,10 @@
         $btnDownloadErr.addClass('d-none').attr('href', '#');
     });
 
+    function escapeHtml(value) {
+        return $('<div>').text(value == null ? '' : value).html();
+    }
+
     function openPreviewAfterUploadModal(callback) {
         var completed = false;
         var finish = function () {
