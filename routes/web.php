@@ -83,14 +83,26 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::get('get-chart-city', [GrafikKotaController::class,'getTopCities'])->name('getTopCities');
     Route::post('/pelaporan/upload-xxi', [PelaporanController::class, 'uploadXXI'])
     ->name('pelaporan.upload.xxi');
+    Route::post('/pelaporan/upload-xxi/confirm', [PelaporanController::class, 'confirmLegacyExcel'])->defaults('provider', 'XXI')
+    ->name('pelaporan.upload.xxi.confirm');
+    Route::post('/pelaporan/upload-xxi/quick-master', [PelaporanController::class, 'quickMasterLegacy'])->defaults('provider', 'XXI')
+    ->name('pelaporan.upload.xxi.quick-master');
     Route::get('/pelaporan/upload/xxi/errors/{token}', [PelaporanController::class, 'downloadXxiErrors'])
     ->name('pelaporan.upload.xxi.errors');
     Route::post('/pelaporan/upload-cgv', [PelaporanController::class, 'uploadCGV'])
     ->name('pelaporan.upload.cgv');
+    Route::post('/pelaporan/upload-cgv/confirm', [PelaporanController::class, 'confirmLegacyExcel'])->defaults('provider', 'CGV')
+    ->name('pelaporan.upload.cgv.confirm');
+    Route::post('/pelaporan/upload-cgv/quick-master', [PelaporanController::class, 'quickMasterLegacy'])->defaults('provider', 'CGV')
+    ->name('pelaporan.upload.cgv.quick-master');
     Route::get('/pelaporan/upload/cgv/errors/{token}', [PelaporanController::class, 'downloadCgvErrors'])
     ->name('pelaporan.upload.cgv.errors');
     Route::post('/pelaporan/upload-sams', [PelaporanController::class, 'uploadSAMS'])
     ->name('pelaporan.upload.sams');
+    Route::post('/pelaporan/upload-sams/confirm', [PelaporanController::class, 'confirmLegacyExcel'])->defaults('provider', 'SAMS STUDIOS')
+    ->name('pelaporan.upload.sams.confirm');
+    Route::post('/pelaporan/upload-sams/quick-master', [PelaporanController::class, 'quickMasterLegacy'])->defaults('provider', 'SAMS STUDIOS')
+    ->name('pelaporan.upload.sams.quick-master');
     Route::post('/pelaporan/upload-cinepolis-pdf/preview', [PelaporanController::class, 'previewCinepolisPdf'])
     ->name('pelaporan.upload.cinepolis.preview');
     Route::post('/pelaporan/upload-cinepolis-pdf/confirm', [PelaporanController::class, 'confirmCinepolisPdf'])

@@ -1,0 +1,185 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Tests\TestCase;
+
+class LegacyExcelImportPreviewTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config([
+            'database.default' => 'legacy_excel_preview_test',
+            'database.connections.legacy_excel_preview_test' => [
+                'driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => true,
+            ],
+            'cache.default' => 'array',
+        ]);
+        DB::purge('legacy_excel_preview_test');
+        DB::setDefaultConnection('legacy_excel_preview_test');
+        Cache::flush();
+
+        foreach (['users', 'kategori_bioskops', 'master_bioskops', 'master_films', 'type_tikets', 'kapasitas', 'pelaporans'] as $tableName) {
+            Schema::create($tableName, function ($table) {
+                $table->increments('id');
+                $table->string('uuid')->nullable()->unique();
+                $table->string('name')->nullable();
+                $table->string('nama_bioskop')->nullable();
+                $table->string('type')->nullable();
+                $table->string('kota')->nullable();
+                $table->string('pajak')->nullable();
+                $table->string('kategori')->nullable();
+                $table->string('nama_film')->nullable();
+                $table->date('tgl_tayang')->nullable();
+                $table->string('jam_tayang')->nullable();
+                $table->string('show')->nullable();
+                $table->string('type_tiket')->nullable();
+                $table->string('harga')->nullable();
+                $table->string('jumlah')->nullable();
+                $table->string('gross')->nullable();
+                $table->string('tax')->nullable();
+                $table->string('net')->nullable();
+                $table->string('studio')->nullable();
+                $table->string('kapasitas')->nullable();
+                $table->string('provinsi')->nullable();
+                $table->string('created_by')->nullable();
+                $table->string('edited_by')->nullable();
+                $table->string('email')->nullable();
+                $table->string('password')->nullable();
+                $table->rememberToken();
+                $table->timestamps();
+            });
+        }
+    }
+
+    public function test_xxi_preview_writes_no_canonical_rows_then_confirm_consumes_its_user_bound_token(): void
+    {
+        $owner = $this->seedResolvedXxiMappings();
+        $file = $this->makeXxiFile();
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.xxi'), ['file' => $file]);
+        $preview->assertOk()->assertJsonPath('status', 'success')->assertJsonCount(1, 'preview')->assertJsonPath('blocking_issues', []);
+        $this->assertSame(0, DB::table('pelaporans')->count());
+        $token = $preview->json('token');
+
+        $other = $this->createUser('other-user', 'other@example.test');
+        $this->actingAs($other)->post(route('pelaporan.upload.xxi.confirm'), ['token' => $token])->assertStatus(403);
+        $this->actingAs($owner)->post(route('pelaporan.upload.xxi.confirm'), ['token' => $token])->assertOk()->assertJsonPath('inserted', 1);
+        $this->assertSame(1, DB::table('pelaporans')->count());
+        $this->actingAs($owner)->post(route('pelaporan.upload.xxi.confirm'), ['token' => $token])->assertStatus(422);
+    }
+
+    public function test_xxi_quick_master_capacity_uses_the_preview_row_mapping(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'xxi-category', 'name' => 'XXI']);
+        DB::table('master_bioskops')->insert(['uuid' => 'xxi-cinema', 'nama_bioskop' => 'XXI TEST', 'type' => 'xxi-category', 'kota' => 'JAKARTA', 'pajak' => '10']);
+        DB::table('master_films')->insert(['uuid' => 'xxi-film', 'name' => 'FILM TEST']);
+        DB::table('type_tikets')->insert(['uuid' => 'xxi-ticket', 'name' => 'REGULAR', 'kategori' => 'xxi-category']);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.xxi'), ['file' => $this->makeXxiFile()]);
+        $preview->assertOk()->assertJsonFragment(['mapping_status' => 'Diblokir']);
+
+        $refresh = $this->actingAs($owner)->post(route('pelaporan.upload.xxi.quick-master'), [
+            'token' => $preview->json('token'),
+            'resource' => 'capacity',
+            'cinema_uuid' => 'xxi-cinema',
+            'ticket_uuid' => 'xxi-ticket',
+            'studio' => '1',
+            'kapasitas' => 100,
+        ]);
+
+        $refresh->assertOk()->assertJsonPath('blocking_issues', []);
+        $this->assertDatabaseHas('kapasitas', ['nama_bioskop' => 'xxi-cinema', 'type_tiket' => 'xxi-ticket', 'studio' => '1']);
+        $this->assertSame(0, DB::table('pelaporans')->count());
+    }
+
+    public function test_cgv_preview_preserves_ticket_type_and_six_showtime_columns_without_writing(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'cgv-category', 'name' => 'CGV']);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.cgv'), ['file' => $this->makeCgvFile()]);
+
+        $preview->assertOk()->assertJsonPath('status', 'success')->assertJsonCount(2, 'preview')
+            ->assertJsonPath('preview.0.ticket_name', 'VELVET')
+            ->assertJsonPath('preview.0.jam_tayang', '10:15')
+            ->assertJsonPath('preview.1.jam_tayang', '13:30');
+        $this->assertSame(0, DB::table('pelaporans')->count());
+    }
+
+    public function test_sams_preview_shows_missing_mappings_without_writing_and_quick_master_rejects_out_of_preview_values(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'sams-category', 'name' => 'SAMS STUDIOS']);
+        $file = $this->makeSamsFile();
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.sams'), ['file' => $file]);
+        $preview->assertOk()->assertJsonPath('status', 'success');
+        $this->assertNotEmpty($preview->json('blocking_issues'));
+        $this->assertSame(0, DB::table('pelaporans')->count());
+
+        $this->actingAs($owner)->post(route('pelaporan.upload.sams.quick-master'), [
+            'token' => $preview->json('token'), 'resource' => 'film', 'name' => 'FILM PALSU',
+        ])->assertStatus(422);
+        $this->assertDatabaseMissing('master_films', ['name' => 'FILM PALSU']);
+    }
+
+    private function seedResolvedXxiMappings(): User
+    {
+        $user = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'xxi-category', 'name' => 'XXI']);
+        DB::table('master_bioskops')->insert(['uuid' => 'xxi-cinema', 'nama_bioskop' => 'XXI TEST', 'type' => 'xxi-category', 'kota' => 'JAKARTA', 'pajak' => '10']);
+        DB::table('master_films')->insert(['uuid' => 'xxi-film', 'name' => 'FILM TEST']);
+        DB::table('type_tikets')->insert(['uuid' => 'xxi-ticket', 'name' => 'REGULAR', 'kategori' => 'xxi-category']);
+        DB::table('kapasitas')->insert(['uuid' => 'xxi-capacity', 'kategori' => 'xxi-category', 'nama_bioskop' => 'xxi-cinema', 'type_tiket' => 'xxi-ticket', 'studio' => '1', 'kapasitas' => '100']);
+        return $user;
+    }
+
+    private function createUser(string $uuid = 'legacy-user', string $email = 'legacy@example.test'): User
+    {
+        $id = DB::table('users')->insertGetId(['uuid' => $uuid, 'name' => 'Tester', 'email' => $email, 'password' => bcrypt('secret')]);
+        return User::findOrFail($id);
+    }
+
+    private function makeXxiFile(): UploadedFile
+    {
+        return $this->makeWorkbook([
+            ['Date', 'Film', 'Cinema', 'City', 'Studio', '11', '13', '15', '17', '19', '21', 'Total', 'Price', 'Free'],
+            ['2026-01-01', 'FILM TEST', 'XXI TEST', 'JAKARTA', '1', '10', '-', '-', '-', '-', '-', '', '50000', ''],
+        ], 'xxi.xlsx');
+    }
+
+    private function makeCgvFile(): UploadedFile
+    {
+        return $this->makeWorkbook([
+            ['Date', 'Cinema', 'Studio', 'Film', 'Format', 'Ticket', 'Price', 'Time 1', 'Admit 1', 'Free 1', 'Time 2', 'Admit 2', 'Free 2', 'Time 3', 'Admit 3', 'Free 3', 'Time 4', 'Admit 4', 'Free 4', 'Time 5', 'Admit 5', 'Free 5', 'Time 6', 'Admit 6', 'Free 6', 'Total', 'Free Total', 'Net'],
+            ['2026-01-01', 'CGV TEST', '2', 'FILM CGV', '', 'VELVET', '75000', '10:15', '3', '', '13:30', '4', '', '', '-', '', '', '-', '', '', '-', '', '', '-', '', '', '', ''],
+        ], 'cgv.xlsx');
+    }
+
+    private function makeSamsFile(): UploadedFile
+    {
+        return $this->makeWorkbook([
+            ['Film', 'Cinema', 'Studio', 'Date', 'Time', 'Price', 'Status', 'Approval', 'Net', 'Total', 'Paid', 'Voucher', 'Free'],
+            ['FILM SAMS', 'SAMS TEST', 'Studio 2', '2026-01-01', '10:00', 'Rp. 50000', '', '', '', '', '5', '2', ''],
+        ], 'sams.xlsx');
+    }
+
+    private function makeWorkbook(array $rows, string $filename): UploadedFile
+    {
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->getActiveSheet()->fromArray($rows, null, 'A1');
+        $path = tempnam(sys_get_temp_dir(), 'legacy-excel-');
+        (new Xlsx($spreadsheet))->save($path);
+        return new UploadedFile($path, $filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+    }
+}
