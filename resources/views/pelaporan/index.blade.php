@@ -498,11 +498,11 @@
         }).done(function (res) {
             stopDummyProgress();
             setProcessingUI(false);
-            $('#modal-upload').modal('hide');
             $('#modal-upload').one('hidden.bs.modal', function () {
                 bindCinepolisConfirm();
                 showCinepolisPreview(res);
             });
+            $('#modal-upload').modal('hide');
         }).fail(function (xhr) {
             stopDummyProgress();
             const msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'PDF Cinepolis gagal dibaca.';
@@ -727,8 +727,9 @@
             };
             $.ajax({ url: legacyUrls[bioskop].preview, method: 'POST', data: formData, contentType: false, processData: false })
                 .done(function (res) {
-                    stopDummyProgress(); setProcessingUI(false); $('#modal-upload').modal('hide');
+                    stopDummyProgress(); setProcessingUI(false);
                     $('#modal-upload').one('hidden.bs.modal', function () { showLegacyPreview(res, bioskop, legacyUrls[bioskop]); });
+                    $('#modal-upload').modal('hide');
                 }).fail(function (xhr) {
                     stopDummyProgress(); setProcessingUI(false);
                     var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Preview gagal.';
