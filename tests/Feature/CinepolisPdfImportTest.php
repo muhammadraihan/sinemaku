@@ -47,6 +47,7 @@ class CinepolisPdfImportTest extends TestCase
                 $table->string('tax')->nullable();
                 $table->string('net')->nullable();
                 $table->string('studio')->nullable();
+                $table->string('kapasitas')->nullable();
                 $table->string('provinsi')->nullable();
                 $table->string('created_by')->nullable();
                 $table->string('edited_by')->nullable();
@@ -170,6 +171,69 @@ class CinepolisPdfImportTest extends TestCase
             ->assertOk()->assertJsonPath('inserted', 2);
         $this->assertSame(['cinema-jember-city'], DB::table('pelaporans')->distinct()->pluck('nama_bioskop')->all());
         $this->assertSame(['selected-studio-4', 'selected-studio-6'], DB::table('pelaporans')->orderBy('jam_tayang', 'desc')->pluck('studio')->all());
+    }
+
+    public function test_quick_master_creates_missing_ticket_and_returns_refreshed_preview(): void
+    {
+        $user = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'category-1', 'name' => 'CINEPOLIS']);
+        DB::table('master_bioskops')->insert(['uuid' => 'cinema-1', 'nama_bioskop' => 'PALEMBANG ICON', 'type' => 'category-1', 'kota' => 'PALEMBANG']);
+        DB::table('master_films')->insert(['uuid' => 'film-1', 'name' => 'PERAYAAN MATI RASA']);
+        DB::table('kotas')->insert(['uuid' => 'city-1', 'nama' => 'PALEMBANG', 'provinsi_id' => 'province-1']);
+        DB::table('provinces')->insert(['uuid' => 'province-1', 'nama' => 'SUMATERA SELATAN']);
+        DB::table('type_tikets')->insert(['uuid' => 'ticket-regular', 'name' => 'REGULAR', 'kategori' => 'category-1']);
+        $file = new UploadedFile(base_path('tests/Fixtures/cinepolis-palembang-icon-multi-ticket.pdf'), 'palembang.pdf', 'application/pdf', null, true);
+        $preview = $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.preview'), ['file' => $file]);
+
+        $response = $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.quick-master'), [
+            'token' => $preview->json('token'),
+            'resource' => 'ticket_type',
+            'name' => 'COMPLIMENTRY VOUCHER',
+        ]);
+
+        $response->assertOk()->assertJsonPath('status', 'success');
+        $this->assertDatabaseHas('type_tikets', ['name' => 'COMPLIMENTRY VOUCHER', 'kategori' => 'category-1']);
+        $this->assertStringNotContainsString('Tipe tiket COMPLIMENTRY VOUCHER belum tersedia', implode(' ', $response->json('blocking_issues')));
+    }
+
+    public function test_quick_master_creates_missing_capacity_for_pdf_studio(): void
+    {
+        $user = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'category-1', 'name' => 'CINEPOLIS']);
+        DB::table('master_bioskops')->insert(['uuid' => 'cinema-1', 'nama_bioskop' => 'PALEMBANG ICON', 'type' => 'category-1', 'kota' => 'PALEMBANG']);
+        DB::table('master_films')->insert(['uuid' => 'film-1', 'name' => 'PERAYAAN MATI RASA']);
+        DB::table('kotas')->insert(['uuid' => 'city-1', 'nama' => 'PALEMBANG', 'provinsi_id' => 'province-1']);
+        DB::table('provinces')->insert(['uuid' => 'province-1', 'nama' => 'SUMATERA SELATAN']);
+        DB::table('type_tikets')->insert(['uuid' => 'ticket-regular', 'name' => 'REGULAR', 'kategori' => 'category-1']);
+        $file = new UploadedFile(base_path('tests/Fixtures/cinepolis-palembang-icon-multi-ticket.pdf'), 'palembang.pdf', 'application/pdf', null, true);
+        $preview = $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.preview'), ['file' => $file]);
+
+        $response = $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.quick-master'), [
+            'token' => $preview->json('token'),
+            'resource' => 'capacity',
+            'cinema_uuid' => 'cinema-1',
+            'ticket_uuid' => 'ticket-regular',
+            'studio' => 'CINEMA 02',
+            'kapasitas' => 100,
+        ]);
+
+        $response->assertOk()->assertJsonPath('status', 'success');
+        $this->assertDatabaseHas('kapasitas', ['nama_bioskop' => 'cinema-1', 'type_tiket' => 'ticket-regular', 'studio' => '2', 'kapasitas' => '100']);
+    }
+
+    public function test_quick_master_rejects_values_not_present_in_preview(): void
+    {
+        $user = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'category-1', 'name' => 'CINEPOLIS']);
+        $file = new UploadedFile(base_path('tests/Fixtures/cinepolis-palembang-icon-multi-ticket.pdf'), 'palembang.pdf', 'application/pdf', null, true);
+        $preview = $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.preview'), ['file' => $file]);
+
+        $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.quick-master'), [
+            'token' => $preview->json('token'),
+            'resource' => 'ticket_type',
+            'name' => 'TIKET PALSU',
+        ])->assertStatus(422);
+        $this->assertDatabaseMissing('type_tikets', ['name' => 'TIKET PALSU']);
     }
 
     public function test_preview_token_is_user_bound_and_same_report_cannot_be_imported_twice(): void

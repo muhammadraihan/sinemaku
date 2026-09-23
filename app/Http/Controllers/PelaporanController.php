@@ -455,6 +455,8 @@ class PelaporanController extends Controller
                 'blocking_issues' => $mapping['blocking_issues'],
                 'warnings' => $mapping['warnings'],
                 'cinema_mapping' => $mapping['cinema_mapping'],
+                'row_mappings' => $mapping['row_mappings'],
+                'quick_master_context' => $mapping['quick_master_context'],
             ]);
         } catch (\Throwable $e) {
             report($e);
@@ -463,6 +465,116 @@ class PelaporanController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         }
+    }
+
+    public function quickMasterCinepolis(Request $request)
+    {
+        $request->validate([
+            'token' => 'required|string',
+            'resource' => 'required|in:cinema,film,ticket_type,capacity',
+        ]);
+        $cacheKey = 'cinepolis_pdf_preview:' . $request->input('token');
+        $cached = Cache::get($cacheKey);
+        if (!$cached) {
+            return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa. Silakan upload ulang PDF.'], 422);
+        }
+        if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) {
+            return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
+        }
+
+        $parsed = $cached['parsed'];
+        $mapping = $cached['mapping'];
+        $resource = $request->input('resource');
+        $category = KategoriBioskop::whereRaw('UPPER(name) = ?', ['CINEPOLIS'])->first();
+        if (!$category) {
+            return response()->json(['status' => 'failed', 'message' => 'Kategori CINEPOLIS belum tersedia.'], 422);
+        }
+
+        if ($resource === 'cinema') {
+            $request->validate(['name' => 'required|string|max:255', 'city' => 'required|string|max:255']);
+            if ($this->normalizeCinepolisCinemaName($parsed['cinema_name']) !== $this->normalizeCinepolisCinemaName($request->input('name'))) {
+                return response()->json(['status' => 'failed', 'message' => 'Nama bioskop harus berasal dari PDF preview.'], 422);
+            }
+            $cinema = new MasterBioskop();
+            $cinema->type = $category->uuid;
+            $cinema->nama_bioskop = $request->input('name');
+            $cinema->kota = $request->input('city');
+            $cinema->created_by = Auth::user()->uuid;
+            $cinema->save();
+        } elseif ($resource === 'film') {
+            $request->validate(['name' => 'required|string|max:255']);
+            if (!$this->cinepolisPreviewContains($parsed, 'film', $request->input('name'))) {
+                return response()->json(['status' => 'failed', 'message' => 'Nama film harus berasal dari PDF preview.'], 422);
+            }
+            $film = new MasterFilm();
+            $film->name = MasterFilm::normalizeName($request->input('name'));
+            $film->created_by = Auth::user()->uuid;
+            $film->save();
+        } elseif ($resource === 'ticket_type') {
+            $request->validate(['name' => 'required|string|max:255']);
+            $ticketName = $this->normalizeCinepolisTicketName($request->input('name'));
+            $allowed = collect($parsed['rows'])->pluck('type_tiket')->map(fn ($name) => $this->normalizeCinepolisTicketName($name));
+            if (!$allowed->contains($ticketName)) {
+                return response()->json(['status' => 'failed', 'message' => 'Tipe tiket harus berasal dari PDF preview.'], 422);
+            }
+            $ticket = new TypeTiket();
+            $ticket->name = $ticketName;
+            $ticket->kategori = $category->uuid;
+            $ticket->save();
+        } else {
+            $request->validate([
+                'cinema_uuid' => 'required|string',
+                'ticket_uuid' => 'required|string',
+                'studio' => 'required|string|max:30',
+                'kapasitas' => 'required|numeric|min:0',
+            ]);
+            $cinema = MasterBioskop::where('uuid', $request->input('cinema_uuid'))->where('type', $category->uuid)->first();
+            $ticket = TypeTiket::where('uuid', $request->input('ticket_uuid'))->where('kategori', $category->uuid)->first();
+            $studio = $this->normalizeStudioNumber((string) $request->input('studio'));
+            $allowedStudios = collect($parsed['rows'])->pluck('studio')->map(fn ($value) => $this->normalizeStudioNumber((string) $value));
+            if (!$cinema || !$ticket || !$allowedStudios->contains($studio)) {
+                return response()->json(['status' => 'failed', 'message' => 'Bioskop, tipe tiket, atau studio tidak sesuai dengan PDF preview.'], 422);
+            }
+            $capacity = new Kapasitas();
+            $capacity->kategori = $category->uuid;
+            $capacity->kota = $cinema->kota;
+            $capacity->nama_bioskop = $cinema->uuid;
+            $capacity->type_tiket = $ticket->uuid;
+            $capacity->studio = $studio;
+            $capacity->kapasitas = $request->input('kapasitas');
+            $capacity->save();
+        }
+
+        $freshMapping = $this->mapCinepolisPreview($parsed, $request->input('cinema_uuid'));
+        $cached['mapping'] = $freshMapping;
+        Cache::put($cacheKey, $cached, now()->addMinutes(15));
+        return response()->json(array_merge([
+            'status' => 'success',
+            'message' => 'Master berhasil ditambahkan.',
+            'token' => $request->input('token'),
+        ], $freshMapping, [
+            'row_mappings' => $freshMapping['row_mappings'],
+            'quick_master_context' => $freshMapping['quick_master_context'],
+        ]));
+    }
+
+    private function normalizeStudioNumber(string $value): string
+    {
+        $digits = preg_replace('/[^0-9]/', '', $value);
+        return $digits === '' ? '' : (string) ((int) $digits);
+    }
+
+    private function cinepolisPreviewContains(array $parsed, string $type, string $value): bool
+    {
+        if ($type === 'film') {
+            return $this->normalizeCinepolisCinemaName($parsed['film_name']) === $this->normalizeCinepolisCinemaName($value);
+        }
+        return false;
+    }
+
+    private function normalizeCinepolisTicketName(string $value): string
+    {
+        return mb_strtoupper(trim(preg_replace('/\\s+/', ' ', $value)), 'UTF-8');
     }
 
     public function confirmCinepolisPdf(Request $request)
@@ -621,6 +733,15 @@ class PelaporanController extends Controller
                 'candidates' => $cinemaMatch['candidates'],
             ],
             'row_mappings' => $rowMappings,
+            'quick_master_context' => [
+                'cinema_name' => $parsed['cinema_name'],
+                'film_name' => $parsed['film_name'],
+                'category_uuid' => optional($category)->uuid,
+                'cinema_uuid' => optional($cinema)->uuid,
+                'city' => $city,
+                'ticket_types' => array_values(array_unique(array_column($parsed['rows'], 'type_tiket'))),
+                'studios' => array_values(array_unique(array_column($parsed['rows'], 'studio'))),
+            ],
             'blocking_issues' => $blocking,
             'warnings' => array_values(array_unique($warnings)),
             'preview' => array_map(function ($row) use ($parsed, $city, $rowMappings) {

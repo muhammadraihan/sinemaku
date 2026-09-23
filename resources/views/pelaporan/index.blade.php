@@ -526,7 +526,13 @@
                     : ''));
         var issues = res.blocking_issues || [];
         var warnings = res.warnings || [];
-        $('#cinepolis-preview-issues').toggleClass('d-none', !issues.length).html(issues.length ? '<strong>Import diblokir:</strong><ul class="mb-0">' + issues.map(function (issue) { return '<li>' + escapeHtml(issue) + '</li>'; }).join('') + '</ul>' : '');
+        activeCinepolisPreview = res;
+        var quickContext = res.quick_master_context || {};
+        var issueHtml = issues.map(function (issue) {
+            var action = quickMasterActionForIssue(issue, quickContext, res);
+            return '<li class="d-flex justify-content-between align-items-center flex-wrap"><span>' + escapeHtml(issue) + '</span>' + (action ? '<button type="button" class="btn btn-sm btn-outline-primary ml-2 mt-1 quick-master-action" data-resource="' + action.resource + '" data-issue="' + escapeHtml(issue) + '">' + action.label + '</button>' : '') + '</li>';
+        }).join('');
+        $('#cinepolis-preview-issues').toggleClass('d-none', !issues.length).html(issues.length ? '<strong>Import diblokir:</strong><ul class="mb-0">' + issueHtml + '</ul>' : '');
         $('#cinepolis-preview-warnings').toggleClass('d-none', !warnings.length).html(warnings.length ? '<strong>Perhatian:</strong><ul class="mb-0">' + warnings.map(function (warning) { return '<li>' + escapeHtml(warning) + '</li>'; }).join('') + '</ul>' : '');
         var rows = (res.preview || []).map(function (row) {
             var blocked = row.mapping_status !== 'Siap';
@@ -559,6 +565,103 @@
     function escapeHtml(value) {
         return $('<div>').text(value == null ? '' : value).html();
     }
+
+    var activeCinepolisPreview = null;
+
+    function quickMasterActionForIssue(issue, context, preview) {
+        if (issue.indexOf('belum terdaftar sebagai bioskop') !== -1) return { resource: 'cinema', label: 'Tambah Master Bioskop' };
+        if (issue.indexOf('belum terdaftar di Master Film') !== -1) return { resource: 'film', label: 'Tambah Master Film' };
+        if (issue.indexOf('Tipe tiket ') === 0) return { resource: 'ticket_type', label: 'Tambah Tipe Tiket' };
+        if (issue.indexOf('Studio CINEMA ') === 0 && context.cinema_uuid && ticketTypeAlreadyMapped(preview, issue)) return { resource: 'capacity', label: 'Tambah Master Kapasitas' };
+        return null;
+    }
+
+    function ticketTypeAlreadyMapped(preview, issue) {
+        var studio = firstMissingStudio([issue]);
+        return Object.keys(preview.row_mappings || {}).some(function (key) {
+            var mapping = preview.row_mappings[key];
+            return key.indexOf(String(studio) + '|') === 0 && mapping.ticket_uuid;
+        });
+    }
+
+    function firstMissingTicket(issues) {
+        var issue = (issues || []).find(function (value) { return value.indexOf('Tipe tiket ') === 0; });
+        return issue ? issue.replace(/^Tipe tiket /, '').replace(/ belum tersedia.*$/, '') : '';
+    }
+
+    function firstMissingStudio(issues) {
+        var issue = (issues || []).find(function (value) { return value.indexOf('Studio CINEMA ') === 0; });
+        var match = issue && issue.match(/^Studio CINEMA ([^ ]+)/);
+        return match ? match[1] : '';
+    }
+
+    function capacityTicketName(issues) {
+        var issue = (issues || []).find(function (value) { return value.indexOf('Studio CINEMA ') === 0; });
+        var match = issue && issue.match(/untuk tipe tiket (.+)\.$/);
+        return match ? match[1] : '';
+    }
+
+    function openQuickMaster(resource, issue) {
+        var res = activeCinepolisPreview || {};
+        var ctx = res.quick_master_context || {};
+        var issues = issue ? [issue] : (res.blocking_issues || []);
+        var target = document.querySelector('#modal-cinepolis-preview .cinepolis-preview-swal-target');
+        var title = { cinema: 'Tambah Master Bioskop', film: 'Tambah Master Film', ticket_type: 'Tambah Tipe Tiket', capacity: 'Tambah Master Kapasitas' }[resource];
+        var fields = resource === 'cinema'
+            ? '<input id="qm-name" class="swal2-input" value="' + escapeHtml(ctx.cinema_name || '') + '" placeholder="Nama bioskop"><input id="qm-city" class="swal2-input" placeholder="Kota">'
+            : resource === 'film'
+                ? '<input id="qm-name" class="swal2-input" value="' + escapeHtml(ctx.film_name || '') + '" placeholder="Nama film">'
+                : resource === 'ticket_type'
+                    ? '<input id="qm-name" class="swal2-input" value="' + escapeHtml(firstMissingTicket(issues)) + '" placeholder="Tipe tiket">'
+                    : '<input id="qm-studio" class="swal2-input" value="' + escapeHtml(firstMissingStudio(issues)) + '" placeholder="Nomor studio"><input id="qm-capacity" type="number" min="0" class="swal2-input" placeholder="Kapasitas kursi">';
+        Swal.fire({
+            target: target,
+            title: title,
+            html: '<p class="text-muted mb-2">Data diisi dari PDF. Periksa sebelum menyimpan.</p>' + fields,
+            showCancelButton: true,
+            confirmButtonText: 'Simpan & Periksa Ulang',
+            cancelButtonText: 'Batal',
+            focusConfirm: false,
+            preConfirm: function () {
+                var payload = { token: res.token, resource: resource };
+                if (resource === 'cinema') { payload.name = $('#qm-name').val(); payload.city = $('#qm-city').val(); }
+                if (resource === 'film' || resource === 'ticket_type') payload.name = $('#qm-name').val();
+                if (resource === 'capacity') {
+                    payload.cinema_uuid = ctx.cinema_uuid;
+                    payload.ticket_uuid = findTicketUuidForCapacity(res, firstMissingStudio(issues), capacityTicketName(issues));
+                    payload.studio = $('#qm-studio').val();
+                    payload.kapasitas = $('#qm-capacity').val();
+                }
+                if ((resource === 'capacity' && (!payload.cinema_uuid || !payload.ticket_uuid || !payload.studio || payload.kapasitas === '')) || ((resource === 'film' || resource === 'ticket_type') && !payload.name) || (resource === 'cinema' && (!payload.name || !payload.city))) {
+                    Swal.showValidationMessage('Lengkapi semua field wajib.');
+                    return false;
+                }
+                return $.post(@json(route('pelaporan.upload.cinepolis.quick-master')), payload)
+                    .then(function (fresh) { return fresh; })
+                    .catch(function (xhr) {
+                        var json = xhr.responseJSON || {};
+                        var message = json.message || (json.errors ? Object.values(json.errors)[0][0] : 'Master gagal disimpan.');
+                        Swal.showValidationMessage(message);
+                    });
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed || !result.value) return;
+            showCinepolisPreview(result.value);
+            Swal.fire({ target: target, icon: 'success', title: 'Master tersimpan', text: result.value.message, timer: 1200, showConfirmButton: false });
+        });
+    }
+
+    function findTicketUuidForCapacity(res, studio, ticketName) {
+        var row = (res.preview || []).find(function (item) { return String(item.studio) === String(studio) && (!ticketName || item.type_tiket === ticketName); });
+        if (!row) return '';
+        var keyPrefix = String(row.studio) + '|' + row.type_tiket + '|';
+        var mappingKey = Object.keys(res.row_mappings || {}).find(function (key) { return key.indexOf(keyPrefix) === 0; });
+        return mappingKey && res.row_mappings[mappingKey] ? res.row_mappings[mappingKey].ticket_uuid : '';
+    }
+
+    $(document).off('click', '.quick-master-action').on('click', '.quick-master-action', function () {
+        openQuickMaster($(this).data('resource'), $(this).data('issue'));
+    });
 
     function bindCinepolisConfirm() {
     $('#btn-confirm-cinepolis-import').off('click').on('click', function () {
