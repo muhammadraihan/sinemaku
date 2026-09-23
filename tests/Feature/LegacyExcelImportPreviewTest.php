@@ -104,8 +104,7 @@ class LegacyExcelImportPreviewTest extends TestCase
         $refresh = $this->actingAs($owner)->post(route('pelaporan.upload.xxi.quick-master'), [
             'token' => $preview->json('token'),
             'resource' => 'capacity',
-            'cinema_uuid' => 'xxi-cinema',
-            'ticket_uuid' => 'xxi-ticket',
+            'source_row' => 2,
             'studio' => '1',
             'kapasitas' => 100,
         ]);
@@ -116,8 +115,7 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->actingAs($owner)->post(route('pelaporan.upload.xxi.quick-master'), [
             'token' => $preview->json('token'),
             'resource' => 'capacity',
-            'cinema_uuid' => 'xxi-cinema',
-            'ticket_uuid' => 'xxi-ticket',
+            'source_row' => 2,
             'studio' => '1',
             'kapasitas' => 120,
         ])->assertOk()->assertJsonPath('status', 'success');

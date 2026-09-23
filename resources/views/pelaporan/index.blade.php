@@ -920,8 +920,13 @@
                 return [row.nama_film, row.bioskop, row.ticket_name].some(function (value) { return String(value) === match[1]; });
             }) || null;
         }
-        var capacity = issue.match(/^Studio (.+) belum memiliki mapping kapasitas untuk tipe tiket (.+)\.$/);
-        return capacity ? rows.find(function (row) { return String(row.studio) === capacity[1] && String(row.ticket_name) === capacity[2]; }) || null : null;
+        var capacity = issue.match(/^Studio (.+) belum memiliki mapping kapasitas untuk tipe tiket (.+) di bioskop (.+) \(baris (\d+)\)\.$/);
+        return capacity ? rows.find(function (row) {
+            return String(row.source_row) === capacity[4]
+                && String(row.studio) === capacity[1]
+                && String(row.ticket_name) === capacity[2]
+                && String(row.bioskop) === capacity[3];
+        }) || null : null;
     }
 
     function openLegacyQuickMaster(button) {
@@ -929,7 +934,10 @@
         if (!state) return;
         var resource = button.data('resource'), issue = button.data('issue'), issueRow = legacyRowForIssue(state.res, issue) || {};
         var field = resource === 'cinema' ? '<input id="legacy-qm-name" class="swal2-input" value="'+escapeHtml(issueRow.bioskop || '')+'" placeholder="Nama bioskop"><input id="legacy-qm-city" class="swal2-input" value="'+escapeHtml(issueRow.kota || '')+'" placeholder="Kota">' : resource === 'film' ? '<input id="legacy-qm-name" class="swal2-input" value="'+escapeHtml(issueRow.nama_film || '')+'" placeholder="Nama film">' : resource === 'ticket_type' ? '<input id="legacy-qm-name" class="swal2-input" value="'+escapeHtml(issueRow.ticket_name || '')+'" placeholder="Tipe tiket">' : '<input id="legacy-qm-studio" class="swal2-input" value="'+escapeHtml(issueRow.studio || '')+'" placeholder="Studio"><input id="legacy-qm-capacity" type="number" min="0" class="swal2-input" placeholder="Kapasitas">';
-        Swal.fire({target:document.querySelector('#modal-legacy-preview .cinepolis-preview-swal-target'),title:'Tambah Master',html:field,showCancelButton:true,confirmButtonText:'Simpan & Periksa Ulang',preConfirm:function(){ var p={token:state.res.token,resource:resource}; if(resource==='cinema'){p.name=$('#legacy-qm-name').val();p.city=$('#legacy-qm-city').val();} else if(resource==='film'||resource==='ticket_type'){p.name=$('#legacy-qm-name').val();} else { var capacityRow=legacyRowForIssue(state.res,issue)||{}; p.cinema_uuid=capacityRow.cinema_uuid||''; p.ticket_uuid=capacityRow.ticket_uuid||''; p.studio=$('#legacy-qm-studio').val() || capacityRow.studio || '';p.kapasitas=$('#legacy-qm-capacity').val(); } return $.post(state.urls.quick,p).then(function(response){ if (!response || response.status !== 'success') { throw new Error(response && response.message ? response.message : 'Master gagal disimpan.'); } return response; }).catch(function(xhr){ var json=xhr.responseJSON||{}; var message=json.message||xhr.message||((json.errors&&Object.values(json.errors)[0]) ? Object.values(json.errors)[0][0] : 'Master gagal disimpan.'); Swal.showValidationMessage(message); return false; }); }}).then(function(result){if(result.isConfirmed&&result.value)showLegacyPreview(result.value,state.provider,state.urls);});
+        var target = document.querySelector('#modal-legacy-preview .cinepolis-preview-swal-target');
+        Swal.fire({target:target,title:'Tambah Master',html:field,showCancelButton:true,confirmButtonText:'Simpan & Periksa Ulang',cancelButtonText:'Batal',showLoaderOnConfirm:true,preConfirm:function(){ var p={token:state.res.token,resource:resource}; if(resource==='cinema'){p.name=$('#legacy-qm-name').val();p.city=$('#legacy-qm-city').val();} else if(resource==='film'||resource==='ticket_type'){p.name=$('#legacy-qm-name').val();} else { var capacityRow=legacyRowForIssue(state.res,issue)||{}; p.source_row=capacityRow.source_row||''; p.studio=$('#legacy-qm-studio').val() || capacityRow.studio || '';p.kapasitas=$('#legacy-qm-capacity').val(); }
+            if ((resource==='capacity' && (!p.source_row || !p.studio || p.kapasitas==='')) || ((resource==='film'||resource==='ticket_type') && !p.name) || (resource==='cinema' && (!p.name || !p.city))) { Swal.showValidationMessage('Lengkapi semua field wajib.'); return false; }
+            return $.post(state.urls.quick,p).then(function(response){ if (!response || response.status !== 'success') { throw new Error(response && response.message ? response.message : 'Master gagal disimpan.'); } return response; }).catch(function(xhr){ var json=xhr.responseJSON||{}; var message=json.message||xhr.message||((json.errors&&Object.values(json.errors)[0]) ? Object.values(json.errors)[0][0] : 'Master gagal disimpan.'); Swal.showValidationMessage(message); return false; }); }}).then(function(result){if(result.isConfirmed&&result.value){showLegacyPreview(result.value,state.provider,state.urls);Swal.fire({target:target,icon:'success',title:'Master tersimpan',text:result.value.message,timer:1200,showConfirmButton:false});}});
     }
 
     function showLegacyPreview(res, provider, urls) {

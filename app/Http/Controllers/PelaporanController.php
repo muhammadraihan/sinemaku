@@ -943,14 +943,22 @@ class PelaporanController extends Controller
             if (!$allowed->contains($this->legacyNormalize($request->input('name')))) return response()->json(['status'=>'failed','message'=>'Tipe tiket harus berasal dari preview.'],422);
             $ticket = new TypeTiket(); $ticket->name=$request->input('name'); $ticket->kategori=$category->uuid; $ticket->save();
         } else {
-            $request->validate(['cinema_uuid'=>'nullable|string','ticket_uuid'=>'nullable|string','studio'=>'required|string|max:50','kapasitas'=>'required|numeric|min:0']);
-            $studio=$this->normalizeStudioNumber($request->input('studio'));
-            $source = collect($rows)->first(function ($row) use ($studio) { return $this->normalizeStudioNumber((string) $row['studio']) === $studio; });
-            $cinemaUuid = $request->input('cinema_uuid') ?: optional(MasterBioskop::where('type', $category->uuid)->whereRaw('UPPER(TRIM(nama_bioskop)) = ?', [$this->legacyNormalize($source['source_cinema'] ?? '')])->first())->uuid;
-            $ticketUuid = $request->input('ticket_uuid') ?: optional(TypeTiket::where('kategori', $category->uuid)->whereRaw('UPPER(TRIM(name)) = ?', [$this->legacyNormalize($source['ticket_name'] ?? '')])->first())->uuid;
-            $cinema=MasterBioskop::where('uuid',$cinemaUuid)->where('type',$category->uuid)->first(); $ticket=TypeTiket::where('uuid',$ticketUuid)->where('kategori',$category->uuid)->first();
-            $allowed=collect($rows)->pluck('studio')->map(fn($v)=>$this->normalizeStudioNumber((string)$v));
-            if (!$cinema || !$ticket || !$allowed->contains($studio)) return response()->json(['status'=>'failed','message'=>'Mapping kapasitas tidak sesuai preview.'],422);
+            $request->validate(['source_row'=>'required|integer','studio'=>'required|string|max:50','kapasitas'=>'required|numeric|min:0']);
+            $studio = $this->normalizeStudioNumber($request->input('studio'));
+            $source = collect($rows)->first(function ($row) use ($request, $studio) {
+                return (int) $row['source_row'] === (int) $request->input('source_row')
+                    && $this->normalizeStudioNumber((string) $row['studio']) === $studio;
+            });
+            if (!$source) return response()->json(['status'=>'failed','message'=>'Baris kapasitas tidak sesuai preview.'],422);
+
+            // Derive master context from the signed, user-bound preview row. Never trust UUIDs sent by the browser.
+            $cinema = MasterBioskop::where('type', $category->uuid)
+                ->whereRaw('UPPER(TRIM(nama_bioskop)) = ?', [$this->legacyNormalize($source['source_cinema'])])
+                ->first();
+            $ticket = TypeTiket::where('kategori', $category->uuid)
+                ->whereRaw('UPPER(TRIM(name)) = ?', [$this->legacyNormalize($source['ticket_name'])])
+                ->first();
+            if (!$cinema || !$ticket) return response()->json(['status'=>'failed','message'=>'Bioskop atau tipe tiket pada baris preview belum memiliki mapping master.'],422);
             $capacity = Kapasitas::where('kategori', $category->uuid)
                 ->where('nama_bioskop', $cinema->uuid)
                 ->where('type_tiket', $ticket->uuid)
@@ -1010,7 +1018,7 @@ class PelaporanController extends Controller
         foreach($filmNames as $name)if(!$filmMap->has($this->legacyNormalize($name)))$issues[]='Film '.$name.' belum terdaftar di Master Film.';
         foreach($cinemaNames as $name)if(!isset($cinemaMap[$this->legacyNormalize($name)]))$issues[]='Bioskop '.$name.' belum terdaftar sebagai bioskop kategori '.$provider.'.';
         $ticketMap=$category?TypeTiket::where('kategori',$category->uuid)->get():collect(); $capacityMap=[]; $canonical=[]; $preview=[];
-        foreach($sourceRows as $row){ $cinema=$cinemaMap[$this->legacyNormalize($row['source_cinema'])]??null; $ticket=$ticketMap->first(fn($t)=>$this->legacyNormalize($t->name)===$this->legacyNormalize($row['ticket_name'])); $capacity=$cinema&&$ticket?$this->findLegacyCapacity($category->uuid,$cinema->uuid,$ticket->uuid,$row['studio']):null; if(!$ticket)$issues[]='Tipe tiket '.$row['ticket_name'].' belum tersedia untuk kategori '.$provider.'.'; if(!$capacity)$issues[]='Studio '.$row['studio'].' belum memiliki mapping kapasitas untuk tipe tiket '.$row['ticket_name'].'.'; $ready=$cinema&&isset($filmMap[$this->legacyNormalize($row['nama_film'])])&&$ticket&&$capacity; $preview[]=array_merge($row,['kategori'=>$provider,'bioskop'=>$row['source_cinema'],'kota'=>$cinema->kota??$row['source_city'],'cinema_uuid'=>$cinema->uuid??null,'film_uuid'=>$filmMap[$this->legacyNormalize($row['nama_film'])]->uuid??null,'ticket_uuid'=>$ticket->uuid??null,'capacity_uuid'=>$capacity->uuid??null,'mapping_status'=>$ready?'Siap':'Diblokir']); if($ready)$canonical[]=['kategori'=>$category->uuid,'provinsi'=>$this->legacyProvinceForCity($cinema->kota),'kota'=>$cinema->kota,'nama_bioskop'=>$cinema->uuid,'nama_film'=>$filmMap[$this->legacyNormalize($row['nama_film'])]->name,'tgl_tayang'=>$row['tgl_tayang'],'jam_tayang'=>$row['jam_tayang']?:'00:00','show'=>$row['show'],'type_tiket'=>$ticket->uuid,'harga'=>$row['harga'],'jumlah'=>$row['jumlah'],'gross'=>$row['harga']*$row['jumlah'],'tax'=>$cinema->pajak??0,'net'=>$row['net']?:($row['harga']*$row['jumlah'])-(($row['harga']*$row['jumlah'])*($cinema->pajak??0)/100),'studio'=>$capacity->uuid]; }
+        foreach($sourceRows as $row){ $cinema=$cinemaMap[$this->legacyNormalize($row['source_cinema'])]??null; $ticket=$ticketMap->first(fn($t)=>$this->legacyNormalize($t->name)===$this->legacyNormalize($row['ticket_name'])); $capacity=$cinema&&$ticket?$this->findLegacyCapacity($category->uuid,$cinema->uuid,$ticket->uuid,$row['studio']):null; if(!$ticket)$issues[]='Tipe tiket '.$row['ticket_name'].' belum tersedia untuk kategori '.$provider.'.'; if(!$capacity)$issues[]='Studio '.$row['studio'].' belum memiliki mapping kapasitas untuk tipe tiket '.$row['ticket_name'].' di bioskop '.$row['source_cinema'].' (baris '.$row['source_row'].').'; $ready=$cinema&&isset($filmMap[$this->legacyNormalize($row['nama_film'])])&&$ticket&&$capacity; $preview[]=array_merge($row,['kategori'=>$provider,'bioskop'=>$row['source_cinema'],'kota'=>$cinema->kota??$row['source_city'],'cinema_uuid'=>$cinema->uuid??null,'film_uuid'=>$filmMap[$this->legacyNormalize($row['nama_film'])]->uuid??null,'ticket_uuid'=>$ticket->uuid??null,'capacity_uuid'=>$capacity->uuid??null,'mapping_status'=>$ready?'Siap':'Diblokir']); if($ready)$canonical[]=['kategori'=>$category->uuid,'provinsi'=>$this->legacyProvinceForCity($cinema->kota),'kota'=>$cinema->kota,'nama_bioskop'=>$cinema->uuid,'nama_film'=>$filmMap[$this->legacyNormalize($row['nama_film'])]->name,'tgl_tayang'=>$row['tgl_tayang'],'jam_tayang'=>$row['jam_tayang']?:'00:00','show'=>$row['show'],'type_tiket'=>$ticket->uuid,'harga'=>$row['harga'],'jumlah'=>$row['jumlah'],'gross'=>$row['harga']*$row['jumlah'],'tax'=>$cinema->pajak??0,'net'=>$row['net']?:($row['harga']*$row['jumlah'])-(($row['harga']*$row['jumlah'])*($cinema->pajak??0)/100),'studio'=>$capacity->uuid]; }
         $issues=array_values(array_unique($issues)); return ['preview'=>$preview,'rows'=>$canonical,'blocking_issues'=>$issues,'warnings'=>$warnings,'summary'=>['provider'=>$provider,'rows'=>count($sourceRows),'ready'=>count($canonical),'blocked'=>count($sourceRows)-count($canonical)],'quick_master_context'=>['cinema_name'=>$cinemaNames->first(),'film_name'=>$filmNames->first(),'category_uuid'=>optional($category)->uuid,'ticket_types'=>$sourceRows?array_values(array_unique(array_column($sourceRows,'ticket_name'))):[],'studios'=>$sourceRows?array_values(array_unique(array_column($sourceRows,'studio'))):[]]];
     }
 
