@@ -114,7 +114,11 @@
 .cinepolis-preview-summary .metric { padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f8fafc; }
 .cinepolis-preview-summary .label { display: block; color: #6b7280; font-size: 11px; }
 .cinepolis-preview-summary .value { display: block; font-weight: 700; margin-top: 3px; }
-/* SweetAlert konfirmasi harus berada di dalam modal preview, bukan layer body terpisah. */
+.cinepolis-preview-issues-list { margin: 8px 0 0; padding-left: 20px; list-style: disc; }
+.cinepolis-preview-issues-list > li { margin: 8px 0; padding-left: 2px; }
+.cinepolis-preview-issues-list .quick-master-action { flex: 0 0 auto; }
+/* Target Swal hanya menjadi layer ketika SweetAlert benar-benar terbuka. */
+.cinepolis-preview-modal .cinepolis-preview-swal-target:empty { display: none; }
 .cinepolis-preview-modal .cinepolis-preview-swal-target { position: absolute; inset: 0; z-index: 1060; pointer-events: none; }
 .cinepolis-preview-modal .cinepolis-preview-swal-target .swal2-container { position: absolute; inset: 0; pointer-events: auto; }
 </style>
@@ -530,9 +534,14 @@
         var quickContext = res.quick_master_context || {};
         var issueHtml = issues.map(function (issue) {
             var action = quickMasterActionForIssue(issue, quickContext, res);
-            return '<li class="d-flex justify-content-between align-items-center flex-wrap"><span>' + escapeHtml(issue) + '</span>' + (action ? '<button type="button" class="btn btn-sm btn-outline-primary ml-2 mt-1 quick-master-action" data-resource="' + action.resource + '" data-issue="' + escapeHtml(issue) + '">' + action.label + '</button>' : '') + '</li>';
+            return '<li><div class="d-flex justify-content-between align-items-center flex-wrap"><span>' + escapeHtml(issue) + '</span>' + (action ? '<button type="button" class="btn btn-sm btn-outline-danger ml-2 mt-1 quick-master-action" data-resource="' + action.resource + '" data-issue="' + escapeHtml(issue) + '">' + action.label + '</button>' : '') + '</div></li>';
         }).join('');
-        $('#cinepolis-preview-issues').toggleClass('d-none', !issues.length).html(issues.length ? '<strong>Import diblokir:</strong><ul class="mb-0">' + issueHtml + '</ul>' : '');
+        $('#cinepolis-preview-issues').toggleClass('d-none', !issues.length).html(issues.length ? '<strong>Import diblokir:</strong><ul class="cinepolis-preview-issues-list">' + issueHtml + '</ul>' : '');
+        $('.quick-master-action').off('click').on('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            openQuickMaster($(this).data('resource'), $(this).data('issue'));
+        });
         $('#cinepolis-preview-warnings').toggleClass('d-none', !warnings.length).html(warnings.length ? '<strong>Perhatian:</strong><ul class="mb-0">' + warnings.map(function (warning) { return '<li>' + escapeHtml(warning) + '</li>'; }).join('') + '</ul>' : '');
         var rows = (res.preview || []).map(function (row) {
             var blocked = row.mapping_status !== 'Siap';
