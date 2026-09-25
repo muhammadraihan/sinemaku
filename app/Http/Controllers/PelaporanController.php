@@ -169,62 +169,93 @@ class PelaporanController extends Controller
      */
     public function store(Request $request)
     {
-        // Validasi
         $rules = [
-            'kategori' => 'required',
-            'kota' => 'required',
-            'nama_bioskop' => 'required',
+            'kategori' => 'required|string',
+            'nama_bioskop' => 'required|string',
             'nama_film' => 'required|exists:master_films,name',
-            'tgl_tayang' => 'required',
-            // 'jam_tayang' => 'required',
+            'tgl_tayang' => 'required|date',
+            'show' => 'required|array|min:1',
             'show.*' => 'required',
-            'type_tiket' => 'required',
-            'harga' => 'required',
-            'jumlah' => 'required',
-            'gross' => 'required',
-            // 'tax' => 'required',
-            // 'net' => 'required',
-            'studio' => 'required'
-            // 'provinsi' => 'required'
+            'jam_tayang' => 'required|array',
+            'jam_tayang.*' => 'required|date_format:H:i',
+            'type_tiket' => 'required|array',
+            'type_tiket.*' => 'required|string',
+            'studio' => 'required|array',
+            'studio.*' => 'required|string',
+            'harga' => 'required|array',
+            'harga.*' => 'required',
+            'jumlah' => 'required|array',
+            'jumlah.*' => 'required|numeric|min:0',
+            'gross' => 'required|array',
+            'gross.*' => 'required',
+            'tax' => 'nullable|array',
+            'net' => 'nullable|array',
         ];
-
         $messages = [
             '*.required' => 'Field :attribute tidak boleh kosong!',
             'nama_film.exists' => 'Nama film tidak terdaftar di Master Film. Silakan pilih film yang tersedia.',
             '*.numeric' => 'Field :attribute harus berupa angka!',
-            '*.integer' => 'Field :attribute harus berupa bilangan bulat!',
         ];
-
         $this->validate($request, $rules, $messages);
 
-        // Looping untuk menyimpan multiple data
+        $rows = collect($request->input('show'))->values();
+        foreach (['jam_tayang', 'type_tiket', 'studio', 'harga', 'jumlah', 'gross'] as $field) {
+            if (count($request->input($field, [])) !== $rows->count()) {
+                return back()->withInput()->withErrors([$field => 'Jumlah data ' . str_replace('_', ' ', $field) . ' harus sama dengan jumlah baris laporan.']);
+            }
+        }
+
+        $cinema = MasterBioskop::where('uuid', $request->nama_bioskop)
+            ->where('type', $request->kategori)
+            ->first();
+        if (!$cinema) {
+            return back()->withInput()->withErrors(['nama_bioskop' => 'Bioskop tidak sesuai dengan kategori yang dipilih.']);
+        }
+
         $data = [];
-        foreach ($request->show as $index => $show) {
+        foreach ($rows as $index => $show) {
+            $ticketUuid = $request->type_tiket[$index];
+            $capacityUuid = $request->studio[$index];
+            $ticket = TypeTiket::where('uuid', $ticketUuid)->where('kategori', $request->kategori)->first();
+            if (!$ticket) {
+                return back()->withInput()->withErrors(['type_tiket.' . $index => 'Tipe tiket pada baris ini tidak sesuai dengan kategori bioskop.']);
+            }
+            $capacity = Kapasitas::where('uuid', $capacityUuid)
+                ->where('kategori', $request->kategori)
+                ->where('nama_bioskop', $cinema->uuid)
+                ->where('kota', $cinema->kota)
+                ->where('type_tiket', $ticket->uuid)
+                ->first();
+            if (!$capacity) {
+                return back()->withInput()->withErrors(['studio.' . $index => 'Studio pada baris ini tidak sesuai dengan bioskop dan tipe tiket yang dipilih.']);
+            }
+
             $data[] = [
-                'uuid'         => Uuid::generate(),
-                'kategori'     => $request->kategori,
-                'provinsi'     => $request->provinsi,
-                'kota'         => $request->kota,
-                'nama_bioskop' => $request->nama_bioskop,
-                'nama_film'    => strtoupper($request->nama_film),
-                'tgl_tayang'   => \Carbon\Carbon::parse($request->tgl_tayang)->format('Y-m-d'),
-                'studio'       => $request->studio,
-                'show'         => $show,
-                'jam_tayang'   => $request->jam_tayang[$index],
-                'type_tiket'   => $request->type_tiket,
-                'harga'        => str_replace(',', '', $request->harga[$index]),
-                'jumlah'       => $request->jumlah[$index],
-                'gross'        => str_replace(',', '', $request->gross[$index]),
-                'tax'          => isset($request->tax[$index]) ? str_replace(',', '', $request->tax[$index]) : 0,
-                'net'          => isset($request->net[$index]) ? str_replace(',', '', $request->net[$index]) : 0,
-                'created_by'   => Auth::user()->uuid,
-                'created_at'   => now(),
-                'updated_at'   => null
+                'uuid' => Uuid::generate(),
+                'kategori' => $request->kategori,
+                'provinsi' => $request->provinsi,
+                'kota' => $cinema->kota,
+                'nama_bioskop' => $cinema->uuid,
+                'nama_film' => strtoupper($request->nama_film),
+                'tgl_tayang' => Carbon::parse($request->tgl_tayang)->format('Y-m-d'),
+                'studio' => $capacity->uuid,
+                'show' => $show,
+                'jam_tayang' => $request->jam_tayang[$index],
+                'type_tiket' => $ticket->uuid,
+                'harga' => str_replace(',', '', $request->harga[$index]),
+                'jumlah' => $request->jumlah[$index],
+                'gross' => str_replace(',', '', $request->gross[$index]),
+                'tax' => isset($request->tax[$index]) ? str_replace(',', '', $request->tax[$index]) : 0,
+                'net' => isset($request->net[$index]) ? str_replace(',', '', $request->net[$index]) : 0,
+                'created_by' => Auth::user()->uuid,
+                'created_at' => now(),
+                'updated_at' => null,
             ];
         }
 
-        // Simpan data ke database dalam satu query (lebih cepat)
-        Pelaporan::insert($data);
+        DB::transaction(function () use ($data) {
+            Pelaporan::insert($data);
+        });
 
         toastr()->success('New Reporting Added', 'Success');
         return redirect()->route('pelaporan.index');

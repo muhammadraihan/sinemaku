@@ -7,6 +7,12 @@
 <link rel="stylesheet" media="screen, print" href="{{asset('css/formplugins/dropzone/dropzone.css')}}">
 <link rel="stylesheet" media="screen, print"
     href="{{asset('css/formplugins/bootstrap-datepicker/bootstrap-datepicker.css')}}">
+<style>
+    .report-entry-note { border-left: 4px solid #2196f3; background: #f4f9ff; }
+    .data-row { position: relative; margin: 0 0 1rem; padding: 3.25rem 1rem 0; border: 1px solid #dfe6ee; border-radius: .5rem; background: #fff; box-shadow: 0 .125rem .35rem rgba(0,0,0,.04); }
+    .data-row-heading { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: .7rem 1rem; border-bottom: 1px solid #e9ecef; background: #f8f9fa; border-radius: .5rem .5rem 0 0; }
+    .data-row-title { margin: 0; font-weight: 600; }
+</style>
 @endsection
 
 @section('content')
@@ -86,26 +92,6 @@
                         @endif
                     </div>
                     <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('type_tiket','Tipe Tiket',['class' => 'required form-label'])}}
-                        {!! Form::select('type_tiket', $type_tiket, '',
-                        ['id'=>'type_tiket','class'
-                        => 'custom-select'.($errors->has('type_tiket') ? 'is-invalid':'') ,'required'
-                        => '', 'placeholder' => 'Pilih Tipe Tiket ...'])!!}
-                        @if ($errors->has('type_tiket'))
-                        <div class="invalid-feedback">{{ $errors->first('type_tiket') }}</div>
-                        @endif
-                    </div>
-                    <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('studio','Studio',['class' => 'required form-label'])}}
-                        {!! Form::select('studio', $studio, '',
-                        ['id'=>'studio','class'
-                        => 'custom-select'.($errors->has('studio') ? 'is-invalid':'') ,'required'
-                        => '', 'placeholder' => 'Pilih Studio ...'])!!}
-                        @if ($errors->has('studio'))
-                        <div class="invalid-feedback">{{ $errors->first('studio') }}</div>
-                        @endif
-                    </div>
-                    <div class="form-group col-md-4 mb-3">
                         {{ Form::label('provinsi','Provinsi',['class' => 'form-label'])}}
                         {{ Form::text('provinsi',null,['id' => 'provinsi','placeholder' => 'Provinsi','class' => 'form-control provinsi'.($errors->has('provinsi') ? 'is-invalid':''),'required'])}}
                         @if ($errors->has('provinsi'))
@@ -122,15 +108,21 @@
                         <div class="invalid-feedback">{{ $errors->first('tgl_tayang') }}</div>
                         @endif
                     </div>
-                    <div class="form-group col-md-4 mb-3">
-                        <br>
-                        <button type="button" id="addRow" class="btn btn-success ms-2">+</button>
-                    </div>
                 </div>
                 <hr style="border: 1px dashed: color: black">
-
+                <div class="alert report-entry-note mb-4">
+                    <strong>Input per kombinasi.</strong> Tambahkan satu baris untuk setiap show, tipe tiket, dan studio. Studio disaring otomatis berdasarkan master kapasitas bioskop.
+                </div>
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h4 class="mb-0">Rincian Laporan</h4>
+                    <button type="button" id="addRow" class="btn btn-success"><i class="fal fa-plus mr-1"></i> Tambah Baris</button>
+                </div>
                 <div id="rowContainer">
                     <div class="row data-row">
+                        <div class="data-row-heading">
+                            <span class="data-row-title"><i class="fal fa-ticket-alt mr-1"></i> Baris Laporan</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger removeRow">Hapus</button>
+                        </div>
                         <div class="form-group col-md-4 mb-3">
                             {{ Form::label('show[]','Show',['class' => 'required form-label'])}}
                             {!! Form::select('show[]', array('1' => 'Show - 1', '2' => 'Show - 2', '3' => 'Show - 3', '4' => 'Show - 4', '5' => 'Show - 5', '6' => 'Show - 6', '7' => 'Show - 7', '8' => 'Show - 8'), '',
@@ -147,6 +139,16 @@
                             @if ($errors->has('jam_tayang'))
                             <div class="invalid-feedback">{{ $errors->first('jam_tayang') }}</div>
                             @endif
+                        </div>
+                        <div class="form-group col-md-4 mb-3">
+                            {{ Form::label('type_tiket[]','Tipe Tiket',['class' => 'required form-label'])}}
+                            {!! Form::select('type_tiket[]', [], null, ['class' => 'custom-select row-ticket'.($errors->has('type_tiket') ? ' is-invalid' : ''), 'required' => '', 'data-placeholder' => 'Pilih Tipe Tiket ...']) !!}
+                            <small class="form-text text-muted">Pilih tipe tiket untuk baris ini.</small>
+                        </div>
+                        <div class="form-group col-md-4 mb-3">
+                            {{ Form::label('studio[]','Studio',['class' => 'required form-label'])}}
+                            {!! Form::select('studio[]', [], null, ['class' => 'custom-select row-studio'.($errors->has('studio') ? ' is-invalid' : ''), 'required' => '', 'disabled' => 'disabled', 'data-placeholder' => 'Pilih tipe tiket terlebih dahulu']) !!}
+                            <small class="form-text text-muted">Studio hanya muncul dari kapasitas yang sesuai.</small>
                         </div>
                         <div class="form-group col-md-4 mb-3">
                             {{ Form::label('harga[]','Harga',['class' => 'required form-label'])}}
@@ -184,10 +186,6 @@
                             <div class="invalid-feedback">{{ $errors->first('net') }}</div>
                             @endif
                         </div>
-                        <div class="form-group col-md-4 mb-3">
-                            <br>
-                            <button type="button" class="btn btn-danger removeRow">X</button>
-                        </div>
                     </div>
                 </div>
             <div
@@ -209,171 +207,95 @@
         $('#nama_film').select2({ width: '100%' });
         $('#kategori').select2();
         $('#nama_bioskop').select2();
-        $('#type_tiket').select2();
         $('#kota').select2();
+        $('.row-ticket').select2({ width: '100%' });
+        $('.row-studio').select2({ width: '100%' });
+
+        var ticketOptions = {};
+
+        function resetRowSelect($row) {
+            $row.find('.row-ticket').empty().append('<option value="">Pilih Tipe Tiket ...</option>').trigger('change');
+            $row.find('.row-studio').empty().append('<option value="">Pilih tipe tiket terlebih dahulu</option>').prop('disabled', true).trigger('change');
+        }
+
+        function loadTicketOptions() {
+            var kategori = $('#kategori').val();
+            $('.row-ticket, .row-studio').each(function () { resetRowSelect($(this).closest('.data-row')); });
+            if (!kategori) return;
+            $.get("{{ route('ref.type') }}", { kategori: kategori }, function (data) {
+                ticketOptions = data || {};
+                $('.row-ticket').each(function () {
+                    var $select = $(this).empty().append('<option value="">Pilih Tipe Tiket ...</option>');
+                    $.each(ticketOptions, function (key, value) { $select.append('<option value="' + key + '">' + value + '</option>'); });
+                    $select.trigger('change');
+                });
+            });
+        }
+
+        $('#kategori').change(function(){
+            var kategori = $(this).val();
+            $('#kota').empty();
+            loadTicketOptions();
+            $.get("{{ route('ref.cinema') }}", { kategori: kategori }, function (data) {
+                $('#nama_bioskop').empty().append('<option value="">Pilih Nama Bioskop ...</option>');
+                $.each(data, function(key, value) { $('#nama_bioskop').append('<option value="' + key + '">' + value + '</option>'); });
+                $('#nama_bioskop').trigger('change');
+            });
+        });
+
+        $('#nama_bioskop').change(function(){
+            var kategori = $('#kategori').val(), bioskop = $(this).val();
+            $('#kota').empty();
+            if (!kategori || !bioskop) return;
+            $.get("{{ route('ref.kota') }}", { kategori: kategori, bioskop: bioskop }, function (data) {
+                $('#kota').append('<option value="">Pilih Kota ...</option>');
+                $.each(data, function(key, value) { $('#kota').append('<option value="' + key + '">' + value + '</option>'); });
+                $('#kota').trigger('change');
+            });
+            $.get("{{ route('ref.pajak') }}", { kategori: kategori, bioskop: bioskop }, function (data) { currentTax = data.pajak || 0; $('.tax').val(currentTax).trigger('input'); });
+        });
+
+        $(document).on('change', '.row-ticket', function () {
+            var $row = $(this).closest('.data-row'), ticket = $(this).val();
+            var kategori = $('#kategori').val(), bioskop = $('#nama_bioskop').val(), kota = $('#kota').val();
+            var $studio = $row.find('.row-studio').empty().append('<option value="">Memuat studio ...</option>').prop('disabled', true).trigger('change');
+            if (!kategori || !bioskop || !kota || !ticket) { $studio.empty().append('<option value="">Pilih tipe tiket terlebih dahulu</option>').trigger('change'); return; }
+            $.get("{{ route('ref.studio') }}", { kategori: kategori, nama_bioskop: bioskop, kota: kota, type_tiket: ticket }, function (data) {
+                $studio.empty().append('<option value="">Pilih Studio ...</option>');
+                $.each(data, function(key, value) { $studio.append('<option value="' + key + '">' + value + '</option>'); });
+                $studio.prop('disabled', false).trigger('change');
+            });
+        });
+
+        $('#kota').change(function () {
+            var kota = $(this).val();
+            if (!kota) return;
+            $.get("{{ route('ref.provinsi') }}", { kota: kota }, function (data) { $('#provinsi').val(data && data[0] ? data[0].nama : ''); });
+        });
+
         // $('.shows').select2();
-        $('#studio').select2();
 
         var currentTax = 0;
 
         $("#addRow").click(function () {
             let newRow = $(".data-row:first").clone(); // Duplikasi row pertama
-            // newRow.find(".shows").select2("destroy"); 
+            // Row controls are initialized after cloning.
             newRow.find("input, select").val(""); // Kosongkan nilai input
-            // $("#rowContainer").append(newRow); // Tambahkan ke dalam container
+            newRow.find('.row-ticket, .row-studio').each(function () {
+                $(this).next('.select2').remove();
+            });
             newRow.appendTo("#rowContainer");
 
-            newRow.find(".shows").select2();
-
             newRow.find('[id]').removeAttr('id');
-
-            newRow.find(".tax").val(currentTax);
-        });
-
-        $('#kategori').change(function(){
-            var kategori = $(this).val();
-            $('#kota').empty();
-            $('#studio').empty();
-
-            $.ajax({
-                url: "{{ route('ref.cinema') }}",
-                type: 'GET',
-                data: {
-                    kategori: kategori
-                },
-                success: function(data) {
-                    $("#nama_bioskop").empty();
-
-                    $("#nama_bioskop").append('<option value="">Pilih Nama Bioskop ...</option>');
-
-                    $.each(data, function(key, value) {
-                        $("#nama_bioskop").append('<option value="' + key + '">' + value + '</option>');
-                    });
-                }
+            newRow.find('.row-ticket').select2({ width: '100%' });
+            newRow.find('.row-studio').select2({ width: '100%' });
+            newRow.find('.row-ticket').empty().append('<option value="">Pilih Tipe Tiket ...</option>');
+            $.each(ticketOptions, function (key, value) {
+                newRow.find('.row-ticket').append('<option value="' + key + '">' + value + '</option>');
             });
-
-            $.ajax({
-                url: "{{ route('ref.type') }}",
-                type: 'GET',
-                data: {
-                    kategori: kategori,
-                },
-                success: function(data) {
-                    $("#type_tiket").empty();
-
-                    $("#type_tiket").append('<option value="">Pilih Tipe Tiket ...</option>');
-
-                    $.each(data, function(key, value) {
-                        $("#type_tiket").append('<option value="' + key + '">' + value + '</option>');
-                    });
-                }
-            });
-        });
-
-        $('#nama_bioskop').change(function(){
-            var kategori = $('#kategori').val();
-            var bioskop = $(this).val();
-
-            $('#studio').empty();
-            $('#type_tiket').empty();
-
-            $.ajax({
-                url: "{{ route('ref.kota') }}",
-                type: 'GET',
-                data: {
-                    kategori: kategori,
-                    bioskop: bioskop
-                },
-                success: function(data) {
-                    $("#kota").empty();
-
-                    $("#kota").append('<option value="">Pilih Nama Kota ...</option>');
-
-                    $.each(data, function(key, value) {
-                        $("#kota").append('<option value="' + key + '">' + value + '</option>');
-                    });
-                }
-            });
-
-            $.ajax({
-                url: "{{ route('ref.type') }}",
-                type: 'GET',
-                data: {
-                    kategori: kategori,
-                },
-                success: function(data) {
-                    $("#type_tiket").empty();
-
-                    $("#type_tiket").append('<option value="">Pilih Tipe Tiket ...</option>');
-
-                    $.each(data, function(key, value) {
-                        $("#type_tiket").append('<option value="' + key + '">' + value + '</option>');
-                    });
-                }
-            });
-
-            $.ajax({
-                url: "{{ route('ref.pajak') }}",
-                type: 'GET',
-                data: {
-                    kategori: kategori,
-                    bioskop: bioskop
-                },
-                success: function(data) {
-                    currentTax = data.pajak;
-                    $(".tax").val(currentTax);
-                }
-            });
-        });
-
-        $('#kota').change(function(){
-            var kota = $(this).val();
-
-            $.ajax({
-                url: "{{ route('ref.provinsi') }}",
-                type: 'GET',
-                data: {
-                    kota : kota
-                },
-                success: function(data) {
-                    console.log(data);
-                    
-                    $("#provinsi").empty();
-
-                    if(data == ''){
-                        $("#provinsi").val('');
-                    }else{
-                        $("#provinsi").val(data[0]['nama']);
-                    }
-                }
-            });
-        });
-
-        $('#type_tiket').change(function(){
-            var kategori = $('#kategori').val();
-            var nama_bioskop = $('#nama_bioskop').val();
-            var kota = $('#kota').val();
-            var type_tiket = $('#type_tiket').val();
-
-            $.ajax({
-                url: "{{ route('ref.studio') }}",
-                type: 'GET',
-                data: {
-                    kategori: kategori,
-                    nama_bioskop: nama_bioskop,
-                    kota: kota,
-                    type_tiket: type_tiket,
-                },
-                success: function(data) {
-                    $("#studio").empty();
-
-                    $("#studio").append('<option value="">Pilih Studio ...</option>');
-
-                    $.each(data, function(key, value) {
-                        $("#studio").append('<option value="' + key + '">' + value + '</option>');
-                    });
-                }
-            });
+            newRow.find('.row-ticket').val('').trigger('change');
+            newRow.find('.row-studio').empty().append('<option value="">Pilih tipe tiket terlebih dahulu</option>').prop('disabled', true).trigger('change');
+            newRow.find(".tax").val(currentTax).trigger('input');
         });
 
            $('.tgl_tayang').datepicker({
