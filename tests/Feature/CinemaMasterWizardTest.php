@@ -62,9 +62,9 @@ class CinemaMasterWizardTest extends TestCase
                 ['name' => 'REGULAR DIST FULL'],
             ],
             'capacities' => [
-                ['ticket_type_index' => 0, 'studio' => '1', 'kapasitas' => 120],
-                ['ticket_type_index' => 1, 'studio' => '1', 'kapasitas' => 10],
-                ['ticket_type_index' => 0, 'studio' => '2', 'kapasitas' => 90],
+                ['ticket_type_ref' => 'new:0', 'studio' => '1', 'kapasitas' => 120],
+                ['ticket_type_ref' => 'new:1', 'studio' => '1', 'kapasitas' => 10],
+                ['ticket_type_ref' => 'new:0', 'studio' => '2', 'kapasitas' => 90],
             ],
         ]);
 
@@ -74,6 +74,28 @@ class CinemaMasterWizardTest extends TestCase
         $this->assertSame(['REGULAR', 'REGULAR DIST FULL'], DB::table('type_tikets')->orderBy('id')->pluck('name')->all());
         $this->assertSame(3, DB::table('kapasitas')->where('nama_bioskop', $cinema->uuid)->count());
         $this->assertSame(['1', '1', '2'], DB::table('kapasitas')->orderBy('id')->pluck('studio')->all());
+    }
+
+    public function test_cinema_wizard_can_use_existing_ticket_types_from_the_selected_category(): void
+    {
+        $user = $this->createUser();
+        DB::table('type_tikets')->insert(['uuid' => 'existing-regular', 'kategori' => 'category-1', 'name' => 'REGULAR']);
+
+        $this->actingAs($user)->post(route('masterbioskop.store'), [
+            'type' => 'category-1',
+            'nama_bioskop' => 'EXISTING TICKET CINEMA',
+            'kota' => 'BALIKPAPAN',
+            'capacities' => [[
+                'ticket_type_ref' => 'existing-regular',
+                'studio' => '1',
+                'kapasitas' => 100,
+            ]],
+        ])->assertRedirect(route('masterbioskop.index'));
+
+        $cinema = DB::table('master_bioskops')->where('nama_bioskop', 'EXISTING TICKET CINEMA')->first();
+        $this->assertNotNull($cinema);
+        $this->assertSame(1, DB::table('type_tikets')->count());
+        $this->assertSame('existing-regular', DB::table('kapasitas')->where('nama_bioskop', $cinema->uuid)->value('type_tiket'));
     }
 
     public function test_invalid_capacity_reference_leaves_no_partial_wizard_data(): void
@@ -86,10 +108,10 @@ class CinemaMasterWizardTest extends TestCase
             'kota' => 'BALIKPAPAN',
             'pajak' => 10,
             'ticket_types' => [['name' => 'REGULAR']],
-            'capacities' => [['ticket_type_index' => 4, 'studio' => '1', 'kapasitas' => 100]],
+            'capacities' => [['ticket_type_ref' => 'new:4', 'studio' => '1', 'kapasitas' => 100]],
         ]);
 
-        $response->assertRedirect(route('masterbioskop.create'))->assertSessionHasErrors('capacities.0.ticket_type_index');
+        $response->assertRedirect(route('masterbioskop.create'))->assertSessionHasErrors('capacities.0.ticket_type_ref');
         $this->assertSame(0, DB::table('master_bioskops')->count());
         $this->assertSame(0, DB::table('type_tikets')->count());
         $this->assertSame(0, DB::table('kapasitas')->count());

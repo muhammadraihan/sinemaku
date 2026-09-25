@@ -33,7 +33,7 @@ class MasterBioskopController extends Controller
             return Datatables::of($data)
                 ->addIndexColumn()
                 ->editColumn('type', function ($row){
-                    return $row->Categories->name;
+                    return $row->Categories->name ?? '';
                 })
                 ->editColumn('nama_bioskop', function ($row) {
                     return mb_strtoupper($row->nama_bioskop ?? '', 'UTF-8');
@@ -80,7 +80,7 @@ class MasterBioskopController extends Controller
             'ticket_types' => 'nullable|array',
             'ticket_types.*.name' => 'nullable|string|max:255',
             'capacities' => 'nullable|array',
-            'capacities.*.ticket_type_index' => 'required_with:capacities|integer|min:0',
+            'capacities.*.ticket_type_ref' => 'required|string|max:100',
             'capacities.*.studio' => 'required_with:capacities|string|max:50',
             'capacities.*.kapasitas' => 'required_with:capacities|numeric|min:0',
         ], [
@@ -90,16 +90,26 @@ class MasterBioskopController extends Controller
 
         $ticketTypes = collect($request->input('ticket_types', []))
             ->map(fn ($item) => ['name' => mb_strtoupper(trim((string) ($item['name'] ?? '')), 'UTF-8')])
-            ->filter(fn ($item) => $item['name'] !== '')
-            ->values();
+            ->filter(fn ($item) => $item['name'] !== '');
         $capacities = collect($request->input('capacities', []))->values();
+        $existingTicketIds = $capacities->pluck('ticket_type_ref')
+            ->filter(fn ($reference) => !str_starts_with((string) $reference, 'new:'))
+            ->unique()
+            ->values();
+        $existingTickets = TypeTiket::where('kategori', $request->type)
+            ->whereIn('uuid', $existingTicketIds)
+            ->get()
+            ->keyBy('uuid');
+
         foreach ($capacities as $index => $capacity) {
-            if (!$ticketTypes->has((int) $capacity['ticket_type_index'])) {
-                return back()->withInput()->withErrors(["capacities.$index.ticket_type_index" => 'Pilih tipe tiket yang tersedia pada tab Tipe Tiket.']);
+            $reference = (string) ($capacity['ticket_type_ref'] ?? '');
+            $newTicketIndex = str_starts_with($reference, 'new:') ? (int) substr($reference, 4) : null;
+            if (($newTicketIndex === null || !$ticketTypes->has($newTicketIndex)) && !$existingTickets->has($reference)) {
+                return back()->withInput()->withErrors(["capacities.$index.ticket_type_ref" => 'Pilih tipe tiket yang tersedia untuk kategori bioskop ini.']);
             }
         }
 
-        DB::transaction(function () use ($request, $ticketTypes, $capacities) {
+        DB::transaction(function () use ($request, $ticketTypes, $capacities, $existingTickets) {
             $bioskop = new MasterBioskop();
             $bioskop->type = $request->type;
             $bioskop->nama_bioskop = mb_strtoupper(trim($request->nama_bioskop), 'UTF-8');
@@ -118,7 +128,10 @@ class MasterBioskopController extends Controller
             });
 
             foreach ($capacities as $capacity) {
-                $ticket = $createdTickets->get((int) $capacity['ticket_type_index']);
+                $reference = (string) $capacity['ticket_type_ref'];
+                $ticket = str_starts_with($reference, 'new:')
+                    ? $createdTickets->get((int) substr($reference, 4))
+                    : $existingTickets->get($reference);
                 $model = new Kapasitas();
                 $model->kategori = $bioskop->type;
                 $model->kota = $bioskop->kota;
