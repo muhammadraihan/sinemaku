@@ -502,6 +502,15 @@
         window.setTimeout(finish, 450);
     }
 
+    // Must be initialized before the PDF upload handler returns to preview.
+    // `var` hoists only the declaration; a later assignment leaves this undefined.
+    var activePdfPreview = null;
+    var activePdfProvider = 'cinepolis';
+    var pdfEndpoints = {
+        cinepolis: { quick: @json(route('pelaporan.upload.cinepolis.quick-master')), confirm: @json(route('pelaporan.upload.cinepolis.confirm')) },
+        platinum: { quick: @json(route('pelaporan.upload.platinum.quick-master')), confirm: @json(route('pelaporan.upload.platinum.confirm')) }
+    };
+
     $('#uploadForm').on('submit', function (e) {
     e.preventDefault();
     const formData = new FormData(this);
@@ -605,13 +614,6 @@
     function escapeHtml(value) {
         return $('<div>').text(value == null ? '' : value).html();
     }
-
-    var activePdfPreview = null;
-    var activePdfProvider = 'cinepolis';
-    var pdfEndpoints = {
-        cinepolis: { quick: @json(route('pelaporan.upload.cinepolis.quick-master')), confirm: @json(route('pelaporan.upload.cinepolis.confirm')) },
-        platinum: { quick: @json(route('pelaporan.upload.platinum.quick-master')), confirm: @json(route('pelaporan.upload.platinum.confirm')) }
-    };
 
     function quickMasterActionForIssue(issue, context, preview) {
         if (issue.indexOf('belum terdaftar sebagai bioskop') !== -1) return { resource: 'cinema', label: 'Tambah Master Bioskop' };

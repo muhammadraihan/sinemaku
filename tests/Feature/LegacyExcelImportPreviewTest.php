@@ -71,6 +71,10 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->assertStringContainsString('function openPreviewAfterUploadModal(callback)', $view);
         $this->assertStringContainsString("window.setTimeout(finish, 450);", $view);
         $this->assertStringContainsString("openPreviewAfterUploadModal(function () { showLegacyPreview(res, bioskop, legacyUrls[bioskop]); });", $view);
+        $this->assertLessThan(
+            strpos($view, "$('#uploadForm').on('submit'"),
+            strpos($view, 'var pdfEndpoints = {')
+        );
     }
 
     public function test_xxi_preview_writes_no_canonical_rows_then_confirm_consumes_its_user_bound_token(): void
