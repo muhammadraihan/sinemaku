@@ -76,11 +76,14 @@ class CinepolisPdfParser
             ? ($screenTotals ?? $dayTotals)
             : $dayTotals;
         $reconciliationTotals = $sourceTotals;
+        // Vista rounds tax and net per ticket-detail row, while Day Total can
+        // round after aggregation. Allow a maximum Rp1 variance only for those
+        // two components; admits and gross must still match exactly.
         if (
-            $totals['admits'] !== $reconciliationTotals['admits']
+            abs($totals['admits'] - $reconciliationTotals['admits']) > 0.02
             || abs($totals['gross'] - $reconciliationTotals['gross']) > 0.02
-            || abs($totals['tax_amount'] - $reconciliationTotals['tax_amount']) > 0.02
-            || abs($totals['net'] - $reconciliationTotals['net']) > 0.02
+            || abs($totals['tax_amount'] - $reconciliationTotals['tax_amount']) > 1.00
+            || abs($totals['net'] - $reconciliationTotals['net']) > 1.00
         ) {
             throw new \InvalidArgumentException('Total detail PDF tidak sama dengan Day Total sumber.');
         }
@@ -342,8 +345,11 @@ class CinepolisPdfParser
         } elseif ($lastComma !== false) {
             $fraction = strlen($value) - $lastComma - 1;
             $value = $fraction <= 2 ? str_replace(',', '.', $value) : str_replace(',', '', $value);
-        } elseif (substr_count($value, '.') > 1) {
-            $value = str_replace('.', '', $value);
+        } elseif ($lastDot !== false) {
+            $fraction = strlen($value) - $lastDot - 1;
+            if ($fraction === 3 || substr_count($value, '.') > 1) {
+                $value = str_replace('.', '', $value);
+            }
         }
 
         return is_numeric($value) ? (float) $value : null;

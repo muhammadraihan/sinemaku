@@ -190,6 +190,60 @@ PDF;
     }
 
     /** @test */
+    public function it_parses_dot_thousands_without_a_decimal_fraction(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+CINEPOLIS SENAYAN PARK
+Detailed Distributors Report
+From Wednesday 24/09/2026 Until Thursday 25/09/2026 Ticket Detail Level: Ticket Class
+MEMBURU PEMANGSA CINEMA01
+Admits Gross Tax NetTicket PriceTicket Class Attribute
+24/09/2026
+13:10 REGULAR 45.000 7 315.000,00 28.636 286.3642D
+Day Total Paid 7 315.000 28.636 286.364
+0.00 0.00 0.00 0Day Total Complementory
+28.6367 286.364315.000Total for Film this Screen
+PDF;
+
+        $result = $parser->parseText($text);
+
+        $this->assertSame(1, count($result['rows']));
+        $this->assertSame(45000.0, $result['rows'][0]['harga']);
+        $this->assertSame(315000.0, $result['rows'][0]['gross']);
+        $this->assertSame(28636.0, $result['rows'][0]['tax_amount']);
+        $this->assertSame(286364.0, $result['rows'][0]['net']);
+        $this->assertSame(315000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
+    public function it_accepts_one_rupiah_tax_and_net_rounding_difference_against_source_total(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+CINEPOLIS SENAYAN PARK
+Detailed Distributors Report
+From Wednesday 24/09/2026 Until Thursday 25/09/2026 Ticket Detail Level: Ticket Type
+MEMBURU PEMANGSA CINEMA06
+Admits Gross Tax NetTicket PriceTicket Type Attribute
+24/09/2026
+13:10 REGULAR 45.000 7 315.000,00 28.636 286.364 2D
+15:30 REGULAR 45.000 17 765.000,00 69.545 695.455 2D
+Day Total Paid 24 1.080.000 98.182 981.818
+0.00 0.00 0.00 0 Day Total Complementory
+PDF;
+
+        $result = $parser->parseText($text);
+
+        $this->assertSame(24, $result['totals']['admits']);
+        $this->assertSame(1080000.0, $result['totals']['gross']);
+        $this->assertSame(98181.0, $result['totals']['tax_amount']);
+        $this->assertSame(981819.0, $result['totals']['net']);
+        $this->assertSame(98182.0, $result['source_totals']['tax_amount']);
+        $this->assertSame(981818.0, $result['source_totals']['net']);
+    }
+
+    /** @test */
     public function it_rejects_pdf_without_parseable_cinema_name()
     {
         $parser = new CinepolisPdfParser();
