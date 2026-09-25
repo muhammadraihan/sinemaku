@@ -116,6 +116,40 @@ class CinepolisPdfParserTest extends TestCase
     }
 
     /** @test */
+    public function it_parses_indonesian_money_and_ticket_continuation_rows(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+LIVING PLAZA BALIKPAPAN
+Detailed Distributors Report
+From Thursday 24/09/2026 Until Friday 25/09/2026 Ticket Detail Level: Ticket Type
+SINEMAKU
+MEMBURU PEMANGSA CINEMA06
+Admits Gross Tax NetTicket PriceTicket Type Attribute
+24/09/2026
+12:45 REGULAR 35.000,00 4 140.000,00 12.727,28 127.272,72 2D
+15:10 REGULAR 35.000,00 3 105.000,00 9.545,46 95.454,54 2D
+17:35 REGULAR 35.000,00 19 665.000,00 60.454,58 604.545,42 2D
+REGULAR DIST FULL 35.000,00 1 35.000,00 3.181,82 31.818,18 2D
+20:00 REGULAR 35.000,00 28 980.000,00 89.090,96 890.909,04 2D
+REGULAR DIST FULL 35.000,00 1 35.000,00 3.181,82 31.818,18 2D
+Day Total Paid 56 1.960.000,00 178.181,92 1.781.818,08
+0,00 0,00 0,00 0 Day Total Complementory
+PDF;
+
+        $result = $parser->parseText($text);
+
+        $this->assertSame('LIVING PLAZA BALIKPAPAN', $result['cinema_name']);
+        $this->assertSame(6, count($result['rows']));
+        $this->assertSame(['REGULAR', 'REGULAR', 'REGULAR', 'REGULAR DIST FULL', 'REGULAR', 'REGULAR DIST FULL'], array_column($result['rows'], 'type_tiket'));
+        $this->assertSame(['12:45', '15:10', '17:35', '17:35', '20:00', '20:00'], array_column($result['rows'], 'jam_tayang'));
+        $this->assertSame(56, $result['totals']['admits']);
+        $this->assertSame(1960000.0, $result['totals']['gross']);
+        $this->assertSame(178181.92, $result['totals']['tax_amount']);
+        $this->assertSame(1781818.08, $result['totals']['net']);
+    }
+
+    /** @test */
     public function it_rejects_pdf_without_parseable_cinema_name()
     {
         $parser = new CinepolisPdfParser();

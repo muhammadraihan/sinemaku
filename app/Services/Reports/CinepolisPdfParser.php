@@ -120,7 +120,8 @@ class CinepolisPdfParser
         $raw = preg_replace('/\\s+/', ' ', str_replace("\\t", ' ', $block['text']));
         $raw = preg_replace('/.*?Attribute\\s+/s', '', $raw, 1);
         $raw = preg_replace('/Day Total.*$/s', '', $raw);
-        $rowPattern = '/(?:(\d{1,2}:\d{2})\s+)?([A-Z][A-Z0-9\- ]*?)\s+([\d,]+(?:\.\d{1,2})?)\s+(\d+)\s+([\d,]+(?:\.\d{1,2})?)\s+([\d,]+(?:\.\d{1,2})?)\s+([\d,]+(?:\.\d{1,2})?)\s*2D/i';
+        $money = '[\d.,]+';
+        $rowPattern = '/(?:(\d{1,2}:\d{2})\s+)?([A-Z][A-Z0-9\- ]*?)\s+('.$money.')\s+(\d+)\s+('.$money.')\s+('.$money.')\s+('.$money.')\s*2D/i';
         preg_match_all($rowPattern, $raw, $matches, PREG_SET_ORDER);
 
         $rows = [];
@@ -168,7 +169,7 @@ class CinepolisPdfParser
 
     private function parseSourceTotals(string $text): array
     {
-        preg_match_all('/Day\s+Total\s+Paid\s+(\d+)\s+([\d,]+(?:\.\d{1,2})?)\s+([\d,]+(?:\.\d{1,2})?)\s+([\d,]+(?:\.\d{1,2})?)/i', $text, $matches, PREG_SET_ORDER);
+        preg_match_all('/Day\s+Total\s+Paid\s+(\d+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i', $text, $matches, PREG_SET_ORDER);
         if (!$matches) {
             throw new \InvalidArgumentException('Total harian sumber tidak dapat dibaca dari PDF.');
         }
@@ -231,11 +232,29 @@ class CinepolisPdfParser
 
     private function parseMoney(string $value): ?float
     {
-        if (!preg_match('/^-?[\d,]+(?:\.\d{1,2})?$/', trim($value))) {
+        $value = trim($value);
+        if (!preg_match('/^-?[\d.,]+$/', $value)) {
             return null;
         }
 
-        return (float) str_replace(',', '', trim($value));
+        $lastComma = strrpos($value, ',');
+        $lastDot = strrpos($value, '.');
+        if ($lastComma !== false && $lastDot !== false) {
+            // The last separator is the decimal separator: support both 1,234.56 and 1.234,56.
+            if ($lastComma > $lastDot) {
+                $value = str_replace('.', '', $value);
+                $value = str_replace(',', '.', $value);
+            } else {
+                $value = str_replace(',', '', $value);
+            }
+        } elseif ($lastComma !== false) {
+            $fraction = strlen($value) - $lastComma - 1;
+            $value = $fraction <= 2 ? str_replace(',', '.', $value) : str_replace(',', '', $value);
+        } elseif (substr_count($value, '.') > 1) {
+            $value = str_replace('.', '', $value);
+        }
+
+        return is_numeric($value) ? (float) $value : null;
     }
 
     private function parseInteger(string $value): ?int
