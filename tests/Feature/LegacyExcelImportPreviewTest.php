@@ -206,11 +206,56 @@ class LegacyExcelImportPreviewTest extends TestCase
 
         $preview = $this->actingAs($owner)->post(route('pelaporan.upload.cgv'), ['file' => $this->makeCgvFile()]);
 
-        $preview->assertOk()->assertJsonPath('status', 'success')->assertJsonCount(2, 'preview')
+        $preview->assertOk()->assertJsonPath('status', 'success')->assertJsonCount(5, 'preview')
             ->assertJsonPath('preview.0.ticket_name', 'VELVET')
             ->assertJsonPath('preview.0.jam_tayang', '10:15')
-            ->assertJsonPath('preview.1.jam_tayang', '13:30');
+            ->assertJsonPath('preview.2.ticket_name', 'VELVET')
+            ->assertJsonPath('preview.2.jam_tayang', '13:30');
         $this->assertSame(0, DB::table('pelaporans')->count());
+    }
+
+    public function test_cgv_preview_maps_each_showtime_free_to_zero_priced_free_pass(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'cgv-category', 'name' => 'CGV']);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.cgv'), ['file' => $this->makeCgvFile()]);
+
+        $preview->assertOk()->assertJsonPath('status', 'success')->assertJsonCount(5, 'preview');
+        $this->assertSame(['VELVET', 'FREE PASS', 'VELVET', 'FREE PASS', 'FREE PASS'], array_column($preview->json('preview'), 'ticket_name'));
+        $this->assertSame(['10:15', '10:15', '13:30', '13:30', '15:45'], array_column($preview->json('preview'), 'jam_tayang'));
+        $this->assertSame([3, 1, 4, 2, 3], array_column($preview->json('preview'), 'jumlah'));
+        $this->assertSame([75000.0, 0.0, 75000.0, 0.0, 0.0], array_map('floatval', array_column($preview->json('preview'), 'harga')));
+        $this->assertSame(0, DB::table('pelaporans')->count());
+    }
+
+    public function test_cgv_confirm_import_persists_free_pass_with_zero_amounts(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'cgv-category', 'name' => 'CGV']);
+        DB::table('master_bioskops')->insert(['uuid' => 'cgv-cinema', 'nama_bioskop' => 'CGV TEST', 'type' => 'cgv-category', 'kota' => 'JAKARTA', 'pajak' => '10']);
+        DB::table('master_films')->insert(['uuid' => 'cgv-film', 'name' => 'FILM CGV']);
+        DB::table('type_tikets')->insert([
+            ['uuid' => 'cgv-velvet', 'name' => 'VELVET', 'kategori' => 'cgv-category'],
+            ['uuid' => 'cgv-free-pass', 'name' => 'FREE PASS', 'kategori' => 'cgv-category'],
+        ]);
+        DB::table('kapasitas')->insert([
+            ['uuid' => 'cgv-velvet-capacity', 'kategori' => 'cgv-category', 'nama_bioskop' => 'cgv-cinema', 'type_tiket' => 'cgv-velvet', 'studio' => '2', 'kapasitas' => '120'],
+            ['uuid' => 'cgv-free-capacity', 'kategori' => 'cgv-category', 'nama_bioskop' => 'cgv-cinema', 'type_tiket' => 'cgv-free-pass', 'studio' => '2', 'kapasitas' => '120'],
+        ]);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.cgv'), ['file' => $this->makeCgvFile()]);
+        $preview->assertOk()->assertJsonPath('blocking_issues', [])->assertJsonPath('summary.ready', 5);
+
+        $this->actingAs($owner)->post(route('pelaporan.upload.cgv.confirm'), [
+            'token' => $preview->json('token'),
+        ])->assertOk()->assertJsonPath('inserted', 5);
+
+        $this->assertSame(2, DB::table('pelaporans')->where('type_tiket', 'cgv-velvet')->count());
+        $this->assertSame(3, DB::table('pelaporans')->where('type_tiket', 'cgv-free-pass')->count());
+        $this->assertSame(0, DB::table('pelaporans')->where('type_tiket', 'cgv-free-pass')->where(function ($query) {
+            $query->where('harga', '!=', '0')->orWhere('gross', '!=', '0')->orWhere('net', '!=', '0');
+        })->count());
     }
 
     public function test_sams_preview_maps_paid_voucher_and_free_to_their_ticket_types(): void
@@ -310,7 +355,7 @@ class LegacyExcelImportPreviewTest extends TestCase
     {
         return $this->makeWorkbook([
             ['Date', 'Cinema', 'Studio', 'Film', 'Format', 'Ticket', 'Price', 'Time 1', 'Admit 1', 'Free 1', 'Time 2', 'Admit 2', 'Free 2', 'Time 3', 'Admit 3', 'Free 3', 'Time 4', 'Admit 4', 'Free 4', 'Time 5', 'Admit 5', 'Free 5', 'Time 6', 'Admit 6', 'Free 6', 'Total', 'Free Total', 'Net'],
-            ['2026-01-01', 'CGV TEST', '2', 'FILM CGV', '', 'VELVET', '75000', '10:15', '3', '', '13:30', '4', '', '', '-', '', '', '-', '', '', '-', '', '', '-', '', '', '', ''],
+            ['2026-01-01', 'CGV TEST', '2', 'FILM CGV', '', 'VELVET', '75000', '10:15', '3', '1', '13:30', '4', '2', '15:45', '-', '3', '', '-', '', '', '-', '', '', '-', '', '', '', ''],
         ], 'cgv.xlsx');
     }
 

@@ -1012,7 +1012,13 @@ class PelaporanController extends Controller
                 foreach (['F'=>'11:00','G'=>'13:00','H'=>'15:00','I'=>'17:00','J'=>'19:00','K'=>'21:00'] as $col=>$time) if (trim((string)($cols[$col]??''))!=='' && trim((string)$cols[$col])!=='-') { $show = ['F'=>1,'G'=>2,'H'=>3,'I'=>4,'J'=>5,'K'=>6][$col]; $out[]=$this->legacySourceRow($number,$date,$film,$cinema,$city,$studio,'REGULAR',$time,$show,trim((string)$cols[$col]),$price,0); }
             } elseif ($provider==='CGV') {
                 $film=trim((string)($cols['D']??'')); $cinema=trim((string)($cols['B']??'')); $studio=trim((string)($cols['C']??'')); $ticket=trim((string)($cols['F']??'')); $price=(float)str_replace(',','',(string)($cols['G']??''));
-                foreach ([['H','I',1],['K','L',2],['N','O',3],['Q','R',4],['T','U',5],['W','X',6]] as [$timeCol,$countCol,$show]) if (trim((string)($cols[$countCol]??''))!=='' && trim((string)$cols[$countCol])!=='-') $out[]=$this->legacySourceRow($number,$date,$film,$cinema,'',$studio,$ticket,trim((string)($cols[$timeCol]??'')),$show,trim((string)$cols[$countCol]),$price,0);
+                foreach ([['H','I','J',1],['K','L','M',2],['N','O','P',3],['Q','R','S',4],['T','U','V',5],['W','X','Y',6]] as [$timeCol,$paidCol,$freeCol,$show]) {
+                    $time = trim((string)($cols[$timeCol] ?? ''));
+                    $paid = trim((string)($cols[$paidCol] ?? ''));
+                    $free = trim((string)($cols[$freeCol] ?? ''));
+                    if ($paid !== '' && $paid !== '-') $out[] = $this->legacySourceRow($number,$date,$film,$cinema,'',$studio,$ticket,$time,$show,$paid,$price,0);
+                    if ($free !== '' && $free !== '-') $out[] = $this->legacySourceRow($number,$date,$film,$cinema,'',$studio,'FREE PASS',$time,$show,$free,0,0);
+                }
             } else {
                 $film=trim((string)($cols['A']??'')); $cinema=trim((string)($cols['B']??'')); $studio=trim((string)($cols['C']??'')); $time=trim((string)($cols['E']??'')); $price=(float)preg_replace('/[^0-9\-]/','',(string)($cols['F']??'0'));
                 if (trim((string)($cols['K']??''))!=='' && trim((string)$cols['K'])!=='-') $out[]=$this->legacySourceRow($number,$date,$film,$cinema,'',$studio,'REGULAR',$time,1,trim((string)$cols['K']),$price,0);
