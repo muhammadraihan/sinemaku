@@ -211,6 +211,20 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->assertSame(0, DB::table('pelaporans')->count());
     }
 
+    public function test_sams_preview_maps_paid_voucher_and_free_to_their_ticket_types(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'sams-category', 'name' => 'SAMS STUDIOS']);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.sams'), ['file' => $this->makeSamsFile()]);
+
+        $preview->assertOk()->assertJsonPath('status', 'success')->assertJsonCount(3, 'preview');
+        $this->assertSame(['REGULAR', 'BOGOF', 'FREE PASS'], array_column($preview->json('preview'), 'ticket_name'));
+        $this->assertSame([5, 2, 3], array_column($preview->json('preview'), 'jumlah'));
+        $this->assertSame([50000.0, 0.0, 0.0], array_map('floatval', array_column($preview->json('preview'), 'harga')));
+        $this->assertSame(0, DB::table('pelaporans')->count());
+    }
+
     public function test_sams_preview_shows_missing_mappings_without_writing_and_quick_master_rejects_out_of_preview_values(): void
     {
         $owner = $this->createUser();
@@ -265,7 +279,7 @@ class LegacyExcelImportPreviewTest extends TestCase
     {
         return $this->makeWorkbook([
             ['Film', 'Cinema', 'Studio', 'Date', 'Time', 'Price', 'Status', 'Approval', 'Net', 'Total', 'Paid', 'Voucher', 'Free'],
-            ['FILM SAMS', 'SAMS TEST', 'Studio 2', '2026-01-01', '10:00', 'Rp. 50000', '', '', '', '', '5', '2', ''],
+            ['FILM SAMS', 'SAMS TEST', 'Studio 2', '2026-01-01', '10:00', 'Rp. 50000', '', '', '', '', '5', '2', '3'],
         ], 'sams.xlsx');
     }
 

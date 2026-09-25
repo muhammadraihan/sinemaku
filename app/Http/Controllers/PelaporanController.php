@@ -1015,6 +1015,7 @@ class PelaporanController extends Controller
                 $film=trim((string)($cols['A']??'')); $cinema=trim((string)($cols['B']??'')); $studio=trim((string)($cols['C']??'')); $time=trim((string)($cols['E']??'')); $price=(float)preg_replace('/[^0-9\-]/','',(string)($cols['F']??'0'));
                 if (trim((string)($cols['K']??''))!=='' && trim((string)$cols['K'])!=='-') $out[]=$this->legacySourceRow($number,$date,$film,$cinema,'',$studio,'REGULAR',$time,1,trim((string)$cols['K']),$price,0);
                 if (trim((string)($cols['L']??''))!=='' && trim((string)$cols['L'])!=='-') $out[]=$this->legacySourceRow($number,$date,$film,$cinema,'',$studio,'BOGOF',$time,1,trim((string)$cols['L']),0,0);
+                if (trim((string)($cols['M']??''))!=='' && trim((string)$cols['M'])!=='-') $out[]=$this->legacySourceRow($number,$date,$film,$cinema,'',$studio,'FREE PASS',$time,1,trim((string)$cols['M']),0,0);
             }
         }
         if (!$out) throw new \RuntimeException('Sheet kosong / header tidak ditemukan.'); return $out;
