@@ -7,7 +7,7 @@ use Smalot\PdfParser\Parser as PdfParser;
 
 class CinepolisPdfParser
 {
-    public function parse(string $path): array
+    public function parse(string $path, ?string $originalFilename = null): array
     {
         if (!is_file($path) || !is_readable($path)) {
             throw new \InvalidArgumentException('File PDF tidak dapat dibaca.');
@@ -19,10 +19,10 @@ class CinepolisPdfParser
             throw new \InvalidArgumentException('Isi PDF tidak dapat diekstrak. Pastikan file bukan PDF scan atau terenkripsi.', 0, $exception);
         }
 
-        return $this->parseText($text);
+        return $this->parseText($text, $originalFilename);
     }
 
-    public function parseText(string $text): array
+    public function parseText(string $text, ?string $originalFilename = null): array
     {
         $lines = $this->lines($text);
         $reportIndex = $this->findLineIndex($lines, function ($line) {
@@ -38,6 +38,9 @@ class CinepolisPdfParser
 
         $cinemaName = $this->normalizeName($lines[0] ?? '');
         if ($cinemaName === '' || ($reportIndex !== null && $reportIndex === 0)) {
+            $cinemaName = $this->cinemaNameFromFilename($originalFilename);
+        }
+        if ($cinemaName === '') {
             throw new \InvalidArgumentException('Nama bioskop tidak dapat dibaca dari PDF.');
         }
 
@@ -130,12 +133,18 @@ class CinepolisPdfParser
     {
         $lines = $this->lines($block['text']);
         $headerIndex = $this->findLineIndex($lines, function ($line) {
-            return stripos($line, 'Attribute') !== false && stripos($line, 'Admits') !== false;
+            return stripos($line, 'Admits') !== false
+                && stripos($line, 'Ticket') !== false
+                && (stripos($line, 'Price') !== false || stripos($line, 'Type') !== false);
         });
         $detailLines = $headerIndex === null ? $lines : array_slice($lines, $headerIndex + 1);
         $money = '[\d.,]+';
         $ticketBeforePrice = '/^(?:(\d{1,2}:\d{2})\s+)?([A-Z][A-Z0-9\- ]*?)\s+('.$money.')\s+(\d+)\s+('.$money.')\s+('.$money.')\s+('.$money.')\s*(2D|3D)\s*$/i';
         $ticketAfterAttribute = '/^(?:(\d{1,2}:\d{2})\s+)?('.$money.')\s+(\d+)\s+('.$money.')\s+('.$money.')\s+('.$money.')\s*(2D|3D)\s*([A-Z][A-Z0-9\- ]+)\s*$/i';
+        // Some Vista Ticket Type exports omit Movie Format altogether and append
+        // a report-page artifact after the two-decimal net amount. Accept only
+        // the complete six-column monetary shape; arithmetic is still checked below.
+        $ticketWithoutAttribute = '/^(?:(\d{1,2}:\d{2})\s+)?([A-Z][A-Z0-9\- ]*?)\s+([\d,]+\.\d{2})\s+(\d+)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})(?:\d*)\s*$/i';
 
         $rows = [];
         $currentTime = null;
@@ -164,6 +173,8 @@ class CinepolisPdfParser
                 $layout = 'ticket_before_price';
             } elseif (preg_match($ticketAfterAttribute, $line, $match)) {
                 $layout = 'ticket_after_attribute';
+            } elseif (preg_match($ticketWithoutAttribute, $line, $match)) {
+                $layout = 'ticket_without_attribute';
             } else {
                 continue;
             }
@@ -186,6 +197,14 @@ class CinepolisPdfParser
                 $taxAmount = $this->parseMoney($match[5]);
                 $net = $this->parseMoney($match[6]);
                 $attribute = strtoupper($match[7]);
+            } elseif ($layout === 'ticket_without_attribute') {
+                $ticketType = $match[2];
+                $price = $this->parseMoney($match[3]);
+                $admits = $this->parseInteger($match[4]);
+                $gross = $this->parseMoney($match[5]);
+                $taxAmount = $this->parseMoney($match[6]);
+                $net = $this->parseMoney($match[7]);
+                $attribute = null;
             } else {
                 $ticketType = $match[2];
                 $price = $this->parseMoney($match[3]);
@@ -253,7 +272,7 @@ class CinepolisPdfParser
 
     private function parseSourceTotals(string $text): array
     {
-        preg_match_all('/Day\s+Total\s+Paid\s+(\d+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i', $text, $matches, PREG_SET_ORDER);
+        preg_match_all('/Day\s+Total(?:\s+Paid)?\s+(\d+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i', $text, $matches, PREG_SET_ORDER);
         if (!$matches) {
             throw new \InvalidArgumentException('Total harian sumber tidak dapat dibaca dari PDF.');
         }
@@ -314,6 +333,20 @@ class CinepolisPdfParser
     private function normalizeName(string $value): string
     {
         return mb_strtoupper(trim(preg_replace('/\s+/', ' ', $value)));
+    }
+
+    private function cinemaNameFromFilename(?string $filename): string
+    {
+        $basename = pathinfo((string) $filename, PATHINFO_FILENAME);
+        if ($basename === '') {
+            return '';
+        }
+        $basename = preg_replace('/[_-]+/', ' ', $basename);
+        $basename = preg_replace('/\bSINEMAKU\b.*$/i', '', $basename);
+        $basename = preg_replace('/\b(?:FILM\s+)?ADMISSION\s+REPORT\b.*$/i', '', $basename);
+        $basename = preg_replace('/\b\d{1,2}\s+(?:SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER|JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST)\s+\d{4}\b.*$/i', '', $basename);
+        $basename = trim(preg_replace('/\s+/', ' ', $basename));
+        return $this->normalizeName($basename);
     }
 
     private function isTicketType(string $value): bool

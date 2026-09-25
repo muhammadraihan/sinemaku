@@ -472,7 +472,8 @@ class PelaporanController extends Controller
         ]);
 
         try {
-            $parsed = $parser->parse($request->file('file')->getPathname());
+            $file = $request->file('file');
+            $parsed = $parser->parse($file->getPathname(), $file->getClientOriginalName());
             $mapping = $this->mapCinepolisPreview($parsed);
             $token = (string) Str::uuid();
             Cache::put('cinepolis_pdf_preview:' . $token, [

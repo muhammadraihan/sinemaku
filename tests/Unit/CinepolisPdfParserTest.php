@@ -48,6 +48,55 @@ class CinepolisPdfParserTest extends TestCase
     }
 
     /** @test */
+    public function it_reads_cinema_name_from_original_filename_when_vista_header_omits_it(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+Detailed Distributors Report
+From Thursday 24/09/2026 06:00 am Until Friday 25/09/2026 06:00 am Ticket Detail Level: Ticket Type
+SINEMAKU
+MEMBURU PEMANGSA CINEMA 2
+Admits Gross Tax NetTicket PriceTicket Type Attribute
+24/09/2026
+19:45 REGULAR 40,000.00 7 280,000.00 25,454.52 254,545.48 2D
+COMFORT 65,000.00 3 195,000.00 17,727.27 177,272.73 2D
+Day Total Paid 10 475,000.00 43,181.79 431,818.21
+PDF;
+
+        $result = $parser->parseText($text, 'Paragon Sorong_SINEMAKU FILM Admission Report_24 September 2026.pdf');
+
+        $this->assertSame('PARAGON SORONG', $result['cinema_name']);
+        $this->assertSame('MEMBURU PEMANGSA', $result['film_name']);
+        $this->assertSame('2', $result['studio']);
+        $this->assertSame(['REGULAR', 'COMFORT'], array_column($result['rows'], 'type_tiket'));
+        $this->assertSame(10, $result['totals']['admits']);
+        $this->assertSame(475000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
+    public function it_parses_ticket_type_rows_without_a_movie_format_attribute(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+Detailed Distributors Report
+From Thursday 24/09/2026 06:00 am Until Friday 25/09/2026 06:00 am Ticket Detail Level: Ticket Type
+SINEMAKU
+MEMBURU PEMANGSA CINEMA 2
+Admits Gross Tax NetTicket PriceTicket Type
+24/09/2026
+19:45 REGULAR 40,000.00 7 280,000.00 25,454.52 254,545.480001
+COMFORT 65,000.00 3 195,000.00 17,727.27 177,272.730085
+Day Total Paid 10 475,000.00 43,181.79 431,818.21
+PDF;
+
+        $result = $parser->parseText($text, 'Paragon Sorong_SINEMAKU FILM Admission Report_24 September 2026.pdf');
+
+        $this->assertSame(['REGULAR', 'COMFORT'], array_column($result['rows'], 'type_tiket'));
+        $this->assertSame(10, $result['totals']['admits']);
+        $this->assertSame(475000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
     public function distributor_identity_and_vista_footer_are_not_required()
     {
         $parser = new CinepolisPdfParser();
