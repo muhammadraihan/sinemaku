@@ -244,6 +244,32 @@ PDF;
     }
 
     /** @test */
+    public function it_parses_vista_period_with_hyphenated_date_and_cutoff_time(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+BINJAI SUPERMALL
+Detailed Distributors Report
+From Thursday 24-09-2026 06:00 Until Friday 25-09-2026 06:00 Ticket Detail Level: Ticket Class
+MEMBURU PEMANGSA CINEMA06
+Admits Gross Tax NetTicket PriceTicket Class Attribute
+24-Sep-26
+11:45 0.00 1 42,000.00 3,818.18 38,181.822DREGULAR
+42,000.00 17 714,000.00 64,909.06 649,090.942DREGULAR
+Day Total Paid 18 756,000.00 68,727.24 687,272.76
+0.00 0.00 0.00 0Day Total Complementory
+68,727.2418 687,272.76756,000.00Total for Film this Screen
+PDF;
+
+        $result = $parser->parseText($text);
+
+        $this->assertSame('2026-09-24', $result['report_date']);
+        $this->assertSame('BINJAI SUPERMALL', $result['cinema_name']);
+        $this->assertSame(18, $result['totals']['admits']);
+        $this->assertSame(756000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
     public function it_rejects_pdf_without_parseable_cinema_name()
     {
         $parser = new CinepolisPdfParser();

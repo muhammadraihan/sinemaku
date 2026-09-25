@@ -42,10 +42,11 @@ class CinepolisPdfParser
         }
 
         $periodLine = $lines[$periodIndex] ?? '';
-        if (!preg_match('/From\\s+\\w+\\s+(\\d{2}\\/\\d{2}\\/\\d{4})/i', $periodLine, $dateMatch)) {
+        if (!preg_match('/From\s+\w+\s+(\d{2}([\/-])\d{2}\2\d{4})/i', $periodLine, $dateMatch)) {
             throw new \InvalidArgumentException('Tanggal laporan tidak dapat dibaca dari PDF.');
         }
-        $reportDate = Carbon::createFromFormat('d/m/Y', $dateMatch[1])->toDateString();
+        $dateFormat = $dateMatch[2] === '-' ? 'd-m-Y' : 'd/m/Y';
+        $reportDate = Carbon::createFromFormat($dateFormat, $dateMatch[1])->toDateString();
 
         $blocks = $this->screenBlocks($lines);
         if (!$blocks) {
