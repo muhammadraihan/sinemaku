@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use App\Models\Kapasitas;
 use App\Models\TypeTiket;
@@ -63,10 +64,12 @@ class KapasitasController extends Controller
     public function create()
     {
         $bioskop_kategori = KategoriBioskop::all()->pluck('name', 'uuid');
-        $nama_bioskop = MasterBioskop::all()->pluck('nama_bioskop', 'uuid');
-        $kota = MasterBioskop::selectRaw('Distinct kota')->pluck('kota', 'kota');
+        $selectedCategory = old('kategori');
+        $nama_bioskop = $selectedCategory
+            ? MasterBioskop::where('type', $selectedCategory)->pluck('nama_bioskop', 'uuid')
+            : collect();
         $type_tiket = TypeTiket::all()->pluck('name', 'uuid');
-        return view('kapasitas.create', compact('bioskop_kategori', 'nama_bioskop', 'kota','type_tiket'));
+        return view('kapasitas.create', compact('bioskop_kategori', 'nama_bioskop', 'type_tiket'));
     }
 
     /**
@@ -84,32 +87,49 @@ class KapasitasController extends Controller
                 'studio' => $request->input('studio'),
                 'kapasitas' => $request->input('kapasitas'),
             ]]);
+        $cinemaIds = collect($request->input('nama_bioskop', []))->filter()->values();
+        if ($cinemaIds->isEmpty() && $request->input('nama_bioskop')) $cinemaIds = collect([$request->input('nama_bioskop')]);
 
-        $request->merge(['capacities' => $rows->all()]);
+        $request->merge(['capacities' => $rows->all(), 'nama_bioskop' => $cinemaIds->all()]);
         $request->validate([
             'kategori' => 'required|exists:kategori_bioskops,uuid',
-            'kota' => 'required|string|max:255',
-            'nama_bioskop' => 'required|exists:master_bioskops,uuid',
+            'nama_bioskop' => 'required|array|min:1',
+            'nama_bioskop.*' => 'required|exists:master_bioskops,uuid',
             'capacities' => 'required|array|min:1',
             'capacities.*.type_tiket' => 'required|exists:type_tikets,uuid',
             'capacities.*.studio' => 'required|string|max:50',
             'capacities.*.kapasitas' => 'required|numeric|min:0',
         ], ['*.required' => 'Field :attribute tidak boleh kosong.', '*.numeric' => 'Field :attribute harus berisi angka.']);
 
-        DB::transaction(function () use ($request, $rows) {
-            foreach ($rows as $row) {
-                $kapasitas = new Kapasitas();
-                $kapasitas->kategori = $request->kategori;
-                $kapasitas->kota = $request->kota;
-                $kapasitas->nama_bioskop = $request->nama_bioskop;
-                $kapasitas->type_tiket = $row['type_tiket'];
-                $kapasitas->studio = trim((string) $row['studio']);
-                $kapasitas->kapasitas = $row['kapasitas'];
-                $kapasitas->save();
+        $cinemas = MasterBioskop::where('type', $request->kategori)
+            ->whereIn('uuid', $cinemaIds)
+            ->get()
+            ->keyBy('uuid');
+        if ($cinemas->count() !== $cinemaIds->unique()->count()) {
+            throw ValidationException::withMessages(['nama_bioskop' => 'Semua bioskop harus berasal dari kategori yang dipilih.']);
+        }
+
+        $ticketIds = $rows->pluck('type_tiket')->filter()->unique();
+        if (TypeTiket::where('kategori', $request->kategori)->whereIn('uuid', $ticketIds)->count() !== $ticketIds->count()) {
+            throw ValidationException::withMessages(['capacities' => 'Tipe tiket harus berasal dari kategori yang dipilih.']);
+        }
+
+        DB::transaction(function () use ($request, $rows, $cinemas) {
+            foreach ($cinemas as $cinema) {
+                foreach ($rows as $row) {
+                    $kapasitas = new Kapasitas();
+                    $kapasitas->kategori = $request->kategori;
+                    $kapasitas->kota = $cinema->kota;
+                    $kapasitas->nama_bioskop = $cinema->uuid;
+                    $kapasitas->type_tiket = $row['type_tiket'];
+                    $kapasitas->studio = trim((string) $row['studio']);
+                    $kapasitas->kapasitas = $row['kapasitas'];
+                    $kapasitas->save();
+                }
             }
         });
 
-        toastr()->success($rows->count().' kapasitas berhasil ditambahkan.', 'Berhasil');
+        toastr()->success(($rows->count() * $cinemas->count()).' kapasitas berhasil ditambahkan.', 'Berhasil');
         return redirect()->route('kapasitas.index');
     }
 

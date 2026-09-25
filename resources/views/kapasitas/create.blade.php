@@ -50,24 +50,24 @@
                         <div class="invalid-feedback">{{ $errors->first('kategori') }}</div>
                         @endif
                     </div>
-                    <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('nama_bioskop','Nama Bioskop',['class' => 'required form-label'])}}
-                        {!! Form::select('nama_bioskop', $nama_bioskop, '',
+                    <div class="form-group col-md-8 mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            {{ Form::label('nama_bioskop','Nama Bioskop',['class' => 'required form-label mb-0'])}}
+                            <div>
+                                <button type="button" id="select-all-cinemas" class="btn btn-xs btn-outline-primary">Pilih Semua</button>
+                                <button type="button" id="clear-all-cinemas" class="btn btn-xs btn-outline-secondary">Batalkan Semua</button>
+                            </div>
+                        </div>
+                        {!! Form::select('nama_bioskop[]', $nama_bioskop, old('nama_bioskop', []),
                         ['id'=>'nama_bioskop','class'
-                        => 'custom-select'.($errors->has('nama_bioskop') ? 'is-invalid':'') ,'required'
-                        => '', 'placeholder' => 'Pilih Nama Bioskop ...'])!!}
+                        => 'custom-select'.($errors->has('nama_bioskop') || $errors->has('nama_bioskop.*') ? ' is-invalid':'') ,'required'
+                        => '', 'multiple' => 'multiple', 'data-placeholder' => 'Pilih satu atau beberapa bioskop ...'])!!}
+                        <small class="form-text text-muted">Kapasitas di bawah akan diterapkan ke seluruh bioskop yang dipilih.</small>
                         @if ($errors->has('nama_bioskop'))
-                        <div class="invalid-feedback">{{ $errors->first('nama_bioskop') }}</div>
+                        <div class="invalid-feedback d-block">{{ $errors->first('nama_bioskop') }}</div>
                         @endif
-                    </div>
-                    <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('kota','Kota',['class' => 'required form-label'])}}
-                        {!! Form::select('kota', $kota, '',
-                        ['id'=>'kota','class'
-                        => 'custom-select'.($errors->has('kota') ? 'is-invalid':'') ,'required'
-                        => '', 'placeholder' => 'Pilih Kota ...'])!!}
-                        @if ($errors->has('kota'))
-                        <div class="invalid-feedback">{{ $errors->first('kota') }}</div>
+                        @if ($errors->has('nama_bioskop.*'))
+                        <div class="invalid-feedback d-block">{{ $errors->first('nama_bioskop.*') }}</div>
                         @endif
                     </div>
                     </div>
@@ -91,8 +91,17 @@
 <script>
     $(document).ready(function(){
         $('#kategori').select2();
-        $('#nama_bioskop').select2();
-        $('#kota').select2();
+        $('#nama_bioskop').select2({
+            placeholder: $('#nama_bioskop').data('placeholder'),
+            width: '100%',
+            closeOnSelect: false
+        });
+        $('#select-all-cinemas').on('click', function () {
+            $('#nama_bioskop').val($('#nama_bioskop option').map(function () { return this.value; }).get()).trigger('change');
+        });
+        $('#clear-all-cinemas').on('click', function () {
+            $('#nama_bioskop').val(null).trigger('change');
+        });
         var capacityIndex = 0;
         var typeOptions = @json($type_tiket);
         function options(selected) { var html='<option value="">Pilih tipe tiket...</option>'; $.each(typeOptions,function(key,value){ html += '<option value="'+key+'" '+(String(key)===String(selected)?'selected':'')+'>'+value+'</option>'; }); return html; }
@@ -111,12 +120,10 @@
                 },
                 success: function(data) {
                     $("#nama_bioskop").empty();
-
-                    $("#nama_bioskop").append('<option value="">Pilih Nama Bioskop ...</option>');
-
                     $.each(data, function(key, value) {
                         $("#nama_bioskop").append('<option value="' + key + '">' + value + '</option>');
                     });
+                    $("#nama_bioskop").val(null).trigger('change');
                 }
             });
 
@@ -136,28 +143,6 @@
             });
         });
 
-        $('#nama_bioskop').change(function(){
-            var kategori = $('#kategori').val();
-            var bioskop = $(this).val();
-
-            $.ajax({
-                url: "{{ route('ref.kota') }}",
-                type: 'GET',
-                data: {
-                    kategori: kategori,
-                    bioskop: bioskop
-                },
-                success: function(data) {
-                    $("#kota").empty();
-
-                    // $("#kota").append('<option value="">Choose Nama Kota ...</option>');
-
-                    $.each(data, function(key, value) {
-                        $("#kota").append('<option value="' + key + '">' + value + '</option>');
-                    });
-                }
-            });
-        });
 
         $('#harga, #jumlah, #tax').on('input', function() {
             // Ambil nilai harga dan jumlah, hilangkan pemisah ribuan

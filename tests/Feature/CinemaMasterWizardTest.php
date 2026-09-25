@@ -129,6 +129,28 @@ class CinemaMasterWizardTest extends TestCase
         $this->assertSame(['REGULAR', 'VIP'], DB::table('type_tikets')->orderBy('id')->pluck('name')->all());
     }
 
+    public function test_capacity_create_page_can_apply_ticket_rows_to_multiple_cinemas(): void
+    {
+        $user = $this->createUser();
+        DB::table('master_bioskops')->insert([
+            ['uuid' => 'cinema-1', 'type' => 'category-1', 'nama_bioskop' => 'CINEMA ONE', 'kota' => 'BALIKPAPAN'],
+            ['uuid' => 'cinema-2', 'type' => 'category-1', 'nama_bioskop' => 'CINEMA TWO', 'kota' => 'SAMARINDA'],
+        ]);
+        DB::table('type_tikets')->insert(['uuid' => 'ticket-1', 'kategori' => 'category-1', 'name' => 'FREE PASS']);
+
+        $this->actingAs($user)->post(route('kapasitas.store'), [
+            'kategori' => 'category-1',
+            'nama_bioskop' => ['cinema-1', 'cinema-2'],
+            'capacities' => [
+                ['type_tiket' => 'ticket-1', 'studio' => '1', 'kapasitas' => 120],
+            ],
+        ])->assertRedirect(route('kapasitas.index'));
+
+        $this->assertSame(2, DB::table('kapasitas')->count());
+        $this->assertDatabaseHas('kapasitas', ['nama_bioskop' => 'cinema-1', 'type_tiket' => 'ticket-1', 'studio' => '1', 'kapasitas' => '120', 'kota' => 'BALIKPAPAN']);
+        $this->assertDatabaseHas('kapasitas', ['nama_bioskop' => 'cinema-2', 'type_tiket' => 'ticket-1', 'studio' => '1', 'kapasitas' => '120', 'kota' => 'SAMARINDA']);
+    }
+
     public function test_capacity_create_page_can_store_multiple_rows(): void
     {
         $user = $this->createUser();
