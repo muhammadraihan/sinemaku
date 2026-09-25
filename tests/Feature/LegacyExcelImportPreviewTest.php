@@ -145,6 +145,7 @@ class LegacyExcelImportPreviewTest extends TestCase
             'token' => $preview->json('token'),
             'resource' => 'capacity',
             'source_row' => 2,
+            'ticket_name' => 'REGULAR',
             'studio' => '1',
             'kapasitas' => 100,
         ]);
@@ -156,6 +157,7 @@ class LegacyExcelImportPreviewTest extends TestCase
             'token' => $preview->json('token'),
             'resource' => 'capacity',
             'source_row' => 2,
+            'ticket_name' => 'REGULAR',
             'studio' => '1',
             'kapasitas' => 120,
         ])->assertOk()->assertJsonPath('status', 'success');
@@ -223,6 +225,43 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->assertSame([5, 2, 3], array_column($preview->json('preview'), 'jumlah'));
         $this->assertSame([50000.0, 0.0, 0.0], array_map('floatval', array_column($preview->json('preview'), 'harga')));
         $this->assertSame(0, DB::table('pelaporans')->count());
+    }
+
+    public function test_sams_quick_master_capacity_persists_each_preview_ticket_type(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'sams-category', 'name' => 'SAMS STUDIOS']);
+        DB::table('master_bioskops')->insert(['uuid' => 'sams-cinema', 'nama_bioskop' => 'SAMS TEST', 'type' => 'sams-category', 'kota' => 'JAKARTA', 'pajak' => '10']);
+        DB::table('master_films')->insert(['uuid' => 'sams-film', 'name' => 'FILM SAMS']);
+        DB::table('type_tikets')->insert([
+            ['uuid' => 'sams-regular', 'name' => 'REGULAR', 'kategori' => 'sams-category'],
+            ['uuid' => 'sams-bogof', 'name' => 'BOGOF', 'kategori' => 'sams-category'],
+            ['uuid' => 'sams-free-pass', 'name' => 'FREE PASS', 'kategori' => 'sams-category'],
+        ]);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.sams'), ['file' => $this->makeSamsFile()]);
+        $preview->assertOk()->assertJsonCount(3, 'blocking_issues');
+
+        foreach (['REGULAR' => 'sams-regular', 'BOGOF' => 'sams-bogof', 'FREE PASS' => 'sams-free-pass'] as $ticketName => $ticketUuid) {
+            $this->actingAs($owner)->post(route('pelaporan.upload.sams.quick-master'), [
+                'token' => $preview->json('token'),
+                'resource' => 'capacity',
+                'source_row' => 2,
+                'ticket_name' => $ticketName,
+                'studio' => 'Studio 2',
+                'kapasitas' => 120,
+            ])->assertOk()->assertJsonPath('status', 'success');
+
+            $this->assertDatabaseHas('kapasitas', [
+                'kategori' => 'sams-category',
+                'nama_bioskop' => 'sams-cinema',
+                'type_tiket' => $ticketUuid,
+                'studio' => '2',
+                'kapasitas' => '120',
+            ]);
+        }
+
+        $this->assertSame(3, DB::table('kapasitas')->count());
     }
 
     public function test_sams_preview_shows_missing_mappings_without_writing_and_quick_master_rejects_out_of_preview_values(): void

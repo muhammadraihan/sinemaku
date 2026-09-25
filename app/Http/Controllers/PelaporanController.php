@@ -957,11 +957,13 @@ class PelaporanController extends Controller
             if (!$allowed->contains($this->legacyNormalize($request->input('name')))) return response()->json(['status'=>'failed','message'=>'Tipe tiket harus berasal dari preview.'],422);
             $ticket = new TypeTiket(); $ticket->name=$request->input('name'); $ticket->kategori=$category->uuid; $ticket->save();
         } else {
-            $request->validate(['source_row'=>'required|integer','studio'=>'required|string|max:50','kapasitas'=>'required|numeric|min:0']);
+            $request->validate(['source_row'=>'required|integer','ticket_name'=>'required|string|max:255','studio'=>'required|string|max:50','kapasitas'=>'required|numeric|min:0']);
             $studio = $this->normalizeStudioNumber($request->input('studio'));
-            $source = collect($rows)->first(function ($row) use ($request, $studio) {
+            $ticketName = $this->legacyNormalize($request->input('ticket_name'));
+            $source = collect($rows)->first(function ($row) use ($request, $studio, $ticketName) {
                 return (int) $row['source_row'] === (int) $request->input('source_row')
-                    && $this->normalizeStudioNumber((string) $row['studio']) === $studio;
+                    && $this->normalizeStudioNumber((string) $row['studio']) === $studio
+                    && $this->legacyNormalize($row['ticket_name']) === $ticketName;
             });
             if (!$source) return response()->json(['status'=>'failed','message'=>'Baris kapasitas tidak sesuai preview.'],422);
 
