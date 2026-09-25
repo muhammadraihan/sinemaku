@@ -70,37 +70,10 @@
                         <div class="invalid-feedback">{{ $errors->first('kota') }}</div>
                         @endif
                     </div>
-                    <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('type_tiket','Tipe Tiket',['class' => 'required form-label'])}}
-                        {!! Form::select('type_tiket', $type_tiket, '',
-                        ['id'=>'type_tiket','class'
-                        => 'custom-select'.($errors->has('type_tiket') ? 'is-invalid':'') ,'required'
-                        => '', 'placeholder' => 'Pilih Tipe Tiket ...'])!!}
-                        @if ($errors->has('type_tiket'))
-                        <div class="invalid-feedback">{{ $errors->first('type_tiket') }}</div>
-                        @endif
                     </div>
-                </div>
-                <hr style="border: 1px dashed: color: black">
-                <div class="row">
-                    <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('studio','Studio',['class' => 'required form-label'])}}
-                        {!! Form::select('studio', array('1' => 'Studio - 1', '2' => 'Studio - 2', '3' => 'Studio - 3', '4' => 'Studio - 4', '5' => 'Studio - 5', '6' => 'Studio - 6', '7' => 'Studio - 7', '8' => 'Studio - 8', '9' => 'Studio - 9', '10' => 'Studio - 10'), '',
-                        ['id'=>'studio','class'
-                        => 'custom-select'.($errors->has('studio') ? 'is-invalid':'') ,'required'
-                        => '', 'placeholder' => 'Pilih Studio ...'])!!}
-                        @if ($errors->has('studio'))
-                        <div class="invalid-feedback">{{ $errors->first('studio') }}</div>
-                        @endif
-                    </div>
-                    <div class="form-group col-md-4 mb-3">
-                        {{ Form::label('kapasitas','Kapasitas',['class' => 'required form-label'])}}
-                        {{ Form::text('kapasitas',null,['placeholder' => 'Kapasitas','class' => 'form-control '.($errors->has('kapasitas') ? 'is-invalid':''),'required'])}}
-                        @if ($errors->has('kapasitas'))
-                        <div class="invalid-feedback">{{ $errors->first('kapasitas') }}</div>
-                        @endif
-                    </div>
-                </div>
+                <div class="alert alert-info"><strong>Tambahkan beberapa kapasitas sekaligus.</strong> Pilih tipe tiket, isi studio dan jumlah kursi untuk setiap baris.</div>
+                <div id="capacity-rows"></div>
+                <button type="button" id="add-capacity-row" class="btn btn-outline-primary mb-3"><i class="fal fa-plus mr-1"></i>Tambah kapasitas</button>
             <div
                 class="panel-content border-faded border-left-0 border-right-0 border-bottom-0 d-flex flex-row align-items-center">
                 <button class="btn btn-primary ml-auto" type="submit">Submit</button>
@@ -119,9 +92,13 @@
     $(document).ready(function(){
         $('#kategori').select2();
         $('#nama_bioskop').select2();
-        $('#type_tiket').select2();
         $('#kota').select2();
-        $('#studio').select2();
+        var capacityIndex = 0;
+        var typeOptions = @json($type_tiket);
+        function options(selected) { var html='<option value="">Pilih tipe tiket...</option>'; $.each(typeOptions,function(key,value){ html += '<option value="'+key+'" '+(String(key)===String(selected)?'selected':'')+'>'+value+'</option>'; }); return html; }
+        function addCapacityRow(row) { row=row||{}; var i=capacityIndex++; $('#capacity-rows').append('<div class="card border mb-3 capacity-row"><div class="card-body"><div class="d-flex justify-content-between align-items-center mb-2"><strong>Kapasitas '+(i+1)+'</strong><button type="button" class="btn btn-sm btn-outline-danger remove-capacity-row"><i class="fal fa-times"></i> Hapus</button></div><div class="row"><div class="col-md-4 form-group mb-md-0"><label>Tipe tiket</label><select name="capacities['+i+'][type_tiket]" class="custom-select capacity-ticket" required>'+options(row.type_tiket)+'</select></div><div class="col-md-4 form-group mb-md-0"><label>Studio</label><input name="capacities['+i+'][studio]" value="'+(row.studio||'')+'" class="form-control" required placeholder="Contoh: 1"></div><div class="col-md-4 form-group mb-md-0"><label>Kapasitas kursi</label><input name="capacities['+i+'][kapasitas]" value="'+(row.kapasitas||'')+'" type="number" min="0" class="form-control" required placeholder="Contoh: 120"></div></div></div></div>'); }
+        var oldCapacities = @json(old('capacities', [['type_tiket'=>'','studio'=>'','kapasitas'=>'']])); oldCapacities.forEach(addCapacityRow);
+        $('#add-capacity-row').on('click',function(){addCapacityRow({});}); $(document).on('click','.remove-capacity-row',function(){if($('.capacity-row').length>1)$(this).closest('.capacity-row').remove();});
 
         $('#kategori').change(function(){
             var kategori = $(this).val();
@@ -150,12 +127,10 @@
                     kategori: kategori,
                 },
                 success: function(data) {
-                    $("#type_tiket").empty();
-
-                    $("#type_tiket").append('<option value="">Pilih Tipe Tiket ...</option>');
-
-                    $.each(data, function(key, value) {
-                        $("#type_tiket").append('<option value="' + key + '">' + value + '</option>');
+                    typeOptions = data;
+                    $('.capacity-ticket').each(function(){
+                        var selected = $(this).val();
+                        $(this).html(options(selected));
                     });
                 }
             });

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\Kapasitas;
 use App\Models\TypeTiket;
@@ -76,36 +77,39 @@ class KapasitasController extends Controller
      */
     public function store(Request $request)
     {
-        $rules = [
-            'kategori' => 'required',
-            'kota' => 'required',
-            'nama_bioskop' => 'required',
-            'type_tiket' => 'required',
-            'studio' => 'required',
-            'kapasitas' => 'required|numeric'
-        ];
+        $rows = $request->has('capacities')
+            ? collect($request->input('capacities', []))
+            : collect([[
+                'type_tiket' => $request->input('type_tiket'),
+                'studio' => $request->input('studio'),
+                'kapasitas' => $request->input('kapasitas'),
+            ]]);
 
-        $messages = [
-            '*.required' => 'Field :attribute tidak boleh kosong !',
-            '*.min' => 'Nama tidak boleh kurang dari 2 karakter !',
-            '*.image' => 'Field Harus Berupa Foto !',
-            '*.mimes' => 'Foto Harus Berformat JPEG/PNG/JPG',
-            '*.numeric' => 'Field :attribute harus berisi angka !'
-        ];
+        $request->merge(['capacities' => $rows->all()]);
+        $request->validate([
+            'kategori' => 'required|exists:kategori_bioskops,uuid',
+            'kota' => 'required|string|max:255',
+            'nama_bioskop' => 'required|exists:master_bioskops,uuid',
+            'capacities' => 'required|array|min:1',
+            'capacities.*.type_tiket' => 'required|exists:type_tikets,uuid',
+            'capacities.*.studio' => 'required|string|max:50',
+            'capacities.*.kapasitas' => 'required|numeric|min:0',
+        ], ['*.required' => 'Field :attribute tidak boleh kosong.', '*.numeric' => 'Field :attribute harus berisi angka.']);
 
-        $this->validate($request, $rules, $messages);
-        // dd($request->photo);
+        DB::transaction(function () use ($request, $rows) {
+            foreach ($rows as $row) {
+                $kapasitas = new Kapasitas();
+                $kapasitas->kategori = $request->kategori;
+                $kapasitas->kota = $request->kota;
+                $kapasitas->nama_bioskop = $request->nama_bioskop;
+                $kapasitas->type_tiket = $row['type_tiket'];
+                $kapasitas->studio = trim((string) $row['studio']);
+                $kapasitas->kapasitas = $row['kapasitas'];
+                $kapasitas->save();
+            }
+        });
 
-        $kapasitas = new Kapasitas();
-        $kapasitas->kategori = $request->kategori;
-        $kapasitas->kota = $request->kota;
-        $kapasitas->nama_bioskop = $request->nama_bioskop;
-        $kapasitas->type_tiket = $request->type_tiket;
-        $kapasitas->studio = $request->studio;
-        $kapasitas->kapasitas = $request->kapasitas;
-        $kapasitas->save();
-
-        toastr()->success('New Kapasitas Added', 'Success');
+        toastr()->success($rows->count().' kapasitas berhasil ditambahkan.', 'Berhasil');
         return redirect()->route('kapasitas.index');
     }
 

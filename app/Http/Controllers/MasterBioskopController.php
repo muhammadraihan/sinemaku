@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\MasterBioskop;
 use App\Models\KategoriBioskop;
+use App\Models\TypeTiket;
+use App\Models\Kapasitas;
 
 use Auth;
 use DataTables;
@@ -68,33 +71,67 @@ class MasterBioskopController extends Controller
      */
     public function store(Request $request)
     {
-            $rules = [
-                'type' => 'required',
-                'nama_bioskop' => 'required',
-                'kota' => 'required'
-            ];
+        $request->validate([
+            'type' => 'required|exists:kategori_bioskops,uuid',
+            'nama_bioskop' => 'required|string|max:255',
+            'kota' => 'required|string|max:255',
+            'pajak' => 'nullable|numeric|min:0|max:100',
+            'no_telephone' => 'nullable|string|max:50',
+            'ticket_types' => 'nullable|array',
+            'ticket_types.*.name' => 'nullable|string|max:255',
+            'capacities' => 'nullable|array',
+            'capacities.*.ticket_type_index' => 'required_with:capacities|integer|min:0',
+            'capacities.*.studio' => 'required_with:capacities|string|max:50',
+            'capacities.*.kapasitas' => 'required_with:capacities|numeric|min:0',
+        ], [
+            '*.required' => 'Field :attribute tidak boleh kosong.',
+            '*.numeric' => 'Field :attribute harus berisi angka.',
+        ]);
 
-            $messages = [
-                '*.required' => 'Field :attribute tidak boleh kosong !',
-                '*.min' => 'Nama tidak boleh kurang dari 2 karakter !',
-                '*.image' => 'Field Harus Berupa Foto !',
-                '*.mimes' => 'Foto Harus Berformat JPEG/PNG/JPG'
-            ];
+        $ticketTypes = collect($request->input('ticket_types', []))
+            ->map(fn ($item) => ['name' => mb_strtoupper(trim((string) ($item['name'] ?? '')), 'UTF-8')])
+            ->filter(fn ($item) => $item['name'] !== '')
+            ->values();
+        $capacities = collect($request->input('capacities', []))->values();
+        foreach ($capacities as $index => $capacity) {
+            if (!$ticketTypes->has((int) $capacity['ticket_type_index'])) {
+                return back()->withInput()->withErrors(["capacities.$index.ticket_type_index" => 'Pilih tipe tiket yang tersedia pada tab Tipe Tiket.']);
+            }
+        }
 
-            $this->validate($request, $rules, $messages);
-            // dd($request->photo);
-
+        DB::transaction(function () use ($request, $ticketTypes, $capacities) {
             $bioskop = new MasterBioskop();
             $bioskop->type = $request->type;
-            $bioskop->nama_bioskop = $request->nama_bioskop;
+            $bioskop->nama_bioskop = mb_strtoupper(trim($request->nama_bioskop), 'UTF-8');
             $bioskop->kota = $request->kota;
             $bioskop->no_telephone = $request->no_telephone;
             $bioskop->pajak = $request->pajak;
             $bioskop->created_by = Auth::user()->uuid;
             $bioskop->save();
 
-            toastr()->success('New Bioskop Name Added', 'Success');
-            return redirect()->route('masterbioskop.index');
+            $createdTickets = $ticketTypes->map(function ($ticket) use ($bioskop) {
+                $model = new TypeTiket();
+                $model->name = $ticket['name'];
+                $model->kategori = $bioskop->type;
+                $model->save();
+                return $model;
+            });
+
+            foreach ($capacities as $capacity) {
+                $ticket = $createdTickets->get((int) $capacity['ticket_type_index']);
+                $model = new Kapasitas();
+                $model->kategori = $bioskop->type;
+                $model->kota = $bioskop->kota;
+                $model->nama_bioskop = $bioskop->uuid;
+                $model->type_tiket = $ticket->uuid;
+                $model->studio = trim((string) $capacity['studio']);
+                $model->kapasitas = $capacity['kapasitas'];
+                $model->save();
+            }
+        });
+
+        toastr()->success('Bioskop, tipe tiket, dan kapasitas berhasil disimpan.', 'Berhasil');
+        return redirect()->route('masterbioskop.index');
     }
 
     /**

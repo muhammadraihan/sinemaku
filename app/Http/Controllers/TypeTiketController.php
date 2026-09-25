@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\TypeTiket;
 use App\Models\KategoriBioskop;
@@ -65,27 +66,27 @@ class TypeTiketController extends Controller
      */
     public function store(Request $request)
     {
-        $rules = [
-            'name' => 'required',
-            'kategori' => 'required'
-        ];
+        $rows = $request->has('ticket_types')
+            ? collect($request->input('ticket_types', []))
+            : collect([['name' => $request->input('name')]]);
 
-        $messages = [
-            '*.required' => 'Field :attribute tidak boleh kosong !',
-            '*.min' => 'Nama tidak boleh kurang dari 2 karakter !',
-            '*.image' => 'Field Harus Berupa Foto !',
-            '*.mimes' => 'Foto Harus Berformat JPEG/PNG/JPG'
-        ];
+        $request->merge(['ticket_types' => $rows->all()]);
+        $request->validate([
+            'kategori' => 'required|exists:kategori_bioskops,uuid',
+            'ticket_types' => 'required|array|min:1',
+            'ticket_types.*.name' => 'required|string|max:255',
+        ], ['*.required' => 'Field :attribute tidak boleh kosong.']);
 
-        $this->validate($request, $rules, $messages);
-        // dd($request->photo);
+        DB::transaction(function () use ($request, $rows) {
+            foreach ($rows as $row) {
+                $type = new TypeTiket();
+                $type->name = mb_strtoupper(trim($row['name']), 'UTF-8');
+                $type->kategori = $request->kategori;
+                $type->save();
+            }
+        });
 
-        $type_tiket = new TypeTiket();
-        $type_tiket->name = strtoupper($request->name);
-        $type_tiket->kategori = $request->kategori;
-        $type_tiket->save();
-
-        toastr()->success('New Type Ticket Added', 'Success');
+        toastr()->success($rows->count().' tipe tiket berhasil ditambahkan.', 'Berhasil');
         return redirect()->route('typetiket.index');
     }
 
