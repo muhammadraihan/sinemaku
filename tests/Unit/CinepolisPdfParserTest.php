@@ -150,6 +150,46 @@ PDF;
     }
 
     /** @test */
+    public function it_parses_ticket_class_layout_with_trailing_ticket_name_and_complimentary_amounts(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+LM KUTA
+Detailed Distributors Report
+From Thursday 24/09/2026 06:00 Until Friday 25/09/2026 06:00 Ticket Detail Level: Ticket Class
+SINEMAKU
+MEMBURU PEMANGSA CINEMA01
+Admits Gross Tax NetTicket PriceTicket Class Attribute
+24/09/2026
+12:45 25.000,00 6 150.000,00 13.636,38 136.363,622DREGULAR
+136.363,6213.636,38150.000,006
+15:10 25.000,00 4 100.000,00 9.090,92 90.909,082DREGULAR
+90.909,089.090,92100.000,004
+17:35 25.000,00 26 650.000,00 59.090,98 590.909,022DREGULAR
+590.909,0259.090,98650.000,0026
+20:00 0.00 1 25.000,00 2.272,73 22.727,272DREGULAR
+25.000,00 57 1.425.000,00 129.545,61 1.295.454,392DREGULAR
+1.318.181,66131.818,341.450.000,0058
+Day Total Paid 93 2.350.000,00 211.363,89 2.113.636,11
+22,727.27 2,272.73 25,000.00 1Day Total Complementory
+213.636,6294 2.136.363,382.350.000,00Total for Film this Screen
+PDF;
+
+        $result = $parser->parseText($text);
+
+        $this->assertSame('LM KUTA', $result['cinema_name']);
+        $this->assertSame(5, count($result['rows']));
+        $this->assertSame(['12:45', '15:10', '17:35', '20:00', '20:00'], array_column($result['rows'], 'jam_tayang'));
+        $this->assertSame(['REGULAR', 'REGULAR', 'REGULAR', 'REGULAR', 'REGULAR'], array_column($result['rows'], 'type_tiket'));
+        $this->assertSame([6, 4, 26, 1, 57], array_column($result['rows'], 'jumlah'));
+        $this->assertSame(94, $result['totals']['admits']);
+        $this->assertSame(2350000.0, $result['totals']['gross']);
+        $this->assertSame(213636.62, $result['totals']['tax_amount']);
+        $this->assertSame(2136363.38, $result['totals']['net']);
+        $this->assertSame($result['totals'], array_merge($result['source_totals'], ['tax_rate' => $result['totals']['tax_rate']]));
+    }
+
+    /** @test */
     public function it_rejects_pdf_without_parseable_cinema_name()
     {
         $parser = new CinepolisPdfParser();

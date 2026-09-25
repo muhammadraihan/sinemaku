@@ -69,12 +69,18 @@ class CinepolisPdfParser
             'net' => round(array_sum(array_column($rows, 'net')), 2),
         ];
         $totals['tax_rate'] = $totals['gross'] > 0 ? round(($totals['tax_amount'] / $totals['gross']) * 100, 4) : 0.0;
-        $sourceTotals = $this->parseSourceTotals($text);
+        $dayTotals = $this->parseSourceTotals($text);
+        $screenTotals = $this->parseScreenTotals($text);
+        $isTicketClassProfile = preg_match('/Ticket\s+Detail\s+Level\s*:\s*Ticket\s+Class/i', $text) === 1;
+        $sourceTotals = $isTicketClassProfile
+            ? ($screenTotals ?? $dayTotals)
+            : $dayTotals;
+        $reconciliationTotals = $sourceTotals;
         if (
-            $totals['admits'] !== $sourceTotals['admits']
-            || abs($totals['gross'] - $sourceTotals['gross']) > 0.02
-            || abs($totals['tax_amount'] - $sourceTotals['tax_amount']) > 0.02
-            || abs($totals['net'] - $sourceTotals['net']) > 0.02
+            $totals['admits'] !== $reconciliationTotals['admits']
+            || abs($totals['gross'] - $reconciliationTotals['gross']) > 0.02
+            || abs($totals['tax_amount'] - $reconciliationTotals['tax_amount']) > 0.02
+            || abs($totals['net'] - $reconciliationTotals['net']) > 0.02
         ) {
             throw new \InvalidArgumentException('Total detail PDF tidak sama dengan Day Total sumber.');
         }
@@ -108,7 +114,7 @@ class CinepolisPdfParser
             $blocks[] = [
                 'film_name' => $start['film_name'],
                 'studio' => $start['studio'],
-                'text' => implode(' ', array_slice($lines, $start['index'], $end - $start['index'])),
+                'text' => implode("\n", array_slice($lines, $start['index'], $end - $start['index'])),
             ];
         }
 
@@ -117,17 +123,46 @@ class CinepolisPdfParser
 
     private function parseBlockRows(array $block, string $reportDate): array
     {
-        $raw = preg_replace('/\\s+/', ' ', str_replace("\\t", ' ', $block['text']));
-        $raw = preg_replace('/.*?Attribute\\s+/s', '', $raw, 1);
-        $raw = preg_replace('/Day Total.*$/s', '', $raw);
+        $lines = $this->lines($block['text']);
+        $headerIndex = $this->findLineIndex($lines, function ($line) {
+            return stripos($line, 'Attribute') !== false && stripos($line, 'Admits') !== false;
+        });
+        $detailLines = $headerIndex === null ? $lines : array_slice($lines, $headerIndex + 1);
         $money = '[\d.,]+';
-        $rowPattern = '/(?:(\d{1,2}:\d{2})\s+)?([A-Z][A-Z0-9\- ]*?)\s+('.$money.')\s+(\d+)\s+('.$money.')\s+('.$money.')\s+('.$money.')\s*2D/i';
-        preg_match_all($rowPattern, $raw, $matches, PREG_SET_ORDER);
+        $ticketBeforePrice = '/^(?:(\d{1,2}:\d{2})\s+)?([A-Z][A-Z0-9\- ]*?)\s+('.$money.')\s+(\d+)\s+('.$money.')\s+('.$money.')\s+('.$money.')\s*(2D|3D)\s*$/i';
+        $ticketAfterAttribute = '/^(?:(\d{1,2}:\d{2})\s+)?('.$money.')\s+(\d+)\s+('.$money.')\s+('.$money.')\s+('.$money.')\s*(2D|3D)\s*([A-Z][A-Z0-9\- ]+)\s*$/i';
 
         $rows = [];
         $currentTime = null;
         $showByTime = [];
-        foreach ($matches as $match) {
+        $wrappedTicketWords = [];
+        foreach ($detailLines as $line) {
+            // Vista may wrap a Ticket Type on separate uppercase lines before its
+            // numeric detail (for example "COMPLIMENTRY" / "VOUCHER"). Rejoin
+            // only that known shape; summary lines are still rejected below.
+            if (preg_match('/^[A-Z][A-Z0-9\- ]*$/i', $line)
+                && stripos($line, 'TOTAL') === false
+                && stripos($line, 'CINEMA') === false) {
+                $wrappedTicketWords[] = $line;
+                continue;
+            }
+            if ($wrappedTicketWords && preg_match('/^(?:\d{1,2}:\d{2}\s+)?[\d.,]+\s+\d+\b/', $line)) {
+                $line = implode(' ', $wrappedTicketWords) . ' ' . $line;
+            }
+            $wrappedTicketWords = [];
+            if (stripos($line, 'Day Total') !== false || stripos($line, 'Total for Film') !== false) {
+                break;
+            }
+
+            $layout = null;
+            if (preg_match($ticketBeforePrice, $line, $match)) {
+                $layout = 'ticket_before_price';
+            } elseif (preg_match($ticketAfterAttribute, $line, $match)) {
+                $layout = 'ticket_after_attribute';
+            } else {
+                continue;
+            }
+
             if ($match[1] !== '') {
                 $currentTime = $match[1];
                 if (!isset($showByTime[$currentTime])) {
@@ -137,15 +172,32 @@ class CinepolisPdfParser
             if (!$currentTime) {
                 continue;
             }
-            $price = $this->parseMoney($match[3]);
-            $admits = $this->parseInteger($match[4]);
-            $gross = $this->parseMoney($match[5]);
-            $taxAmount = $this->parseMoney($match[6]);
-            $net = $this->parseMoney($match[7]);
+
+            if ($layout === 'ticket_after_attribute') {
+                $ticketType = $match[8];
+                $price = $this->parseMoney($match[2]);
+                $admits = $this->parseInteger($match[3]);
+                $gross = $this->parseMoney($match[4]);
+                $taxAmount = $this->parseMoney($match[5]);
+                $net = $this->parseMoney($match[6]);
+                $attribute = strtoupper($match[7]);
+            } else {
+                $ticketType = $match[2];
+                $price = $this->parseMoney($match[3]);
+                $admits = $this->parseInteger($match[4]);
+                $gross = $this->parseMoney($match[5]);
+                $taxAmount = $this->parseMoney($match[6]);
+                $net = $this->parseMoney($match[7]);
+                $attribute = strtoupper($match[8]);
+            }
+
             if ($price === null || $admits === null || $gross === null || $taxAmount === null || $net === null) {
                 continue;
             }
-            if (abs(($price * $admits) - $gross) > 0.02 || abs(($taxAmount + $net) - $gross) > 0.02) {
+            // Some complimentary Ticket Class rows print a zero ticket price while
+            // retaining their attributed gross. The printed gross/tax/net remains
+            // authoritative and is reconciled against the source screen total.
+            if (($price > 0 && abs(($price * $admits) - $gross) > 0.02) || abs(($taxAmount + $net) - $gross) > 0.02) {
                 throw new \InvalidArgumentException('Detail nominal PDF tidak konsisten pada jam ' . $currentTime . '.');
             }
             $rows[] = [
@@ -153,18 +205,43 @@ class CinepolisPdfParser
                 'jam_tayang' => $currentTime,
                 'show' => $showByTime[$currentTime],
                 'studio' => $this->normalizeStudioNumber($block['studio']),
-                'type_tiket' => $this->normalizeName($match[2]),
+                'type_tiket' => $this->normalizeName($ticketType),
                 'harga' => $price,
                 'jumlah' => $admits,
                 'gross' => $gross,
                 'tax_amount' => $taxAmount,
                 'tax_rate' => $gross > 0 ? round(($taxAmount / $gross) * 100, 4) : 0.0,
                 'net' => $net,
-                'attribute' => '2D',
+                'attribute' => $attribute,
             ];
         }
 
         return $rows;
+    }
+
+    private function parseScreenTotals(string $text): ?array
+    {
+        $money = '(?:\d{1,3}(?:\.\d{3})*,\d{2}|\d{1,3}(?:,\d{3})*\.\d{2})';
+        preg_match_all('/('.$money.')(\d+)\s+('.$money.')('.$money.')\s*Total\s+for\s+Film\s+this\s+Screen/i', $text, $matches, PREG_SET_ORDER);
+        if (!$matches) {
+            return null;
+        }
+
+        $totals = ['admits' => 0, 'gross' => 0.0, 'tax_amount' => 0.0, 'net' => 0.0];
+        foreach ($matches as $match) {
+            // Flattened Vista order: tax, admits, net, gross.
+            $totals['tax_amount'] += $this->parseMoney($match[1]);
+            $totals['admits'] += $this->parseInteger($match[2]);
+            $totals['net'] += $this->parseMoney($match[3]);
+            $totals['gross'] += $this->parseMoney($match[4]);
+        }
+
+        return [
+            'admits' => $totals['admits'],
+            'gross' => round($totals['gross'], 2),
+            'tax_amount' => round($totals['tax_amount'], 2),
+            'net' => round($totals['net'], 2),
+        ];
     }
 
     private function parseSourceTotals(string $text): array
@@ -181,8 +258,23 @@ class CinepolisPdfParser
             $totals['tax_amount'] += $this->parseMoney($match[3]);
             $totals['net'] += $this->parseMoney($match[4]);
         }
-        preg_match_all('/(\d+)\s*Day\s+Total\s+Complement(?:o|a)ry/i', $text, $complimentaryMatches);
-        $totals['admits'] += array_sum(array_map('intval', $complimentaryMatches[1] ?? []));
+        // Vista can print complementary totals in either order. The Ticket Type
+        // profile puts admits first; Ticket Class may flatten it as net, tax,
+        // gross, admits immediately before "Day Total Complementory".
+        preg_match_all('/(?:Day\s+Total\s+Complement(?:o|a)ry\s+(\d+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)|([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+(\d+)\s*Day\s+Total\s+Complement(?:o|a)ry)/i', $text, $complimentaryMatches, PREG_SET_ORDER);
+        foreach ($complimentaryMatches as $match) {
+            if (!empty($match[1])) {
+                $totals['admits'] += $this->parseInteger($match[1]);
+                $totals['gross'] += $this->parseMoney($match[2]);
+                $totals['tax_amount'] += $this->parseMoney($match[3]);
+                $totals['net'] += $this->parseMoney($match[4]);
+            } else {
+                $totals['net'] += $this->parseMoney($match[5]);
+                $totals['tax_amount'] += $this->parseMoney($match[6]);
+                $totals['gross'] += $this->parseMoney($match[7]);
+                $totals['admits'] += $this->parseInteger($match[8]);
+            }
+        }
 
         return [
             'admits' => $totals['admits'],
