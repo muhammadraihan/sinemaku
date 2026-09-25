@@ -16,7 +16,7 @@ class CinepolisPdfParser
         try {
             $text = (new PdfParser())->parseFile($path)->getText();
         } catch (\Throwable $exception) {
-            throw new \InvalidArgumentException('Isi PDF tidak dapat diekstrak. Pastikan file bukan PDF scan atau terenkripsi.');
+            throw new \InvalidArgumentException('Isi PDF tidak dapat diekstrak. Pastikan file bukan PDF scan atau terenkripsi.', 0, $exception);
         }
 
         return $this->parseText($text);

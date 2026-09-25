@@ -27,6 +27,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use App\Services\Reports\CinepolisPdfParser;
 
@@ -460,10 +461,19 @@ class PelaporanController extends Controller
                 'quick_master_context' => $mapping['quick_master_context'],
             ]);
         } catch (\Throwable $e) {
-            report($e);
+            $reference = 'CINEPOLIS-'.strtoupper(Str::random(10));
+            $cause = $e->getPrevious();
+            $technicalMessage = $cause ? $cause->getMessage() : $e->getMessage();
+            Log::error('Cinepolis PDF preview failed', [
+                'reference' => $reference,
+                'exception' => get_class($e),
+                'cause' => $cause ? get_class($cause) : null,
+                'technical_message' => $technicalMessage,
+                'user_id' => Auth::id(),
+            ]);
             return response()->json([
                 'status' => 'failed',
-                'message' => $e->getMessage(),
+                'message' => 'PDF gagal diproses: '.$technicalMessage.' (Referensi: '.$reference.')',
             ], 422);
         }
     }

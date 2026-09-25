@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\Reports\CinepolisPdfParser;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -73,6 +75,31 @@ class CinepolisPdfImportTest extends TestCase
             ->assertOk()->assertJsonPath('inserted', 7);
         $this->assertSame(7, DB::table('pelaporans')->count());
         $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.confirm'), ['token' => $token])->assertStatus(422);
+    }
+
+    public function test_preview_reports_the_underlying_parser_failure_with_a_reference(): void
+    {
+        $user = $this->createUser();
+        $file = new UploadedFile(base_path('tests/Fixtures/cinepolis-vista-sample.pdf'), 'cinepolis.pdf', 'application/pdf', null, true);
+        $parser = \Mockery::mock(CinepolisPdfParser::class);
+        $parser->shouldReceive('parse')->once()->andThrow(new \InvalidArgumentException(
+            'Isi PDF tidak dapat diekstrak.',
+            0,
+            new \RuntimeException('Production PDF engine failed')
+        ));
+        $this->app->instance(CinepolisPdfParser::class, $parser);
+        Log::spy();
+
+        $response = $this->actingAs($user)->post(route('pelaporan.upload.cinepolis.preview'), ['file' => $file]);
+
+        $response->assertStatus(422)->assertJsonPath('status', 'failed');
+        $message = $response->json('message');
+        $this->assertStringContainsString('Production PDF engine failed', $message);
+        $this->assertSame(1, preg_match('/Referensi: CINEPOLIS-[A-Z0-9]{10}/', $message));
+        Log::shouldHaveReceived('error')->once()->with('Cinepolis PDF preview failed', \Mockery::on(function ($context) {
+            return ($context['cause'] ?? null) === \RuntimeException::class
+                && ($context['technical_message'] ?? null) === 'Production PDF engine failed';
+        }));
     }
 
     public function test_preview_blocks_unresolved_master_mappings_without_writing_rows(): void
