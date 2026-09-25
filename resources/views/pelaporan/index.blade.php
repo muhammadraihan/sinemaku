@@ -153,6 +153,7 @@
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="CGV">CGV</a>
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="SAMS STUDIOS">SAMS STUDIOS</a>
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="CINEPOLIS PDF">CINEPOLIS PDF</a>
+                                    <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="PLATINUM PDF">PLATINUM PDF</a>
                                 </div>
                             </div>
                         {{-- </div> --}}
@@ -410,12 +411,13 @@
     $(document).on('click', '.open-upload-modal', function(e){
         e.preventDefault();
         bioskop = $(this).attr("data-bioskop");
-        var isCinepolisPdf = bioskop === 'CINEPOLIS PDF';
-        $('#uploadFile').attr('accept', isCinepolisPdf ? '.pdf,application/pdf' : '.xlsx,.xls');
-        $('#modal-upload .modal-title').html(isCinepolisPdf
-            ? 'Upload Cinepolis PDF <small class="m-0 text-muted">File akan diparse dan ditampilkan terlebih dahulu untuk review</small>'
+        var isPdfReport = bioskop === 'CINEPOLIS PDF' || bioskop === 'PLATINUM PDF';
+        var pdfProvider = bioskop === 'PLATINUM PDF' ? 'Platinum' : 'Cinepolis';
+        $('#uploadFile').attr('accept', isPdfReport ? '.pdf,application/pdf' : '.xlsx,.xls');
+        $('#modal-upload .modal-title').html(isPdfReport
+            ? 'Upload ' + pdfProvider + ' PDF <small class="m-0 text-muted">File akan diparse dan ditampilkan terlebih dahulu untuk review</small>'
             : 'Upload File <small class="m-0 text-muted">Pilih file untuk diunggah</small>');
-        $('#modal-upload .form-text').text(isCinepolisPdf ? 'Format: .pdf (maks. 20MB). Data belum disimpan sebelum Konfirmasi Import.' : 'Format: .xlsx / .xls');
+        $('#modal-upload .form-text').text(isPdfReport ? 'Format: .pdf (maks. 20MB). Data belum disimpan sebelum Konfirmasi Import.' : 'Format: .xlsx / .xls');
         $(".custom-dropdown-menu").hide();
         $('#modal-upload').appendTo('body');
         $('#modal-upload').modal('show');
@@ -504,11 +506,13 @@
     e.preventDefault();
     const formData = new FormData(this);
 
-    if (bioskop === 'CINEPOLIS PDF') {
+    if (bioskop === 'CINEPOLIS PDF' || bioskop === 'PLATINUM PDF') {
+        var isPlatinumPdf = bioskop === 'PLATINUM PDF';
+        activePdfProvider = isPlatinumPdf ? 'platinum' : 'cinepolis';
         setProcessingUI(true);
         startDummyProgress();
         $.ajax({
-            url: @json(route('pelaporan.upload.cinepolis.preview')),
+            url: isPlatinumPdf ? @json(route('pelaporan.upload.platinum.preview')) : @json(route('pelaporan.upload.cinepolis.preview')),
             method: 'POST',
             data: formData,
             contentType: false,
@@ -556,7 +560,7 @@
                     : ''));
         var issues = res.blocking_issues || [];
         var warnings = res.warnings || [];
-        activeCinepolisPreview = res;
+        activePdfPreview = res;
         var quickContext = res.quick_master_context || {};
         var issueHtml = issues.map(function (issue) {
             var action = quickMasterActionForIssue(issue, quickContext, res);
@@ -571,7 +575,8 @@
         $('#cinepolis-preview-warnings').toggleClass('d-none', !warnings.length).html(warnings.length ? '<strong>Perhatian:</strong><ul class="mb-0">' + warnings.map(function (warning) { return '<li>' + escapeHtml(warning) + '</li>'; }).join('') + '</ul>' : '');
         var rows = (res.preview || []).map(function (row) {
             var blocked = row.mapping_status !== 'Siap';
-            return '<tr class="' + (blocked ? 'is-blocked' : '') + '"><td>' + escapeHtml(row.mapping_status) + '</td><td>' + escapeHtml(row.tanggal) + '</td><td>' + escapeHtml(row.jam_tayang) + '</td><td>' + escapeHtml(row.kategori) + '</td><td>' + escapeHtml(row.bioskop) + '</td><td>' + escapeHtml(row.kota || '-') + '</td><td>' + escapeHtml(summary.film) + '</td><td>CINEMA ' + escapeHtml(row.studio || summary.studio || '') + '</td><td>' + escapeHtml(row.type_tiket) + '</td><td>' + money(row.harga) + '</td><td>' + escapeHtml(row.jumlah) + '</td><td>' + money(row.gross) + '</td><td>' + money(row.tax_amount) + '</td><td>' + escapeHtml(row.tax_rate) + '%</td><td>' + money(row.net) + '</td></tr>';
+            var studioLabel = (activePdfProvider === 'platinum' ? 'STUDIO ' : 'CINEMA ') + escapeHtml(row.studio || summary.studio || '');
+            return '<tr class="' + (blocked ? 'is-blocked' : '') + '"><td>' + escapeHtml(row.mapping_status) + '</td><td>' + escapeHtml(row.tanggal) + '</td><td>' + escapeHtml(row.jam_tayang) + '</td><td>' + escapeHtml(row.kategori) + '</td><td>' + escapeHtml(row.bioskop) + '</td><td>' + escapeHtml(row.kota || '-') + '</td><td>' + escapeHtml(summary.film) + '</td><td>' + studioLabel + '</td><td>' + escapeHtml(row.type_tiket) + '</td><td>' + money(row.harga) + '</td><td>' + escapeHtml(row.jumlah) + '</td><td>' + money(row.gross) + '</td><td>' + money(row.tax_amount) + '</td><td>' + escapeHtml(row.tax_rate) + '%</td><td>' + money(row.net) + '</td></tr>';
         }).join('');
         $('#cinepolis-preview-table tbody').html(rows);
         var canImport = !!res.token && !issues.length && !mappingConfirmation && !ambiguousCinema;
@@ -601,13 +606,18 @@
         return $('<div>').text(value == null ? '' : value).html();
     }
 
-    var activeCinepolisPreview = null;
+    var activePdfPreview = null;
+    var activePdfProvider = 'cinepolis';
+    var pdfEndpoints = {
+        cinepolis: { quick: @json(route('pelaporan.upload.cinepolis.quick-master')), confirm: @json(route('pelaporan.upload.cinepolis.confirm')) },
+        platinum: { quick: @json(route('pelaporan.upload.platinum.quick-master')), confirm: @json(route('pelaporan.upload.platinum.confirm')) }
+    };
 
     function quickMasterActionForIssue(issue, context, preview) {
         if (issue.indexOf('belum terdaftar sebagai bioskop') !== -1) return { resource: 'cinema', label: 'Tambah Master Bioskop' };
         if (issue.indexOf('belum terdaftar di Master Film') !== -1) return { resource: 'film', label: 'Tambah Master Film' };
         if (issue.indexOf('Tipe tiket ') === 0) return { resource: 'ticket_type', label: 'Tambah Tipe Tiket' };
-        if (issue.indexOf('Studio CINEMA ') === 0 && context.cinema_uuid && ticketTypeAlreadyMapped(preview, issue)) return { resource: 'capacity', label: 'Tambah Master Kapasitas' };
+        if (issue.indexOf('Studio ') === 0 && context.cinema_uuid && ticketTypeAlreadyMapped(preview, issue)) return { resource: 'capacity', label: 'Tambah Master Kapasitas' };
         return null;
     }
 
@@ -625,19 +635,19 @@
     }
 
     function firstMissingStudio(issues) {
-        var issue = (issues || []).find(function (value) { return value.indexOf('Studio CINEMA ') === 0; });
-        var match = issue && issue.match(/^Studio CINEMA ([^ ]+)/);
+        var issue = (issues || []).find(function (value) { return value.indexOf('Studio ') === 0; });
+        var match = issue && issue.match(/^Studio (?:CINEMA )?([^ ]+)/);
         return match ? match[1] : '';
     }
 
     function capacityTicketName(issues) {
-        var issue = (issues || []).find(function (value) { return value.indexOf('Studio CINEMA ') === 0; });
+        var issue = (issues || []).find(function (value) { return value.indexOf('Studio ') === 0; });
         var match = issue && issue.match(/untuk tipe tiket (.+)\.$/);
         return match ? match[1] : '';
     }
 
     function openQuickMaster(resource, issue) {
-        var res = activeCinepolisPreview || {};
+        var res = activePdfPreview || {};
         var ctx = res.quick_master_context || {};
         var issues = issue ? [issue] : (res.blocking_issues || []);
         var target = document.querySelector('#modal-cinepolis-preview .cinepolis-preview-swal-target');
@@ -671,7 +681,7 @@
                     Swal.showValidationMessage('Lengkapi semua field wajib.');
                     return false;
                 }
-                return $.post(@json(route('pelaporan.upload.cinepolis.quick-master')), payload)
+                return $.post(pdfEndpoints[activePdfProvider].quick, payload)
                     .then(function (fresh) { return fresh; })
                     .catch(function (xhr) {
                         var json = xhr.responseJSON || {};
@@ -719,7 +729,7 @@
                 return;
             }
             button.prop('disabled', true);
-            $.post(@json(route('pelaporan.upload.cinepolis.confirm')), {
+            $.post(pdfEndpoints[activePdfProvider].confirm, {
                 token: token,
                 cinema_uuid: selectedCinemaUuid,
                 confirm_cinema_mapping: $('#confirm-cinepolis-cinema-mapping').is(':checked') ? 1 : 0

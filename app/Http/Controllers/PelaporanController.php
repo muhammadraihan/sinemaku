@@ -30,6 +30,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use App\Services\Reports\CinepolisPdfParser;
+use App\Services\Reports\PlatinumPdfParser;
 
 class PelaporanController extends Controller
 {
@@ -756,7 +757,7 @@ class PelaporanController extends Controller
                     });
             }
             if (!$ticket) $blocking[] = 'Tipe tiket ' . $row['type_tiket'] . ' belum tersedia untuk kategori CINEPOLIS.';
-            if (!$capacity && !$cinemaMatch['ambiguous']) $blocking[] = 'Studio CINEMA ' . ($row['studio'] ?? '-') . ' belum memiliki mapping kapasitas untuk tipe tiket ' . $row['type_tiket'] . '.';
+            if (!$capacity && !$cinemaMatch['ambiguous']) $blocking[] = 'Studio ' . ($row['studio'] ?? '-') . ' belum memiliki mapping kapasitas untuk tipe tiket ' . $row['type_tiket'] . '.';
             $key = $this->cinepolisRowKey($row);
             $rowMappings[$key] = [
                 'ticket_uuid' => optional($ticket)->uuid,
@@ -869,6 +870,424 @@ class PelaporanController extends Controller
             'requires_confirmation' => false,
             'ambiguous' => $likeMatches->count() > 1,
         ];
+    }
+
+
+    public function previewPlatinumPdf(Request $request, PlatinumPdfParser $parser)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf|max:20480',
+        ], [
+            'file.required' => 'File PDF wajib diunggah.',
+            'file.mimes' => 'Format file harus PDF.',
+            'file.max' => 'Ukuran file maksimal 20MB.',
+        ]);
+
+        try {
+            $parsed = $parser->parse($request->file('file')->getPathname());
+            $mapping = $this->mapPlatinumPreview($parsed);
+            $token = (string) Str::uuid();
+            Cache::put('platinum_pdf_preview:' . $token, [
+                'parsed' => $parsed,
+                'mapping' => $mapping,
+                'created_by' => Auth::user()->uuid ?? null,
+            ], now()->addMinutes(30));
+
+            return response()->json([
+                'status' => 'success',
+                'token' => $token,
+                'preview' => $mapping['preview'],
+                'summary' => $mapping['summary'],
+                'blocking_issues' => $mapping['blocking_issues'],
+                'warnings' => $mapping['warnings'],
+                'cinema_mapping' => $mapping['cinema_mapping'],
+                'row_mappings' => $mapping['row_mappings'],
+                'quick_master_context' => $mapping['quick_master_context'],
+            ]);
+        } catch (\Throwable $e) {
+            $reference = 'PLATINUM-'.strtoupper(Str::random(10));
+            $cause = $e->getPrevious();
+            $technicalMessage = $cause ? $cause->getMessage() : $e->getMessage();
+            Log::error('Platinum PDF preview failed', [
+                'reference' => $reference,
+                'exception' => get_class($e),
+                'cause' => $cause ? get_class($cause) : null,
+                'technical_message' => $technicalMessage,
+                'user_id' => Auth::id(),
+            ]);
+            return response()->json([
+                'status' => 'failed',
+                'message' => 'PDF gagal diproses: '.$technicalMessage.' (Referensi: '.$reference.')',
+            ], 422);
+        }
+    }
+
+    public function quickMasterPlatinum(Request $request)
+    {
+        $request->validate([
+            'token' => 'required|string',
+            'resource' => 'required|in:cinema,film,ticket_type,capacity',
+        ]);
+        $cacheKey = 'platinum_pdf_preview:' . $request->input('token');
+        $cached = Cache::get($cacheKey);
+        if (!$cached) {
+            return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa. Silakan upload ulang PDF.'], 422);
+        }
+        if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) {
+            return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
+        }
+
+        $parsed = $cached['parsed'];
+        $mapping = $cached['mapping'];
+        $resource = $request->input('resource');
+        $category = KategoriBioskop::whereRaw('UPPER(name) = ?', ['PLATINUM'])->first();
+        if (!$category) {
+            return response()->json(['status' => 'failed', 'message' => 'Kategori PLATINUM belum tersedia.'], 422);
+        }
+
+        if ($resource === 'cinema') {
+            $request->validate(['name' => 'required|string|max:255', 'city' => 'required|string|max:255']);
+            if ($this->normalizePlatinumCinemaName($parsed['cinema_name']) !== $this->normalizePlatinumCinemaName($request->input('name'))) {
+                return response()->json(['status' => 'failed', 'message' => 'Nama bioskop harus berasal dari PDF preview.'], 422);
+            }
+            $cinema = new MasterBioskop();
+            $cinema->type = $category->uuid;
+            $cinema->nama_bioskop = $request->input('name');
+            $cinema->kota = $request->input('city');
+            $cinema->created_by = Auth::user()->uuid;
+            $cinema->save();
+        } elseif ($resource === 'film') {
+            $request->validate(['name' => 'required|string|max:255']);
+            if (!$this->platinumPreviewContains($parsed, 'film', $request->input('name'))) {
+                return response()->json(['status' => 'failed', 'message' => 'Nama film harus berasal dari PDF preview.'], 422);
+            }
+            $film = new MasterFilm();
+            $film->name = MasterFilm::normalizeName($request->input('name'));
+            $film->created_by = Auth::user()->uuid;
+            $film->save();
+        } elseif ($resource === 'ticket_type') {
+            $request->validate(['name' => 'required|string|max:255']);
+            $ticketName = $this->normalizePlatinumTicketName($request->input('name'));
+            $allowed = collect($parsed['rows'])->pluck('type_tiket')->map(fn ($name) => $this->normalizePlatinumTicketName($name));
+            if (!$allowed->contains($ticketName)) {
+                return response()->json(['status' => 'failed', 'message' => 'Tipe tiket harus berasal dari PDF preview.'], 422);
+            }
+            $ticket = new TypeTiket();
+            $ticket->name = $ticketName;
+            $ticket->kategori = $category->uuid;
+            $ticket->save();
+        } else {
+            $request->validate([
+                'cinema_uuid' => 'required|string',
+                'ticket_uuid' => 'required|string',
+                'studio' => 'required|string|max:30',
+                'kapasitas' => 'required|numeric|min:0',
+            ]);
+            $cinema = MasterBioskop::where('uuid', $request->input('cinema_uuid'))->where('type', $category->uuid)->first();
+            $ticket = TypeTiket::where('uuid', $request->input('ticket_uuid'))->where('kategori', $category->uuid)->first();
+            $studio = $this->normalizeStudioNumber((string) $request->input('studio'));
+            $allowedStudios = collect($parsed['rows'])->pluck('studio')->map(fn ($value) => $this->normalizeStudioNumber((string) $value));
+            if (!$cinema || !$ticket || !$allowedStudios->contains($studio)) {
+                return response()->json(['status' => 'failed', 'message' => 'Bioskop, tipe tiket, atau studio tidak sesuai dengan PDF preview.'], 422);
+            }
+            $capacity = new Kapasitas();
+            $capacity->kategori = $category->uuid;
+            $capacity->kota = $cinema->kota;
+            $capacity->nama_bioskop = $cinema->uuid;
+            $capacity->type_tiket = $ticket->uuid;
+            $capacity->studio = $studio;
+            $capacity->kapasitas = $request->input('kapasitas');
+            $capacity->save();
+        }
+
+        $freshMapping = $this->mapPlatinumPreview($parsed, $request->input('cinema_uuid'));
+        $cached['mapping'] = $freshMapping;
+        Cache::put($cacheKey, $cached, now()->addMinutes(15));
+        return response()->json(array_merge([
+            'status' => 'success',
+            'message' => 'Master berhasil ditambahkan.',
+            'token' => $request->input('token'),
+        ], $freshMapping, [
+            'row_mappings' => $freshMapping['row_mappings'],
+            'quick_master_context' => $freshMapping['quick_master_context'],
+        ]));
+    }
+
+    private function platinumPreviewContains(array $parsed, string $type, string $value): bool
+    {
+        if ($type === 'film') {
+            return $this->normalizePlatinumCinemaName($parsed['film_name']) === $this->normalizePlatinumCinemaName($value);
+        }
+        return false;
+    }
+
+    private function normalizePlatinumTicketName(string $value): string
+    {
+        return mb_strtoupper(trim(preg_replace('/\\s+/', ' ', $value)), 'UTF-8');
+    }
+
+    public function confirmPlatinumPdf(Request $request)
+    {
+        $request->validate(['token' => 'required|string']);
+        $cacheKey = 'platinum_pdf_preview:' . $request->input('token');
+        $cached = Cache::get($cacheKey);
+        if (!$cached) {
+            return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa. Silakan upload ulang PDF.'], 422);
+        }
+        if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) {
+            return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
+        }
+        $mapping = $cached['mapping'];
+        if (!empty($mapping['cinema_mapping']['ambiguous'])) {
+            $selectedCinemaUuid = (string) $request->input('cinema_uuid');
+            $allowedCinemaUuids = array_column($mapping['cinema_mapping']['candidates'], 'uuid');
+            if (!$selectedCinemaUuid || !in_array($selectedCinemaUuid, $allowedCinemaUuids, true)) {
+                return response()->json(['status' => 'failed', 'message' => 'Pilih salah satu Master Bioskop yang sesuai sebelum import.'], 422);
+            }
+            $mapping = $this->mapPlatinumPreview($cached['parsed'], $selectedCinemaUuid);
+        }
+        if (!empty($mapping['cinema_mapping']['requires_confirmation']) && !$request->boolean('confirm_cinema_mapping')) {
+            return response()->json(['status' => 'failed', 'message' => 'Konfirmasi nama bioskop diperlukan sebelum import.'], 422);
+        }
+        if (!empty($mapping['blocking_issues'])) {
+            return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena mapping belum lengkap.', 'issues' => $mapping['blocking_issues']], 422);
+        }
+
+        $parsed = $cached['parsed'];
+        $rows = [];
+        $duplicateRows = [];
+        foreach ($parsed['rows'] as $row) {
+            $resolved = $mapping['row_mappings'][$this->platinumRowKey($row)];
+            $duplicate = Pelaporan::where('kategori', $mapping['category_uuid'])
+                ->where('nama_bioskop', $mapping['cinema_uuid'])
+                ->where('nama_film', $mapping['film_name'])
+                ->whereDate('tgl_tayang', $row['tanggal'])
+                ->where('jam_tayang', $row['jam_tayang'])
+                ->where('show', $row['show'])
+                ->where('type_tiket', $resolved['ticket_uuid'])
+                ->where('harga', $row['harga'])
+                ->where('jumlah', $row['jumlah'])
+                ->where('gross', $row['gross'])
+                ->where('net', $row['net'])
+                ->exists();
+            if ($duplicate) {
+                $duplicateRows[] = $row['type_tiket'] . ' ' . $row['jam_tayang'] . ' show ' . $row['show'];
+            }
+            $rows[] = [
+                'uuid' => Uuid::generate(),
+                'kategori' => $mapping['category_uuid'],
+                'provinsi' => $mapping['province'],
+                'kota' => $mapping['city'],
+                'nama_bioskop' => $mapping['cinema_uuid'],
+                'nama_film' => $mapping['film_name'],
+                'tgl_tayang' => $row['tanggal'],
+                'jam_tayang' => $row['jam_tayang'],
+                'show' => $row['show'],
+                'type_tiket' => $resolved['ticket_uuid'],
+                'harga' => $row['harga'],
+                'jumlah' => $row['jumlah'],
+                'gross' => $row['gross'],
+                'tax' => $row['tax_rate'],
+                'net' => $row['net'],
+                'studio' => $resolved['studio_uuid'],
+                'created_by' => Auth::user()->uuid ?? $cached['created_by'],
+                'created_at' => now(),
+            ];
+        }
+
+        if ($duplicateRows) {
+            return response()->json([
+                'status' => 'failed',
+                'message' => 'Import diblokir karena terdapat data yang sudah pernah diimport.',
+                'issues' => $duplicateRows,
+            ], 422);
+        }
+
+        DB::transaction(function () use ($rows) {
+            Pelaporan::insert($rows);
+        });
+        Cache::forget($cacheKey);
+
+        return response()->json(['status' => 'success', 'message' => count($rows) . ' baris Platinum berhasil diimport.', 'inserted' => count($rows)]);
+    }
+
+    private function mapPlatinumPreview(array $parsed, ?string $selectedCinemaUuid = null): array
+    {
+        $category = KategoriBioskop::whereRaw('UPPER(name) = ?', ['PLATINUM'])->first();
+        $cinemaMatch = $category ? $this->resolvePlatinumCinema($category->uuid, $parsed['cinema_name'], $selectedCinemaUuid) : [
+            'cinema' => null,
+            'candidates' => [],
+            'requires_confirmation' => false,
+            'ambiguous' => false,
+        ];
+        $cinema = $cinemaMatch['cinema'];
+        $film = MasterFilm::whereRaw('UPPER(TRIM(name)) = ?', [$parsed['film_name']])->first();
+        $city = $cinema ? $cinema->kota : null;
+        $cityRecord = $city ? Kota::where(function ($query) use ($city) {
+            $query->where('nama', $city)->orWhere('nama', 'Kota ' . $city);
+        })->first() : null;
+        $province = $cityRecord ? optional(Province::where('uuid', $cityRecord->provinsi_id)->first())->nama : null;
+        $blocking = [];
+        $warnings = $parsed['warnings'] ?? [];
+        if (!$category) $blocking[] = 'Kategori PLATINUM belum tersedia di Master Kategori Bioskop.';
+        if (!$cinema && !$cinemaMatch['ambiguous']) {
+            $blocking[] = 'Bioskop ' . $parsed['cinema_name'] . ' belum terdaftar sebagai bioskop kategori PLATINUM.';
+        }
+        if ($cinemaMatch['ambiguous']) {
+            $warnings[] = 'Nama bioskop ' . $parsed['cinema_name'] . ' memiliki lebih dari satu kandidat master; pilih kota yang sesuai.';
+            $blocking[] = 'Bioskop ' . $parsed['cinema_name'] . ' memiliki mapping ambigu; pilih kandidat berdasarkan kota.';
+        }
+        if ($cinemaMatch['requires_confirmation']) {
+            $warnings[] = 'Konfirmasi mapping nama bioskop: laporan “' . $parsed['cinema_name'] . '” akan dipetakan ke master “' . $cinema->nama_bioskop . '”.';
+        }
+        if (!$film) $blocking[] = 'Film ' . $parsed['film_name'] . ' belum terdaftar di Master Film.';
+        if (!$city && !$cinemaMatch['ambiguous']) $blocking[] = 'Kota bioskop belum tersedia di Master Bioskop.';
+        if (!$province && !$cinemaMatch['ambiguous']) $warnings[] = 'Provinsi belum dapat dipetakan dari master kota.';
+
+        $rowMappings = [];
+        foreach ($parsed['rows'] as $row) {
+            $ticket = $category ? TypeTiket::where('kategori', $category->uuid)->whereRaw('UPPER(TRIM(name)) = ?', [$row['type_tiket']])->first() : null;
+            $capacity = null;
+            if ($ticket && $cinema) {
+                $capacity = Kapasitas::where('kategori', $category->uuid)
+                    ->where('nama_bioskop', $cinema->uuid)
+                    ->where('type_tiket', $ticket->uuid)
+                    ->get()
+                    ->first(function ($item) use ($row) {
+                        $masterDigits = preg_replace('/[^0-9]/', '', (string) $item->studio);
+                        $reportDigits = preg_replace('/[^0-9]/', '', (string) ($row['studio'] ?? ''));
+                        if ($masterDigits === '' || $reportDigits === '') {
+                            return false;
+                        }
+                        return (int) $masterDigits === (int) $reportDigits;
+                    });
+            }
+            if (!$ticket) $blocking[] = 'Tipe tiket ' . $row['type_tiket'] . ' belum tersedia untuk kategori PLATINUM.';
+            if (!$capacity && !$cinemaMatch['ambiguous']) $blocking[] = 'Studio ' . ($row['studio'] ?? '-') . ' belum memiliki mapping kapasitas untuk tipe tiket ' . $row['type_tiket'] . '.';
+            $key = $this->platinumRowKey($row);
+            $rowMappings[$key] = [
+                'ticket_uuid' => optional($ticket)->uuid,
+                'studio_uuid' => optional($capacity)->uuid,
+                'status' => ($cinema && $ticket && $capacity) ? 'Siap' : 'Diblokir',
+            ];
+        }
+        $blocking = array_values(array_unique($blocking));
+        return [
+            'category_uuid' => optional($category)->uuid,
+            'cinema_uuid' => optional($cinema)->uuid,
+            'film_name' => optional($film)->name ?: $parsed['film_name'],
+            'city' => $city,
+            'province' => $province,
+            'cinema_mapping' => [
+                'report_name' => $parsed['cinema_name'],
+                'master_name' => optional($cinema)->nama_bioskop,
+                'requires_confirmation' => $cinemaMatch['requires_confirmation'],
+                'ambiguous' => $cinemaMatch['ambiguous'],
+                'candidates' => $cinemaMatch['candidates'],
+            ],
+            'row_mappings' => $rowMappings,
+            'quick_master_context' => [
+                'cinema_name' => $parsed['cinema_name'],
+                'film_name' => $parsed['film_name'],
+                'category_uuid' => optional($category)->uuid,
+                'cinema_uuid' => optional($cinema)->uuid,
+                'city' => $city,
+                'ticket_types' => array_values(array_unique(array_column($parsed['rows'], 'type_tiket'))),
+                'studios' => array_values(array_unique(array_column($parsed['rows'], 'studio'))),
+            ],
+            'blocking_issues' => $blocking,
+            'warnings' => array_values(array_unique($warnings)),
+            'preview' => array_map(function ($row) use ($parsed, $city, $rowMappings) {
+                $key = $this->platinumRowKey($row);
+                return array_merge($row, [
+                    'kategori' => 'PLATINUM',
+                    'bioskop' => $parsed['cinema_name'],
+                    'kota' => $city,
+                    'mapping_status' => $rowMappings[$key]['status'] ?? 'Diblokir',
+                ]);
+            }, $parsed['rows']),
+            'summary' => [
+                'cinema' => $parsed['cinema_name'],
+                'category' => 'PLATINUM',
+                'film' => $parsed['film_name'],
+                'studio' => $parsed['studio'],
+                'date' => $parsed['report_date'],
+                'admits' => $parsed['totals']['admits'],
+                'gross' => $parsed['totals']['gross'],
+                'tax_amount' => $parsed['totals']['tax_amount'],
+                'net' => $parsed['totals']['net'],
+                'source_admits' => $parsed['source_totals']['admits'],
+                'source_gross' => $parsed['source_totals']['gross'],
+                'source_tax_amount' => $parsed['source_totals']['tax_amount'],
+                'source_net' => $parsed['source_totals']['net'],
+            ],
+        ];
+    }
+
+    private function platinumRowKey(array $row): string
+    {
+        return implode('|', [
+            $row['studio'] ?? '',
+            $row['type_tiket'],
+            $row['jam_tayang'],
+            $row['show'],
+            $row['harga'],
+        ]);
+    }
+
+    private function resolvePlatinumCinema(string $categoryUuid, string $reportCinemaName, ?string $selectedCinemaUuid = null): array
+    {
+        $reportDisplayName = $this->normalizePlatinumCinemaDisplayName($reportCinemaName);
+        $reportNormalized = $this->normalizePlatinumCinemaName($reportCinemaName);
+        $cinemas = MasterBioskop::where('type', $categoryUuid)->get();
+        $candidateRows = function ($items) {
+            return $items->map(function ($cinema) {
+                return [
+                    'uuid' => $cinema->uuid,
+                    'name' => $cinema->nama_bioskop,
+                    'city' => $cinema->kota,
+                ];
+            })->values()->all();
+        };
+        $exact = $cinemas->filter(function ($cinema) use ($reportDisplayName) {
+            return $this->normalizePlatinumCinemaDisplayName($cinema->nama_bioskop) === $reportDisplayName;
+        })->values();
+        if ($exact->count() === 1) {
+            return ['cinema' => $exact->first(), 'candidates' => [], 'requires_confirmation' => false, 'ambiguous' => false];
+        }
+
+        $likeMatches = $cinemas->filter(function ($cinema) use ($reportNormalized) {
+            $masterNormalized = $this->normalizePlatinumCinemaName($cinema->nama_bioskop);
+            return $reportNormalized !== '' && (str_contains($masterNormalized, $reportNormalized) || str_contains($reportNormalized, $masterNormalized));
+        })->values();
+        if ($likeMatches->count() === 1) {
+            return ['cinema' => $likeMatches->first(), 'candidates' => [], 'requires_confirmation' => true, 'ambiguous' => false];
+        }
+        if ($likeMatches->count() > 1 && $selectedCinemaUuid) {
+            $selected = $likeMatches->firstWhere('uuid', $selectedCinemaUuid);
+            if ($selected) {
+                return ['cinema' => $selected, 'candidates' => $candidateRows($likeMatches), 'requires_confirmation' => false, 'ambiguous' => false];
+            }
+        }
+
+        return [
+            'cinema' => null,
+            'candidates' => $candidateRows($likeMatches),
+            'requires_confirmation' => false,
+            'ambiguous' => $likeMatches->count() > 1,
+        ];
+    }
+
+
+    private function normalizePlatinumCinemaName(?string $name): string
+    {
+        $value = $this->normalizePlatinumCinemaDisplayName($name);
+        return trim(preg_replace('/\s+/', ' ', preg_replace('/\bPLATINUM\s+CINEPLEX\b/u', '', $value)));
+    }
+
+    private function normalizePlatinumCinemaDisplayName(?string $name): string
+    {
+        return trim(preg_replace('/\s+/', ' ', mb_strtoupper((string) $name)));
     }
 
     private function normalizeCinepolisCinemaName(?string $name): string
