@@ -244,6 +244,37 @@ PDF;
     }
 
     /** @test */
+    public function it_accepts_one_rupiah_detail_rounding_difference_for_every_show(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+PALEMBANG ICON
+Detailed Distributors Report
+From Thursday 24/09/2026 06:00 Until Friday 25/09/2026 06:00 Ticket Detail Level: Ticket Type
+MEMBURU PEMANGSA CINEMA01
+Admits Gross Tax NetTicket PriceTicket Type Attribute
+24/09/2026
+11:45 38.000 4 152.000,00 13.818 138.1822DREGULAR
+14:10 38.000 30 1.140.000,00 103.637 1.036.3642DREGULAR
+38.000 1 38.000,00 3.455 34.5452DREGULAR
+16:35 38.000 23 874.000,00 79.455 794.5452DREGULAR
+38.000 2 76.000,00 6.909 69.0912DREGULAR
+19:00 38.000 30 1.140.000,00 103.637 1.036.3642DREGULAR
+38.000 1 38.000,00 3.455 34.5452DREGULAR
+Day Total Paid 91 3.458.000 314.364 3.143.636
+0.00 0.00 0.00 0Day Total Complementory
+314.36491 3.143.6363.458.000Total for Film this Screen
+PDF;
+
+        $result = $parser->parseText($text);
+
+        $this->assertSame(91, $result['totals']['admits']);
+        $this->assertSame(3458000.0, $result['totals']['gross']);
+        $this->assertSame(314366.0, $result['totals']['tax_amount']);
+        $this->assertSame(314364.0, $result['source_totals']['tax_amount']);
+    }
+
+    /** @test */
     public function it_parses_vista_period_with_hyphenated_date_and_cutoff_time(): void
     {
         $parser = new CinepolisPdfParser();

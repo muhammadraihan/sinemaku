@@ -77,14 +77,15 @@ class CinepolisPdfParser
             ? ($screenTotals ?? $dayTotals)
             : $dayTotals;
         $reconciliationTotals = $sourceTotals;
-        // Vista rounds tax and net per ticket-detail row, while Day Total can
-        // round after aggregation. Allow a maximum Rp1 variance only for those
-        // two components; admits and gross must still match exactly.
+        // Vista rounds tax and net per detail row, while Day Total can round
+        // after aggregation. Bound the aggregate tolerance by the number of
+        // parsed detail rows: at most Rp1 per row, never an unbounded waiver.
+        $roundingTolerance = count($rows) * 1.00;
         if (
             abs($totals['admits'] - $reconciliationTotals['admits']) > 0.02
             || abs($totals['gross'] - $reconciliationTotals['gross']) > 0.02
-            || abs($totals['tax_amount'] - $reconciliationTotals['tax_amount']) > 1.00
-            || abs($totals['net'] - $reconciliationTotals['net']) > 1.00
+            || abs($totals['tax_amount'] - $reconciliationTotals['tax_amount']) > $roundingTolerance
+            || abs($totals['net'] - $reconciliationTotals['net']) > $roundingTolerance
         ) {
             throw new \InvalidArgumentException('Total detail PDF tidak sama dengan Day Total sumber.');
         }
@@ -199,9 +200,11 @@ class CinepolisPdfParser
                 continue;
             }
             // Some complimentary Ticket Class rows print a zero ticket price while
-            // retaining their attributed gross. The printed gross/tax/net remains
-            // authoritative and is reconciled against the source screen total.
-            if (($price > 0 && abs(($price * $admits) - $gross) > 0.02) || abs(($taxAmount + $net) - $gross) > 0.02) {
+            // retaining their attributed gross. Vista also rounds tax and net per
+            // detail row, which can make their sum differ from gross by Rp1. Keep
+            // price x admits strict and allow only that documented rounding variance.
+            if (($price > 0 && abs(($price * $admits) - $gross) > 0.02)
+                || abs(($taxAmount + $net) - $gross) > 1.00) {
                 throw new \InvalidArgumentException('Detail nominal PDF tidak konsisten pada jam ' . $currentTime . '.');
             }
             $rows[] = [
