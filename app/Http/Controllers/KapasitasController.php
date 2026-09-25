@@ -33,13 +33,13 @@ class KapasitasController extends Controller
             return Datatables::of($data)
                 ->addIndexColumn()
                 ->editColumn('kategori', function ($row){
-                    return $row->Categories->name;
+                    return $row->Categories->name ?? '';
                 })
                 ->editColumn('nama_bioskop', function ($row){
-                    return $row->Cinemas->nama_bioskop;
+                    return $row->Cinemas->nama_bioskop ?? '';
                 })
                 ->editColumn('type_tiket', function ($row){
-                    return $row->TypeTiket->name;
+                    return $row->TypeTiket->name ?? '';
                 })
                 ->addColumn('action', function ($row) {
                     return '
