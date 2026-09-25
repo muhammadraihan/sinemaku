@@ -18,7 +18,7 @@ class AppServiceProvider extends ServiceProvider
         /**
          * load ide-helper for non production environment
          */
-        if ($this->app->isLocal()) {
+        if ($this->app->isLocal() && class_exists(\Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider::class)) {
             $this->app->register(\Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider::class);
         }
     }
