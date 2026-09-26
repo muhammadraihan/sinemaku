@@ -152,6 +152,7 @@
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="XXI">XXI</a>
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="CGV">CGV</a>
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="SAMS STUDIOS">SAMS STUDIOS</a>
+                                    <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="NSC">NSC</a>
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="CINEPOLIS PDF">CINEPOLIS PDF</a>
                                     <a href="javascript:void(0);" class="open-upload-modal" data-bioskop="PLATINUM PDF">PLATINUM PDF</a>
                                 </div>
@@ -752,7 +753,8 @@
             var legacyUrls = {
                 'XXI': { preview: @json(route('pelaporan.upload.xxi')), confirm: @json(route('pelaporan.upload.xxi.confirm')), quick: @json(route('pelaporan.upload.xxi.quick-master')) },
                 'CGV': { preview: @json(route('pelaporan.upload.cgv')), confirm: @json(route('pelaporan.upload.cgv.confirm')), quick: @json(route('pelaporan.upload.cgv.quick-master')) },
-                'SAMS STUDIOS': { preview: @json(route('pelaporan.upload.sams')), confirm: @json(route('pelaporan.upload.sams.confirm')), quick: @json(route('pelaporan.upload.sams.quick-master')) }
+                'SAMS STUDIOS': { preview: @json(route('pelaporan.upload.sams')), confirm: @json(route('pelaporan.upload.sams.confirm')), quick: @json(route('pelaporan.upload.sams.quick-master')) },
+                'NSC': { preview: @json(route('pelaporan.upload.nsc')), confirm: @json(route('pelaporan.upload.nsc.confirm')), quick: @json(route('pelaporan.upload.nsc.quick-master')) }
             };
             $.ajax({ url: legacyUrls[bioskop].preview, method: 'POST', data: formData, contentType: false, processData: false })
                 .done(function (res) {

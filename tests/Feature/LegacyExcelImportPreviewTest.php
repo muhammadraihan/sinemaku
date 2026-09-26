@@ -262,6 +262,48 @@ class LegacyExcelImportPreviewTest extends TestCase
         })->count());
     }
 
+    public function test_nsc_preview_preserves_paid_and_bogof_rows_without_writing(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'nsc-category', 'name' => 'NSC']);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.nsc'), ['file' => $this->makeNscFile()]);
+
+        $preview->assertOk()->assertJsonPath('status', 'success')->assertJsonCount(2, 'preview')
+            ->assertJsonPath('preview.0.source_cinema', 'NSC TEST')
+            ->assertJsonPath('preview.0.ticket_name', 'REGULAR')
+            ->assertJsonPath('preview.1.ticket_name', 'BOGOF')
+            ->assertJsonPath('summary.paid', 4)
+            ->assertJsonPath('summary.free', 2)
+            ->assertJsonPath('summary.gross', 100000);
+        $this->assertSame(0, DB::table('pelaporans')->count());
+    }
+
+    public function test_nsc_confirm_import_persists_paid_and_bogof_rows_once(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'nsc-category', 'name' => 'NSC']);
+        DB::table('master_bioskops')->insert(['uuid' => 'nsc-cinema', 'nama_bioskop' => 'NSC TEST', 'type' => 'nsc-category', 'kota' => 'JAKARTA', 'pajak' => '10']);
+        DB::table('master_films')->insert(['uuid' => 'nsc-film', 'name' => 'FILM NSC']);
+        DB::table('type_tikets')->insert([
+            ['uuid' => 'nsc-regular', 'name' => 'REGULAR', 'kategori' => 'nsc-category'],
+            ['uuid' => 'nsc-bogof', 'name' => 'BOGOF', 'kategori' => 'nsc-category'],
+        ]);
+        DB::table('kapasitas')->insert([
+            ['uuid' => 'nsc-regular-capacity', 'kategori' => 'nsc-category', 'nama_bioskop' => 'nsc-cinema', 'type_tiket' => 'nsc-regular', 'studio' => '1', 'kapasitas' => '100'],
+            ['uuid' => 'nsc-bogof-capacity', 'kategori' => 'nsc-category', 'nama_bioskop' => 'nsc-cinema', 'type_tiket' => 'nsc-bogof', 'studio' => '1', 'kapasitas' => '100'],
+        ]);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.nsc'), ['file' => $this->makeNscFile()]);
+        $preview->assertOk()->assertJsonPath('blocking_issues', []);
+
+        $this->actingAs($owner)->post(route('pelaporan.upload.nsc.confirm'), ['token' => $preview->json('token')])
+            ->assertOk()->assertJsonPath('inserted', 2);
+        $this->assertDatabaseHas('pelaporans', ['type_tiket' => 'nsc-regular', 'harga' => '25000', 'jumlah' => '4', 'gross' => '100000']);
+        $this->assertDatabaseHas('pelaporans', ['type_tiket' => 'nsc-bogof', 'harga' => '0', 'jumlah' => '2', 'gross' => '0']);
+        $this->actingAs($owner)->post(route('pelaporan.upload.nsc.confirm'), ['token' => $preview->json('token')])->assertStatus(422);
+    }
+
     public function test_sams_preview_maps_paid_voucher_and_free_to_their_ticket_types(): void
     {
         $owner = $this->createUser();
@@ -361,6 +403,24 @@ class LegacyExcelImportPreviewTest extends TestCase
             ['Date', 'Cinema', 'Studio', 'Film', 'Format', 'Ticket', 'Price', 'Time 1', 'Admit 1', 'Free 1', 'Time 2', 'Admit 2', 'Free 2', 'Time 3', 'Admit 3', 'Free 3', 'Time 4', 'Admit 4', 'Free 4', 'Time 5', 'Admit 5', 'Free 5', 'Time 6', 'Admit 6', 'Free 6', 'Total', 'Free Total', 'Net'],
             ['2026-01-01', 'CGV TEST', '2', 'FILM CGV', '', 'VELVET', '75000', '10:15', '3', '1', '13:30', '4', '2', '15:45', '-', '3', '', '-', '', '', '-', '', '', '-', '', '', '', ''],
         ], 'cgv.xlsx');
+    }
+
+    private function makeNscFile(): UploadedFile
+    {
+        return $this->makeWorkbook([
+            [null, 'TICKET SALES REPORT'],
+            ['Site :', 'NSC TEST'],
+            ['Address :', 'JAKARTA'],
+            [],
+            ['Distributor :', 'SINEMAKU PICTURES'],
+            ['Movie Title :', 'FILM NSC'],
+            ['Show Date :', '9/25/2026'],
+            [],
+            ['Cinema', 'Movie Format', 'Seat Grade', 'Price', '1st Showtime', null, null, '2nd Showtime', null, null, '3rd Showtime', null, null, '4th Showtime', null, null, '5th Showtime', null, null, '6th Showtime', null, null, '7th Showtime', null, null, 'Total', null, 'Total Sales'],
+            [null, null, null, null, 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Paid', 'Free'],
+            ['1', '2D', 'Regular', 'Rp 25000', '10:00', 4, 2, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 4, 2, 'Rp 100000'],
+            ['Grand Total', null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 4, 2, '100000'],
+        ], 'nsc.xlsx');
     }
 
     private function makeSamsFile(): UploadedFile

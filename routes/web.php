@@ -103,6 +103,12 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     ->name('pelaporan.upload.sams.confirm');
     Route::post('/pelaporan/upload-sams/quick-master', [PelaporanController::class, 'quickMasterLegacy'])->defaults('provider', 'SAMS STUDIOS')
     ->name('pelaporan.upload.sams.quick-master');
+    Route::post('/pelaporan/upload-nsc', [PelaporanController::class, 'uploadNSC'])
+    ->name('pelaporan.upload.nsc');
+    Route::post('/pelaporan/upload-nsc/confirm', [PelaporanController::class, 'confirmLegacyExcel'])->defaults('provider', 'NSC')
+    ->name('pelaporan.upload.nsc.confirm');
+    Route::post('/pelaporan/upload-nsc/quick-master', [PelaporanController::class, 'quickMasterLegacy'])->defaults('provider', 'NSC')
+    ->name('pelaporan.upload.nsc.quick-master');
     Route::post('/pelaporan/upload-cinepolis-pdf/preview', [PelaporanController::class, 'previewCinepolisPdf'])
     ->name('pelaporan.upload.cinepolis.preview');
     Route::post('/pelaporan/upload-cinepolis-pdf/confirm', [PelaporanController::class, 'confirmCinepolisPdf'])

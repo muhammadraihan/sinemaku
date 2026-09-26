@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use App\Services\Reports\CinepolisPdfParser;
 use App\Services\Reports\PlatinumPdfParser;
+use App\Services\Reports\NscXlsxParser;
 
 class PelaporanController extends Controller
 {
@@ -1319,6 +1320,38 @@ class PelaporanController extends Controller
     public function uploadSAMS(Request $request)
     {
         return $this->previewLegacyExcel($request, 'SAMS STUDIOS');
+    }
+
+    public function uploadNSC(Request $request, NscXlsxParser $parser)
+    {
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls|max:20480'], [
+            'file.required' => 'File wajib diunggah.',
+            'file.mimes' => 'Format file NSC harus .xlsx atau .xls.',
+            'file.max' => 'Ukuran file maksimal 20MB.',
+        ]);
+
+        try {
+            $parsed = $parser->parse($request->file('file')->getPathname());
+            $mapping = $this->mapLegacyPreview($parsed['rows'], 'NSC');
+            $mapping['warnings'] = array_values(array_unique(array_merge($parsed['warnings'] ?? [], $mapping['warnings'] ?? [])));
+            $mapping['summary'] = array_merge($mapping['summary'], [
+                'paid' => $parsed['totals']['paid'],
+                'free' => $parsed['totals']['free'],
+                'admits' => $parsed['totals']['admits'],
+                'gross' => $parsed['totals']['gross'],
+            ]);
+            $token = (string) Str::uuid();
+            Cache::put($this->legacyPreviewKey($token), [
+                'provider' => 'NSC',
+                'rows' => $parsed['rows'],
+                'mapping' => $mapping,
+                'created_by' => Auth::user()->uuid ?? null,
+            ], now()->addMinutes(30));
+            return response()->json(array_merge(['status' => 'success', 'token' => $token], $mapping));
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['status' => 'failed', 'message' => 'Preview NSC gagal: '.$e->getMessage()], 422);
+        }
     }
 
     public function previewLegacyExcel(Request $request, string $provider)
