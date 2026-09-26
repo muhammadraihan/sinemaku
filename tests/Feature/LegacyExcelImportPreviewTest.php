@@ -58,6 +58,21 @@ class LegacyExcelImportPreviewTest extends TestCase
                 $table->timestamps();
             });
         }
+
+        Schema::create('report_upload_histories', function ($table) {
+            $table->increments('id');
+            $table->string('uuid')->unique();
+            $table->string('provider');
+            $table->string('original_filename');
+            $table->unsignedBigInteger('file_size')->nullable();
+            $table->string('status');
+            $table->unsignedInteger('preview_rows')->default(0);
+            $table->unsignedInteger('imported_rows')->default(0);
+            $table->text('message')->nullable();
+            $table->string('uploaded_by');
+            $table->timestamp('completed_at')->nullable();
+            $table->timestamps();
+        });
     }
 
     public function test_preview_ui_has_a_modal_transition_fallback(): void
@@ -67,6 +82,10 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->assertStringContainsString('function escapeHtml(value)', $view);
         $this->assertStringContainsString('function legacyRowForIssue(preview, issue)', $view);
         $this->assertStringContainsString('function openLegacyQuickMaster(button)', $view);
+        $this->assertStringContainsString('History upload', $view);
+        $this->assertStringContainsString('function loadUploadHistory()', $view);
+        $this->assertStringContainsString("route('pelaporan.upload-history')", $view);
+        $this->assertStringContainsString('.swal2-container { z-index: 3000 !important; }', $view);
         $this->assertStringContainsString("$('#legacy-preview-issues .legacy-quick-master').off('click').on('click'", $view);
         $this->assertStringContainsString('function openPreviewAfterUploadModal(callback)', $view);
         $this->assertStringContainsString("window.setTimeout(finish, 450);", $view);
@@ -260,6 +279,34 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->assertSame(0, DB::table('pelaporans')->where('type_tiket', 'cgv-free-pass')->where(function ($query) {
             $query->where('harga', '!=', '0')->orWhere('gross', '!=', '0')->orWhere('net', '!=', '0');
         })->count());
+    }
+
+    public function test_successful_confirm_records_original_file_uploader_and_upload_time(): void
+    {
+        $owner = $this->seedResolvedXxiMappings();
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.xxi'), ['file' => $this->makeXxiFile()]);
+
+        $preview->assertOk()->assertJsonPath('status', 'success');
+        $this->assertDatabaseCount('report_upload_histories', 0);
+
+        $this->actingAs($owner)->post(route('pelaporan.upload.xxi.confirm'), ['token' => $preview->json('token')])
+            ->assertOk()->assertJsonPath('inserted', 1);
+
+        $this->assertDatabaseHas('report_upload_histories', [
+            'original_filename' => 'xxi.xlsx',
+            'status' => 'Berhasil diimport',
+            'imported_rows' => 1,
+        ]);
+
+        $this->actingAs($owner)->get(route('pelaporan.upload-history'))
+            ->assertJsonPath('data.0.original_filename', 'xxi.xlsx')
+            ->assertJsonPath('data.0.uploader.name', 'Tester');
+
+        /* replay remains blocked */
+        $this->actingAs($owner)->post(route('pelaporan.upload.xxi.confirm'), ['token' => $preview->json('token')])
+            ->assertStatus(422);
+        $this->assertNotEmpty($this->actingAs($owner)->get(route('pelaporan.upload-history'))->json('data.0.uploaded_at'));
     }
 
     public function test_nsc_preview_preserves_paid_and_bogof_rows_without_writing(): void

@@ -186,9 +186,16 @@ class NscXlsxParser
     {
         foreach ($rows as $row) {
             $rowLabel = trim(rtrim($this->normalize($row[0] ?? ''), ':'));
-            if ($rowLabel === $this->normalize($label)) {
-                $value = trim((string) ($row[1] ?? ''));
-                return $value !== '' ? $value : null;
+            $expectedLabel = $this->normalize($label);
+            $hasSiteCode = $expectedLabel === 'SITE' && preg_match('/^SITE\s*:\s*\d+$/', $rowLabel);
+            if ($rowLabel === $expectedLabel || $hasSiteCode) {
+                foreach (array_slice($row, 1) as $value) {
+                    $value = trim((string) $value);
+                    if ($value !== '') {
+                        return $value;
+                    }
+                }
+                return null;
             }
         }
         return null;

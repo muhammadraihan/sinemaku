@@ -115,6 +115,35 @@ PDF);
     }
 
     /** @test */
+    public function it_parses_screen_studio_layout_with_studio_number_on_next_line(): void
+    {
+        $result = (new PlatinumPdfParser())->parseText(<<<'PDF'
+Total Box Office
+Movie Sessions Admits Gross Net Tax
+Memburu Pemangsa 3 38 1,330,000.00 1,036,363.63 103,636.26
+25-Sep-2026 SCREEN STUDIO
+1
+02:25 pm 4 STANDARD 35,000.00 140,000.00 109,090.91 10,909.08
+25-Sep-2026 SCREEN STUDIO
+2
+05:55 pm 29 STANDARD 35,000.00 1,015,000.00 790,909.08 79,090.83
+25-Sep-2026 SCREEN STUDIO
+1
+08:40 pm 5 STANDARD 35,000.00 175,000.00 136,363.64 13,636.35
+Platinum Cineplex Sidoarjo
+Screening Period 25-09-2026 06:00 AM TO 26-09-2026 06:00 AM
+PDF);
+
+        $this->assertSame('PLATINUM CINEPLEX SIDOARJO', $result['cinema_name']);
+        $this->assertSame('2026-09-25', $result['report_date']);
+        $this->assertSame(['1', '2', '1'], array_column($result['rows'], 'studio'));
+        $this->assertSame('source_deduction_before_net', $result['financial_profile']);
+        $this->assertNotEmpty($result['warnings']);
+        $this->assertSame(38, $result['totals']['admits']);
+        $this->assertSame(1330000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
     public function it_rejects_price_times_admissions_mismatch(): void
     {
         $this->expectException(\InvalidArgumentException::class);

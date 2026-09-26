@@ -51,6 +51,8 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::resource('kategoribioskop', 'KategoriBioskopController');
     Route::resource('typetiket', 'TypeTiketController');
     Route::resource('masterfilm', 'MasterFilmController')->except(['show']);
+    Route::get('pelaporan/upload-history', [PelaporanController::class, 'uploadHistory'])
+        ->name('pelaporan.upload-history');
     Route::resource('pelaporan', 'PelaporanController');
     Route::resource('laporan', 'LaporanController');
     Route::resource('kapasitas', 'KapasitasController');

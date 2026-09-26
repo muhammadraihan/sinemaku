@@ -120,7 +120,56 @@
 /* Target Swal hanya menjadi layer ketika SweetAlert benar-benar terbuka. */
 .cinepolis-preview-modal .cinepolis-preview-swal-target:empty { display: none; }
 .cinepolis-preview-modal .cinepolis-preview-swal-target { position: absolute; inset: 0; z-index: 1060; pointer-events: none; }
+.swal2-container { z-index: 3000 !important; }
 .cinepolis-preview-modal .cinepolis-preview-swal-target .swal2-container { position: absolute; inset: 0; pointer-events: auto; }
+.upload-control-room { display:flex; justify-content:space-between; gap:24px; padding:22px 24px; border:1px solid #dce7f2; border-radius:14px; background:linear-gradient(120deg,#f8fbff 0%,#eef7f6 100%); }
+.upload-control-room__eyebrow { color:#16807a; font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+.upload-control-room__intro h3 { color:#1d2939; font-weight:700; }
+.upload-control-room__intro p { color:#667085; max-width:650px; }
+.upload-control-room__facts { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; max-width:380px; }
+.upload-control-room__facts span { padding:8px 10px; border-radius:8px; background:#fff; color:#52606d; font-size:12px; white-space:nowrap; }
+.upload-control-room__facts i { color:#16807a; margin-right:5px; }
+.upload-history-card { border:1px solid #e5e7eb; border-radius:12px; background:#fff; overflow:hidden; }
+.upload-history-card__header { display:flex; justify-content:space-between; align-items:center; padding:17px 20px; border-bottom:1px solid #edf1f5; }
+.upload-history-card__header h4 { color:#1d2939; font-weight:700; }
+.upload-history-state { padding:26px 20px; text-align:center; font-size:13px; }
+#upload-history-table { font-size:12px; }
+#upload-history-table thead th { border-top:0; color:#667085; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+.upload-file-name { display:flex; align-items:center; min-width:190px; max-width:300px; }
+.upload-file-name i { color:#16807a; font-size:18px; margin-right:9px; }
+.upload-file-name span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.upload-history-status { display:inline-flex; align-items:center; padding:5px 8px; border-radius:6px; font-size:11px; font-weight:700; white-space:nowrap; }
+.upload-history-status--waiting { background:#fff6dd; color:#986b00; }
+.upload-history-status--success { background:#e5f7ef; color:#087443; }
+.upload-history-status--failed { background:#fff0f0; color:#b42318; }
+.upload-modal-shell { border:0; border-radius:14px; overflow:hidden; }
+.upload-modal-header { padding:20px 24px; background:#f8fbff; border-bottom:1px solid #e7eef5; }
+.upload-modal-header small { color:#667085; }
+.upload-provider-mark { width:42px; height:42px; display:grid; place-items:center; margin-right:12px; border-radius:11px; background:#dff4ef; color:#16807a; font-size:20px; }
+.upload-modal-grid { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(250px,.7fr); }
+.upload-modal-main { padding:24px; }
+.upload-dropzone { display:flex; min-height:240px; flex-direction:column; align-items:center; justify-content:center; border:1.5px dashed #a9c9c5; border-radius:12px; background:#fbfefd; color:#344054; cursor:pointer; text-align:center; transition:.2s ease; }
+.upload-dropzone:hover, .upload-dropzone:focus-within { border-color:#16807a; background:#f3fbf9; }
+.upload-dropzone input { position:absolute; width:1px; height:1px; opacity:0; }
+.upload-dropzone__icon { width:54px; height:54px; display:grid; place-items:center; margin-bottom:12px; border-radius:50%; background:#e5f7f3; color:#16807a; font-size:23px; }
+.upload-dropzone strong { font-size:16px; }
+.upload-dropzone > span:not(.upload-dropzone__icon):not(.btn) { color:#98a2b3; font-size:12px; margin-top:5px; }
+.selected-upload-file { display:flex; align-items:center; gap:10px; margin-top:12px; padding:11px 13px; border:1px solid #d0e7e2; border-radius:9px; background:#f5fcfa; color:#16807a; }
+.selected-upload-file strong, .selected-upload-file small { display:block; }
+.selected-upload-file strong { color:#344054; font-size:13px; }
+.selected-upload-file small { color:#667085; font-size:11px; margin-top:2px; }
+.upload-status-card { padding:14px; border-radius:9px; background:#f8fafc; }
+.upload-status-card #upload-progress-label { color:#667085; font-size:11px; }
+.upload-modal-guide { padding:25px 22px; background:#1d2939; color:#fff; }
+.upload-guide-step { display:flex; gap:11px; margin-bottom:23px; }
+.upload-guide-step > span { flex:0 0 26px; width:26px; height:26px; display:grid; place-items:center; border-radius:50%; background:#16807a; font-size:12px; font-weight:700; }
+.upload-guide-step strong, .upload-guide-step small { display:block; }
+.upload-guide-step strong { font-size:13px; }
+.upload-guide-step small { margin-top:4px; color:#b8c4d1; font-size:11px; line-height:1.5; }
+.upload-guide-note { display:flex; padding-top:18px; border-top:1px solid rgba(255,255,255,.13); color:#b8c4d1; font-size:11px; line-height:1.5; }
+.upload-guide-note i { color:#70d6c2; font-size:17px; }
+.upload-modal-footer { padding:15px 24px; }
+@media (max-width: 767px) { .upload-control-room, .upload-modal-grid { display:block; } .upload-control-room__facts { justify-content:flex-start; margin-top:16px; } .upload-modal-guide { display:none; } .upload-modal-main { padding:18px; } .upload-dropzone { min-height:200px; } }
 </style>
 @endsection
 
@@ -169,6 +218,32 @@
             </div>
             <div class="panel-container show">
                 <div class="panel-content">
+                    <div class="upload-control-room mb-4">
+                        <div class="upload-control-room__intro">
+                            <div class="upload-control-room__eyebrow"><i class="fal fa-shield-check mr-1"></i> Report intake</div>
+                            <h3 class="mb-1">Upload laporan dengan review yang aman</h3>
+                            <p class="mb-0">Pilih provider, unggah file, lalu periksa mapping dan total sebelum data masuk ke laporan.</p>
+                        </div>
+                        <div class="upload-control-room__facts">
+                            <span><i class="fal fa-file-check"></i> Preview sebelum simpan</span>
+                            <span><i class="fal fa-history"></i> Histori tersimpan</span>
+                            <span><i class="fal fa-lock-alt"></i> Maks. 20 MB</span>
+                        </div>
+                    </div>
+                    <div class="upload-history-card mb-4">
+                        <div class="upload-history-card__header">
+                            <div><div class="upload-control-room__eyebrow">Aktivitas terakhir</div><h4 class="mb-0">History upload</h4></div>
+                            <button type="button" id="refresh-upload-history" class="btn btn-sm btn-outline-secondary"><i class="fal fa-sync mr-1"></i> Refresh</button>
+                        </div>
+                        <div id="upload-history-loading" class="upload-history-state text-muted"><i class="fal fa-spinner-third fa-spin mr-1"></i> Memuat histori...</div>
+                        <div id="upload-history-empty" class="upload-history-state text-muted d-none"><i class="fal fa-inbox mr-1"></i> Belum ada file yang berhasil diimport.</div>
+                        <div class="table-responsive d-none" id="upload-history-table-wrap">
+                            <table class="table table-sm table-hover mb-0" id="upload-history-table">
+                                <thead><tr><th>File</th><th>Provider</th><th>Uploader</th><th>Waktu import</th><th>Status</th><th>Baris</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
                     <form id="filter-form">
                         {!! Form::open(['route' => 'laporan.search','id'=>'forms','method' => 'GET','class' =>
                         'needs-validation','dropzone', 'forms','novalidate','enctype' => 'multipart/form-data']) !!}
@@ -283,55 +358,51 @@
     </div>
 </form>
 
-<!-- Upload Modal XXI -->
-<div class="modal fade" id="modal-upload" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false" >
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      
-      <!-- Header -->
-      <div class="modal-header">
-        <h4 class="modal-title">
-          Upload File
-          <small class="m-0 text-muted">Pilih file untuk diunggah</small>
-        </h4>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true"><i class="fal fa-times"></i></span>
-        </button>
+<!-- Modal upload laporan -->
+<div class="modal fade" id="modal-upload" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    <div class="modal-content upload-modal-shell">
+      <div class="modal-header upload-modal-header">
+        <div class="d-flex align-items-center">
+          <div class="upload-provider-mark" id="upload-provider-mark"><i class="fal fa-file-spreadsheet"></i></div>
+          <div><div class="upload-control-room__eyebrow">Import laporan</div><h4 class="modal-title mb-0" id="upload-modal-title">Upload file</h4><small id="upload-modal-subtitle">File akan diperiksa sebelum disimpan.</small></div>
+        </div>
+        <button type="button" class="close btn-close-upload" data-dismiss="modal" aria-label="Tutup"><span aria-hidden="true"><i class="fal fa-times"></i></span></button>
       </div>
-      
-      <!-- Body -->
-      <div class="modal-body">
-        <form id="uploadForm" action="{{ route('pelaporan.upload.xxi') }}" method="POST" enctype="multipart/form-data">
-          @csrf
-          <div class="form-group">
-            <label for="uploadFile">Pilih File</label>
-            <input type="file" name="file" id="uploadFile" class="form-control"
-                   accept=".xlsx" required>
-            <small class="form-text text-muted">
-              Format: .xlsx
-            </small>
+      <div class="modal-body p-0">
+        <div class="upload-modal-grid">
+          <div class="upload-modal-main">
+            <form id="uploadForm" action="{{ route('pelaporan.upload.xxi') }}" method="POST" enctype="multipart/form-data">
+              @csrf
+              <label for="uploadFile" class="upload-dropzone" id="upload-dropzone">
+                <input type="file" name="file" id="uploadFile" accept=".xlsx,.xls" required>
+                <span class="upload-dropzone__icon"><i class="fal fa-cloud-upload"></i></span>
+                <strong id="upload-file-title">Klik untuk memilih file</strong>
+                <span id="upload-file-meta">XLSX atau XLS, maksimum 20 MB</span>
+                <span class="btn btn-sm btn-outline-primary mt-3">Pilih file</span>
+              </label>
+              <div id="selected-upload-file" class="selected-upload-file d-none">
+                <i class="fal fa-file-check"></i><div class="flex-grow-1"><strong id="selected-upload-name"></strong><small id="selected-upload-size"></small></div><button type="button" id="clear-upload-file" class="btn btn-sm btn-icon btn-outline-secondary" aria-label="Hapus file"><i class="fal fa-times"></i></button>
+              </div>
+            </form>
+            <div id="upload-status" class="upload-status-card mt-3 d-none">
+              <div class="d-flex justify-content-between align-items-center mb-2"><strong id="status-text">Mengunggah file...</strong><span id="upload-progress-label">Memproses</span></div>
+              <div class="progress"><div id="status-progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%">0%</div></div>
+              <small id="status-note" class="text-muted d-block mt-2"></small>
+            </div>
           </div>
-        </form>
-
-      <!-- Box status proses -->
-        <div id="upload-status" class="mt-3 d-none">
-          <p class="mb-1"><strong id="status-text">Mengunggah file...</strong></p>
-          <div class="progress">
-            <div id="status-progress" class="progress-bar progress-bar-striped progress-bar-animated" 
-                 role="progressbar" style="width: 0%">0%</div>
-          </div>
-          <small id="status-note" class="text-muted"></small>
+          <aside class="upload-modal-guide">
+            <div class="upload-guide-step"><span>1</span><div><strong>Pilih file provider</strong><small>Gunakan laporan asli tanpa mengubah struktur kolom.</small></div></div>
+            <div class="upload-guide-step"><span>2</span><div><strong>Periksa preview</strong><small>Mapping, total, dan issue ditampilkan sebelum import.</small></div></div>
+            <div class="upload-guide-step"><span>3</span><div><strong>Konfirmasi import</strong><small>Data laporan baru disimpan setelah Anda menyetujui preview.</small></div></div>
+            <div class="upload-guide-note"><i class="fal fa-history mr-2"></i><span>Nama file, uploader, dan waktu upload otomatis masuk ke history.</span></div>
+          </aside>
         </div>
       </div>
-      
-      <!-- Footer -->
-      <div class="modal-footer">
-        {{-- <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button> --}}
-        <button type="button" class="btn btn-secondary btn-close-upload" data-dismiss="modal">Tutup</button>
-        <a href="#" id="btn-download-errors" class="btn btn-outline-danger d-none" target="_blank">
-            Download Excel Error
-        </a>
-        <button type="submit" form="uploadForm" class="btn btn-primary">Upload</button>
+      <div class="modal-footer upload-modal-footer">
+        <a href="#" id="btn-download-errors" class="btn btn-outline-danger d-none" target="_blank">Download Excel Error</a>
+        <button type="button" class="btn btn-secondary btn-close-upload" data-dismiss="modal">Batal</button>
+        <button type="submit" form="uploadForm" class="btn btn-primary btn-start-upload"><i class="fal fa-search mr-1"></i> Proses & Preview</button>
       </div>
     </div>
   </div>
@@ -415,10 +486,10 @@
         var isPdfReport = bioskop === 'CINEPOLIS PDF' || bioskop === 'PLATINUM PDF';
         var pdfProvider = bioskop === 'PLATINUM PDF' ? 'Platinum' : 'Cinepolis';
         $('#uploadFile').attr('accept', isPdfReport ? '.pdf,application/pdf' : '.xlsx,.xls');
-        $('#modal-upload .modal-title').html(isPdfReport
-            ? 'Upload ' + pdfProvider + ' PDF <small class="m-0 text-muted">File akan diparse dan ditampilkan terlebih dahulu untuk review</small>'
-            : 'Upload File <small class="m-0 text-muted">Pilih file untuk diunggah</small>');
-        $('#modal-upload .form-text').text(isPdfReport ? 'Format: .pdf (maks. 20MB). Data belum disimpan sebelum Konfirmasi Import.' : 'Format: .xlsx / .xls');
+        $('#upload-modal-title').text((isPdfReport ? pdfProvider : bioskop) + ' — Upload laporan');
+        $('#upload-modal-subtitle').text('File diproses ke preview dan belum masuk laporan sebelum dikonfirmasi.');
+        $('#upload-file-meta').text(isPdfReport ? 'PDF, maksimum 20 MB' : 'XLSX atau XLS, maksimum 20 MB');
+        $('#upload-provider-mark').html('<i class="fal ' + (isPdfReport ? 'fa-file-pdf' : 'fa-file-spreadsheet') + '"></i>');
         $(".custom-dropdown-menu").hide();
         $('#modal-upload').appendTo('body');
         $('#modal-upload').modal('show');
@@ -432,6 +503,52 @@
     const $statusNote = $('#status-note');
     const $statusProg = $('#status-progress');
     const $btnDownloadErr = $('#btn-download-errors');
+    const uploadHistoryUrl = @json(route('pelaporan.upload-history'));
+
+    function formatUploadBytes(bytes) {
+        if (!bytes) return '-';
+        var units = ['B', 'KB', 'MB', 'GB']; var index = 0; var value = Number(bytes);
+        while (value >= 1024 && index < units.length - 1) { value /= 1024; index++; }
+        return value.toLocaleString('id-ID', { maximumFractionDigits: index ? 1 : 0 }) + ' ' + units[index];
+    }
+
+    function formatUploadDate(value) {
+        if (!value) return '-';
+        return new Date(value).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    function uploadHistoryStatusClass(status) {
+        if (status === 'Berhasil diimport') return 'upload-history-status--success';
+        if (status === 'Gagal') return 'upload-history-status--failed';
+        return 'upload-history-status--waiting';
+    }
+
+    function loadUploadHistory() {
+        $('#upload-history-loading').removeClass('d-none');
+        $('#upload-history-empty, #upload-history-table-wrap').addClass('d-none');
+        $.get(uploadHistoryUrl).done(function (response) {
+            var rows = response.data || [];
+            $('#upload-history-loading').addClass('d-none');
+            $('#upload-history-empty').toggleClass('d-none', rows.length > 0);
+            $('#upload-history-table-wrap').toggleClass('d-none', rows.length === 0);
+            $('#upload-history-table tbody').html(rows.map(function (item) {
+                var count = item.status === 'Berhasil diimport' ? item.imported_rows : item.preview_rows;
+                return '<tr><td><div class="upload-file-name" title="' + escapeHtml(item.original_filename) + '"><i class="fal ' + (String(item.provider).indexOf('PDF') !== -1 ? 'fa-file-pdf' : 'fa-file-spreadsheet') + '"></i><span>' + escapeHtml(item.original_filename) + '</span></div><small class="text-muted">' + formatUploadBytes(item.file_size) + '</small></td><td>' + escapeHtml(item.provider) + '</td><td>' + escapeHtml((item.uploader || {}).name || '-') + '</td><td>' + escapeHtml(formatUploadDate(item.uploaded_at)) + '</td><td><span class="upload-history-status ' + uploadHistoryStatusClass(item.status) + '">' + escapeHtml(item.status) + '</span></td><td>' + escapeHtml(count) + ' baris</td></tr>';
+            }).join(''));
+        }).fail(function () {
+            $('#upload-history-loading').removeClass('d-none').text('Histori upload belum dapat dimuat.');
+        });
+    }
+
+    $('#refresh-upload-history').on('click', loadUploadHistory);
+    loadUploadHistory();
+
+    $('#uploadFile').on('change', function () {
+        var file = this.files && this.files[0];
+        $('#selected-upload-file').toggleClass('d-none', !file);
+        if (file) { $('#selected-upload-name').text(file.name); $('#selected-upload-size').text(formatUploadBytes(file.size)); }
+    });
+    $('#clear-upload-file').on('click', function () { $('#uploadForm')[0].reset(); $('#selected-upload-file').addClass('d-none'); });
 
     let progressTimer = null;
     let currentPct = 0;
@@ -739,7 +856,7 @@
             })
                 .done(function (result) {
                     $('#modal-cinepolis-preview').modal('hide');
-                    Swal.fire({ icon: 'success', title: 'Berhasil', text: result.message }).then(function () { $('#datatable').DataTable().ajax.reload(null, false); });
+                    Swal.fire({ icon: 'success', title: 'Berhasil', text: result.message }).then(function () { $('#datatable').DataTable().ajax.reload(null, false); loadUploadHistory(); });
                 })
                 .fail(function (xhr) {
                     button.prop('disabled', false);

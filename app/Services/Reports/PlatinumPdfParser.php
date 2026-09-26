@@ -48,7 +48,7 @@ class PlatinumPdfParser
             'tax_amount' => $this->money($movie[6]),
         ];
 
-        $rowPattern = '/(\d{2}-[A-Za-z]{3}-\d{4})\s*STUDIO\s*(\d+)\s+(\d{1,2}:\d{2})\s*([ap]m)\s+(\d+)\s*([A-Z][A-Z0-9 -]*?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})/i';
+        $rowPattern = '/(\d{2}-[A-Za-z]{3}-\d{4})\s*(?:SCREEN\s+)?STUDIO\s*(\d+)\s+(\d{1,2}:\d{2})\s*([ap]m)\s+(\d+)\s*([A-Z][A-Z0-9 -]*?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})/i';
         preg_match_all($rowPattern, $normalized, $matches, PREG_SET_ORDER);
         if (!$matches) {
             throw new \InvalidArgumentException('Tidak ada detail tiket Platinum yang dapat diparse dari PDF.');
@@ -71,10 +71,17 @@ class PlatinumPdfParser
             }
             $inclusive = abs($net - $gross) <= 0.02;
             $taxExclusive = abs(($net + $taxAmount) - $gross) <= 1.00;
-            if (!$inclusive && !$taxExclusive) {
+            $sourceDeduction = ($net + $taxAmount) < ($gross - 1.00);
+            if (!$inclusive && !$taxExclusive && !$sourceDeduction) {
                 throw new \InvalidArgumentException('Net + tax tidak sama dengan gross pada studio '.$match[2].' jam '.$match[3].'.');
             }
-            $profiles[$inclusive ? 'gross_inclusive_net' : 'standard_tax_exclusive_net'] = true;
+            $profile = $inclusive
+                ? 'gross_inclusive_net'
+                : ($taxExclusive ? 'standard_tax_exclusive_net' : 'source_deduction_before_net');
+            if ($profile === 'source_deduction_before_net') {
+                $sourceDeductionsPerAdmit[] = round(($gross - $net - $taxAmount) / $admits, 2);
+            }
+            $profiles[$profile] = true;
             $time = Carbon::createFromFormat('g:i A', strtoupper($match[3].' '.$match[4]))->format('H:i');
             $rows[] = [
                 'tanggal' => $reportDate,
@@ -119,9 +126,11 @@ class PlatinumPdfParser
             'totals' => $totals,
             'source_totals' => $sourceTotals,
             'financial_profile' => $financialProfile,
-            'warnings' => $financialProfile === 'gross_inclusive_net'
-                ? ['PDF Platinum mencetak Net sama dengan Gross; nilai sumber dipertahankan dan tidak dihitung ulang dari Gross - Tax.']
-                : [],
+            'warnings' => match ($financialProfile) {
+                'gross_inclusive_net' => ['PDF Platinum mencetak Net sama dengan Gross; nilai sumber dipertahankan dan tidak dihitung ulang dari Gross - Tax.'],
+                'source_deduction_before_net' => ['PDF Platinum mencetak pengurangan sumber sebelum Net; Gross, Tax, dan Net sumber dipertahankan setelah rekonsiliasi.'],
+                default => [],
+            },
         ];
     }
 

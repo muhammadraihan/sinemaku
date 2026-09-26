@@ -350,6 +350,30 @@ PDF;
     }
 
     /** @test */
+    public function it_parses_vista_period_with_space_separated_date(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+MALL LIPPO CIKARANG
+Detailed Distributors Report
+From Friday 25 09 2026 06.00 Until Saturday 26 09 2026 06.00 Ticket Detail Level: Ticket Type
+MEMBURU PEMANGSA CINEMA03
+Admits Gross Tax NetTicket PriceTicket Type Attribute
+25 Sep 2026
+13:30 REGULAR 37.000,00 2 74.000,00 6.727,28 67.272,722D
+Day Total Paid 2 74.000,00 6.727,28 67.272,72
+0.00 0.00 0.00 0Day Total Complementory
+6.727,282 67.272,7274.000,00Total for Film this Screen
+PDF;
+
+        $result = $parser->parseText($text);
+
+        $this->assertSame('2026-09-25', $result['report_date']);
+        $this->assertSame(2, $result['totals']['admits']);
+        $this->assertSame(74000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
     public function it_rejects_pdf_without_parseable_cinema_name()
     {
         $parser = new CinepolisPdfParser();

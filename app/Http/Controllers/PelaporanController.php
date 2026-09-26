@@ -12,6 +12,7 @@ use App\Models\MasterFilm;
 use App\Models\Kapasitas;
 use App\Models\Kota;
 use App\Models\Province;
+use App\Models\ReportUploadHistory;
 use Auth;
 use DataTables;
 use URL;
@@ -476,10 +477,12 @@ class PelaporanController extends Controller
             $file = $request->file('file');
             $parsed = $parser->parse($file->getPathname(), $file->getClientOriginalName());
             $mapping = $this->mapCinepolisPreview($parsed);
+            $uploadMetadata = $this->previewUploadMetadata($request, 'CINEPOLIS PDF', count($mapping['preview']));
             $token = (string) Str::uuid();
             Cache::put('cinepolis_pdf_preview:' . $token, [
                 'parsed' => $parsed,
                 'mapping' => $mapping,
+                'upload_metadata' => $uploadMetadata,
                 'created_by' => Auth::user()->uuid ?? null,
             ], now()->addMinutes(30));
 
@@ -699,8 +702,9 @@ class PelaporanController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($rows) {
+        DB::transaction(function () use ($rows, $cached) {
             Pelaporan::insert($rows);
+            $this->createUploadHistory($cached['upload_metadata'] ?? null, count($rows));
         });
         Cache::forget($cacheKey);
 
@@ -888,10 +892,12 @@ class PelaporanController extends Controller
         try {
             $parsed = $parser->parse($request->file('file')->getPathname());
             $mapping = $this->mapPlatinumPreview($parsed);
+            $uploadMetadata = $this->previewUploadMetadata($request, 'PLATINUM PDF', count($mapping['preview']));
             $token = (string) Str::uuid();
             Cache::put('platinum_pdf_preview:' . $token, [
                 'parsed' => $parsed,
                 'mapping' => $mapping,
+                'upload_metadata' => $uploadMetadata,
                 'created_by' => Auth::user()->uuid ?? null,
             ], now()->addMinutes(30));
 
@@ -1105,8 +1111,9 @@ class PelaporanController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($rows) {
+        DB::transaction(function () use ($rows, $cached) {
             Pelaporan::insert($rows);
+            $this->createUploadHistory($cached['upload_metadata'] ?? null, count($rows));
         });
         Cache::forget($cacheKey);
 
@@ -1346,12 +1353,14 @@ class PelaporanController extends Controller
                 'admits' => $parsed['totals']['admits'],
                 'gross' => $parsed['totals']['gross'],
             ]);
+            $uploadMetadata = $this->previewUploadMetadata($request, 'NSC', count($mapping['preview']));
             $token = (string) Str::uuid();
             Cache::put($this->legacyPreviewKey($token), [
                 'provider' => 'NSC',
                 'rows' => $parsed['rows'],
                 'mapping' => $mapping,
                 'pending_free_assignments' => $parsed['pending_free_assignments'] ?? [],
+                'upload_metadata' => $uploadMetadata,
                 'created_by' => Auth::user()->uuid ?? null,
             ], now()->addMinutes(30));
             return response()->json(array_merge(['status' => 'success', 'token' => $token], $mapping));
@@ -1413,11 +1422,13 @@ class PelaporanController extends Controller
             @ini_set('memory_limit', '512M');
             $rows = $this->parseLegacyExcel($request->file('file')->getPathname(), $provider);
             $mapping = $this->mapLegacyPreview($rows, $provider);
+            $uploadMetadata = $this->previewUploadMetadata($request, $provider, count($mapping['preview']));
             $token = (string) Str::uuid();
             Cache::put($this->legacyPreviewKey($token), [
                 'provider' => $provider,
                 'rows' => $rows,
                 'mapping' => $mapping,
+                'upload_metadata' => $uploadMetadata,
                 'created_by' => Auth::user()->uuid ?? null,
             ], now()->addMinutes(30));
             return response()->json(array_merge(['status' => 'success', 'token' => $token], $mapping));
@@ -1459,7 +1470,10 @@ class PelaporanController extends Controller
             $row['created_at'] = now();
             $insertRows[] = $row;
         }
-        DB::transaction(function () use ($insertRows) { Pelaporan::insert($insertRows); });
+        DB::transaction(function () use ($insertRows, $cached) {
+            Pelaporan::insert($insertRows);
+            $this->createUploadHistory($cached['upload_metadata'] ?? null, count($insertRows));
+        });
         Cache::forget($cacheKey);
         return response()->json(['status' => 'success', 'message' => count($insertRows).' baris '.$provider.' berhasil diimport.', 'inserted' => count($insertRows)]);
     }
@@ -1528,6 +1542,72 @@ class PelaporanController extends Controller
         }
         $fresh=$this->mapLegacyPreview($rows,$provider); $cached['mapping']=$fresh; Cache::put($cacheKey,$cached,now()->addMinutes(30));
         return response()->json(array_merge(['status'=>'success','message'=>'Master berhasil ditambahkan.','token'=>$request->input('token')],$fresh));
+    }
+
+    public function uploadHistory()
+    {
+        if (!Schema::hasTable('report_upload_histories')) {
+            return response()->json(['data' => []]);
+        }
+
+        $histories = ReportUploadHistory::with('uploader:id,uuid,name')
+            ->latest('created_at')
+            ->latest('id')
+            ->limit(50)
+            ->get()
+            ->map(fn (ReportUploadHistory $history) => $this->serializeUploadHistory($history));
+
+        return response()->json(['data' => $histories]);
+    }
+
+    private function previewUploadMetadata(Request $request, string $provider, int $previewRows = 0): array
+    {
+        $file = $request->file('file');
+        return [
+            'provider' => $provider,
+            'original_filename' => mb_substr(basename((string) $file->getClientOriginalName()), 0, 255) ?: 'file-tanpa-nama',
+            'file_size' => $file->getSize() ?: null,
+            'preview_rows' => $previewRows,
+            'uploaded_by' => Auth::user()->uuid,
+            'uploaded_at' => now()->toIso8601String(),
+        ];
+    }
+
+    private function createUploadHistory(?array $metadata, int $importedRows, string $status = 'Berhasil diimport', ?string $message = null): ?ReportUploadHistory
+    {
+        if (!$metadata || !Schema::hasTable('report_upload_histories')) return null;
+        return ReportUploadHistory::create([
+            'provider' => $metadata['provider'],
+            'original_filename' => $metadata['original_filename'],
+            'file_size' => $metadata['file_size'],
+            'status' => $status,
+            'preview_rows' => $metadata['preview_rows'],
+            'imported_rows' => $importedRows,
+            'message' => $message ?: $importedRows.' baris berhasil diimport.',
+            'uploaded_by' => $metadata['uploaded_by'],
+            'completed_at' => now(),
+        ]);
+    }
+
+    private function serializeUploadHistory(ReportUploadHistory $history): array
+    {
+        $history->loadMissing('uploader:id,uuid,name');
+        return [
+            'uuid' => $history->uuid,
+            'provider' => $history->provider,
+            'original_filename' => $history->original_filename,
+            'file_size' => $history->file_size,
+            'status' => $history->status,
+            'preview_rows' => $history->preview_rows,
+            'imported_rows' => $history->imported_rows,
+            'message' => $history->message,
+            'uploaded_at' => optional($history->created_at)->toIso8601String(),
+            'completed_at' => optional($history->completed_at)->toIso8601String(),
+            'uploader' => [
+                'uuid' => optional($history->uploader)->uuid,
+                'name' => optional($history->uploader)->name ?: 'Pengguna tidak tersedia',
+            ],
+        ];
     }
 
     private function legacyPreviewKey(string $token): string { return 'legacy_excel_preview:'.$token; }

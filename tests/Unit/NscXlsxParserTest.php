@@ -52,6 +52,48 @@ class NscXlsxParserTest extends TestCase
     }
 
     /** @test */
+    public function it_parses_nsc_site_labels_that_include_a_site_code(): void
+    {
+        $path = $this->workbook([
+            '25 SEPT 2026' => $this->sheetRows('NSC BANGKINANG', '9/25/2026', [
+                ['1', '2D', 'Regular', ' Rp 30,000 ', null, null, null, null, null, null, '13:50', 26, 12, null, null, null, null, null, null, '20:40', 14, 3],
+            ], [40, 15, 1200000], 'Site : 215'),
+        ]);
+
+        $result = (new NscXlsxParser())->parse($path);
+
+        $this->assertSame('NSC BANGKINANG', $result['cinema_name']);
+        $this->assertSame('2026-09-25', $result['report_date']);
+        $this->assertSame(['REGULAR', 'BOGOF', 'REGULAR', 'BOGOF'], array_column($result['rows'], 'ticket_name'));
+        $this->assertSame(['13:50', '13:50', '20:40', '20:40'], array_column($result['rows'], 'jam_tayang'));
+        $this->assertSame([26.0, 12.0, 14.0, 3.0], array_column($result['rows'], 'jumlah'));
+        $this->assertSame(55.0, $result['totals']['admits']);
+        $this->assertSame(1200000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
+    public function it_parses_metadata_values_from_the_next_non_empty_column(): void
+    {
+        $rows = $this->sheetRows('NSC X-MEIROBIE BELITUNG', '9/24/2026', [
+            ['1', '2D', 'Regular', ' 30,000 ', null, null, null, null, null, null, '14:25', 0, null, null, null, null, '18:25', 5, 4],
+        ], [5, 4, 150000]);
+        foreach ([1, 2, 4, 5, 6] as $rowIndex) {
+            $rows[$rowIndex][2] = $rows[$rowIndex][1];
+            $rows[$rowIndex][1] = null;
+        }
+        $path = $this->workbook(['24 SEPT' => $rows]);
+
+        $result = (new NscXlsxParser())->parse($path);
+
+        $this->assertSame('NSC X-MEIROBIE BELITUNG', $result['cinema_name']);
+        $this->assertSame('MEMBURU PEMANGSA', $result['film_name']);
+        $this->assertSame('2026-09-24', $result['report_date']);
+        $this->assertSame(['REGULAR', 'BOGOF'], array_column($result['rows'], 'ticket_name'));
+        $this->assertSame([5.0, 4.0], array_column($result['rows'], 'jumlah'));
+        $this->assertSame(150000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
     public function it_requires_an_operator_to_allocate_total_free_when_the_show_is_blank(): void
     {
         $path = $this->workbook([
@@ -82,11 +124,11 @@ class NscXlsxParserTest extends TestCase
         (new NscXlsxParser())->parse($path);
     }
 
-    private function sheetRows(string $site, string $date, array $dataRows, array $grandTotal): array
+    private function sheetRows(string $site, string $date, array $dataRows, array $grandTotal, string $siteLabel = 'Site :'): array
     {
         $rows = [
             [null, 'TICKET SALES REPORT'],
-            ['Site :', $site],
+            [$siteLabel, $site],
             ['Address :', 'Alamat'],
             [],
             ['Distributor :', 'SINEMAKU PICTURES'],
