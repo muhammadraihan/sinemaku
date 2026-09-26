@@ -75,6 +75,26 @@ PDF);
     }
 
     /** @test */
+    public function it_reads_cinema_name_before_an_unrecognized_address_prefix(): void
+    {
+        $result = (new PlatinumPdfParser())->parseText(<<<'PDF'
+Movie Sessions Admits Gross Net Tax
+Memburu Pemangsa 2 13 455,000.00 455,000.00 41,363.66
+25-Sep-2026STUDIO 2 12:15 pm 11STANDARD 35,000.00 385,000.00 385,000.00 35,000.02
+25-Sep-2026STUDIO 2 04:20 pm 2STANDARD 35,000.00 70,000.00 70,000.00 6,363.64
+Platinum Cineplex Sragen
+Plasa Ghadira, Rukan No. 205-206, JL. Sukowati, Gemolong, Magero, Sragen Tengah, Kec. Sragen
+Distributor Report
+Screening Period 25-09-2026 06:00 AM TO 26-09-2026 06:00 AM
+PDF);
+
+        $this->assertSame('PLATINUM CINEPLEX SRAGEN', $result['cinema_name']);
+        $this->assertSame('2026-09-25', $result['report_date']);
+        $this->assertCount(2, $result['rows']);
+        $this->assertSame(455000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
     public function it_rejects_price_times_admissions_mismatch(): void
     {
         $this->expectException(\InvalidArgumentException::class);

@@ -32,10 +32,10 @@ class PlatinumPdfParser
         }
         $reportDate = Carbon::createFromFormat('d-m-Y', "{$period[1]}-{$period[2]}-{$period[3]}")->toDateString();
 
-        if (!preg_match('/(Platinum\s+Cineplex\s+[A-Za-z ]+?)(?=\s+(?:JL\.|Jl\.|Citimall|Distributor\s+Report|Screening\s+Period))/i', $normalized, $cinema)) {
+        $cinemaName = $this->extractCinemaName($text);
+        if ($cinemaName === '') {
             throw new \InvalidArgumentException('Nama bioskop Platinum tidak dapat dibaca dari PDF.');
         }
-        $cinemaName = $this->normalizeName($cinema[1]);
 
         if (!preg_match('/Movie\s+Sessions\s+Admits\s+Gross\s+Net\s+Tax\s+(.+?)\s+(\d+)\s+(\d+)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})/i', $normalized, $movie)) {
             throw new \InvalidArgumentException('Nama film atau ringkasan film tidak dapat dibaca dari PDF.');
@@ -122,6 +122,18 @@ class PlatinumPdfParser
                 ? ['PDF Platinum mencetak Net sama dengan Gross; nilai sumber dipertahankan dan tidak dihitung ulang dari Gross - Tax.']
                 : [],
         ];
+    }
+
+    private function extractCinemaName(string $text): string
+    {
+        foreach (preg_split('/\R/u', $text) as $line) {
+            $line = trim(preg_replace('/\s+/u', ' ', $line));
+            if (preg_match('/^(Platinum\s+Cineplex\s+[\p{L}][\p{L} .\'-]*)$/iu', $line, $match)) {
+                return $this->normalizeName($match[1]);
+            }
+        }
+
+        return '';
     }
 
     private function money(string $value): float
