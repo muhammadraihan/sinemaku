@@ -75,6 +75,26 @@ PDF);
     }
 
     /** @test */
+    public function it_parses_multiple_platinum_ticket_types_in_one_show(): void
+    {
+        $result = (new PlatinumPdfParser())->parseText(<<<'PDF'
+Movie Sessions Admits Gross Net Tax
+Memburu Pemangsa 3 33 1,545,000.00 1,545,000.00 110,454.57
+25-Sep-2026STUDIO 5 12:30 pm 6STANDARD 45,000.00 270,000.00 270,000.00 24,545.46
+25-Sep-2026STUDIO 5 04:20 pm 8STANDARD 45,000.00 360,000.00 360,000.00 32,727.28
+25-Sep-2026STUDIO 5 08:25 pm 13STANDARD 45,000.00 585,000.00 585,000.00 53,181.83
+25-Sep-2026STUDIO 5 08:25 pm 6PREMIUM 55,000.00 330,000.00 330,000.00 0.00
+Platinum Cineplex Magelang
+Distributor Report
+Screening Period 25-09-2026 06:00 AM TO 26-09-2026 06:00 AM
+PDF);
+
+        $this->assertSame(['STANDARD', 'STANDARD', 'STANDARD', 'PREMIUM'], array_column($result['rows'], 'type_tiket'));
+        $this->assertSame(33, $result['totals']['admits']);
+        $this->assertSame(1545000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
     public function it_reads_cinema_name_before_an_unrecognized_address_prefix(): void
     {
         $result = (new PlatinumPdfParser())->parseText(<<<'PDF'

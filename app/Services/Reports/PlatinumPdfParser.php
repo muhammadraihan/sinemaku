@@ -48,7 +48,7 @@ class PlatinumPdfParser
             'tax_amount' => $this->money($movie[6]),
         ];
 
-        $rowPattern = '/(\d{2}-[A-Za-z]{3}-\d{4})\s*STUDIO\s*(\d+)\s+(\d{1,2}:\d{2})\s*([ap]m)\s+(\d+)\s*STANDARD\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})/i';
+        $rowPattern = '/(\d{2}-[A-Za-z]{3}-\d{4})\s*STUDIO\s*(\d+)\s+(\d{1,2}:\d{2})\s*([ap]m)\s+(\d+)\s*([A-Z][A-Z0-9 -]*?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})/i';
         preg_match_all($rowPattern, $normalized, $matches, PREG_SET_ORDER);
         if (!$matches) {
             throw new \InvalidArgumentException('Tidak ada detail tiket Platinum yang dapat diparse dari PDF.');
@@ -58,10 +58,11 @@ class PlatinumPdfParser
         $profiles = [];
         foreach ($matches as $index => $match) {
             $admits = (int) $match[5];
-            $price = $this->money($match[6]);
-            $gross = $this->money($match[7]);
-            $net = $this->money($match[8]);
-            $taxAmount = $this->money($match[9]);
+            $ticketType = $this->normalizeName($match[6]);
+            $price = $this->money($match[7]);
+            $gross = $this->money($match[8]);
+            $net = $this->money($match[9]);
+            $taxAmount = $this->money($match[10]);
             if ($admits === 0 && $gross == 0.0 && $price == 0.0) {
                 continue;
             }
@@ -80,7 +81,7 @@ class PlatinumPdfParser
                 'jam_tayang' => $time,
                 'show' => count($rows) + 1,
                 'studio' => $this->normalizeStudio($match[2]),
-                'type_tiket' => 'STANDARD',
+                'type_tiket' => $ticketType,
                 'harga' => $price,
                 'jumlah' => $admits,
                 'gross' => $gross,
