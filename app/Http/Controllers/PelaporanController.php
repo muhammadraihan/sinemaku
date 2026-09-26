@@ -1544,13 +1544,20 @@ class PelaporanController extends Controller
         return response()->json(array_merge(['status'=>'success','message'=>'Master berhasil ditambahkan.','token'=>$request->input('token')],$fresh));
     }
 
-    public function uploadHistory()
+    public function uploadHistory(Request $request)
     {
         if (!Schema::hasTable('report_upload_histories')) {
             return response()->json(['data' => []]);
         }
 
+        $provider = $request->query('provider');
+        $allowedProviders = ['XXI', 'CGV', 'SAMS STUDIOS', 'NSC', 'CINEPOLIS PDF', 'PLATINUM PDF'];
+        if ($provider !== null && !in_array($provider, $allowedProviders, true)) {
+            return response()->json(['data' => []]);
+        }
+
         $histories = ReportUploadHistory::with('uploader:id,uuid,name')
+            ->when($provider !== null, fn ($query) => $query->where('provider', $provider))
             ->latest('created_at')
             ->latest('id')
             ->limit(50)

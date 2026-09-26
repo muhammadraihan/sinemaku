@@ -84,6 +84,8 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->assertStringContainsString('function openLegacyQuickMaster(button)', $view);
         $this->assertStringContainsString('History upload', $view);
         $this->assertStringContainsString('function loadUploadHistory()', $view);
+        $this->assertStringContainsString("$.get(uploadHistoryUrl, { provider: bioskop })", $view);
+        $this->assertStringContainsString('Belum ada file provider ini yang berhasil diimport.', $view);
         $this->assertStringContainsString("route('pelaporan.upload-history')", $view);
         $this->assertStringContainsString('.swal2-container { z-index: 3000 !important; }', $view);
         $this->assertStringContainsString("$('#legacy-preview-issues .legacy-quick-master').off('click').on('click'", $view);
@@ -299,9 +301,27 @@ class LegacyExcelImportPreviewTest extends TestCase
             'imported_rows' => 1,
         ]);
 
-        $this->actingAs($owner)->get(route('pelaporan.upload-history'))
+        DB::table('report_upload_histories')->insert([
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'provider' => 'CGV',
+            'original_filename' => 'cgv.xlsx',
+            'file_size' => 100,
+            'status' => 'Berhasil diimport',
+            'preview_rows' => 1,
+            'imported_rows' => 1,
+            'uploaded_by' => $owner->uuid,
+            'completed_at' => now(),
+            'created_at' => now()->addSecond(),
+            'updated_at' => now()->addSecond(),
+        ]);
+
+        $this->actingAs($owner)->get(route('pelaporan.upload-history', ['provider' => 'XXI']))
+            ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.original_filename', 'xxi.xlsx')
-            ->assertJsonPath('data.0.uploader.name', 'Tester');
+            ->assertJsonPath('data.0.provider', 'XXI');
+        $this->actingAs($owner)->get(route('pelaporan.upload-history', ['provider' => 'CGV']))
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.original_filename', 'cgv.xlsx');
 
         /* replay remains blocked */
         $this->actingAs($owner)->post(route('pelaporan.upload.xxi.confirm'), ['token' => $preview->json('token')])

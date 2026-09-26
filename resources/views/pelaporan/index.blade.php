@@ -230,20 +230,6 @@
                             <span><i class="fal fa-lock-alt"></i> Maks. 20 MB</span>
                         </div>
                     </div>
-                    <div class="upload-history-card mb-4">
-                        <div class="upload-history-card__header">
-                            <div><div class="upload-control-room__eyebrow">Aktivitas terakhir</div><h4 class="mb-0">History upload</h4></div>
-                            <button type="button" id="refresh-upload-history" class="btn btn-sm btn-outline-secondary"><i class="fal fa-sync mr-1"></i> Refresh</button>
-                        </div>
-                        <div id="upload-history-loading" class="upload-history-state text-muted"><i class="fal fa-spinner-third fa-spin mr-1"></i> Memuat histori...</div>
-                        <div id="upload-history-empty" class="upload-history-state text-muted d-none"><i class="fal fa-inbox mr-1"></i> Belum ada file yang berhasil diimport.</div>
-                        <div class="table-responsive d-none" id="upload-history-table-wrap">
-                            <table class="table table-sm table-hover mb-0" id="upload-history-table">
-                                <thead><tr><th>File</th><th>Provider</th><th>Uploader</th><th>Waktu import</th><th>Status</th><th>Baris</th></tr></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
                     <form id="filter-form">
                         {!! Form::open(['route' => 'laporan.search','id'=>'forms','method' => 'GET','class' =>
                         'needs-validation','dropzone', 'forms','novalidate','enctype' => 'multipart/form-data']) !!}
@@ -360,7 +346,7 @@
 
 <!-- Modal upload laporan -->
 <div class="modal fade" id="modal-upload" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
-  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content upload-modal-shell">
       <div class="modal-header upload-modal-header">
         <div class="d-flex align-items-center">
@@ -397,6 +383,20 @@
             <div class="upload-guide-step"><span>3</span><div><strong>Konfirmasi import</strong><small>Data laporan baru disimpan setelah Anda menyetujui preview.</small></div></div>
             <div class="upload-guide-note"><i class="fal fa-history mr-2"></i><span>Nama file, uploader, dan waktu upload otomatis masuk ke history.</span></div>
           </aside>
+        </div>
+        <div class="upload-history-card mx-4 mb-4">
+          <div class="upload-history-card__header">
+            <div><div class="upload-control-room__eyebrow">Aktivitas provider</div><h5 class="mb-0" id="upload-history-title">History upload</h5></div>
+            <button type="button" id="refresh-upload-history" class="btn btn-sm btn-outline-secondary"><i class="fal fa-sync mr-1"></i> Refresh</button>
+          </div>
+          <div id="upload-history-loading" class="upload-history-state text-muted"><i class="fal fa-spinner-third fa-spin mr-1"></i> Memuat histori...</div>
+          <div id="upload-history-empty" class="upload-history-state text-muted d-none"><i class="fal fa-inbox mr-1"></i> Belum ada file provider ini yang berhasil diimport.</div>
+          <div class="table-responsive d-none" id="upload-history-table-wrap">
+            <table class="table table-sm table-hover mb-0" id="upload-history-table">
+              <thead><tr><th>File</th><th>Uploader</th><th>Waktu import</th><th>Status</th><th>Baris</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </div>
       <div class="modal-footer upload-modal-footer">
@@ -490,9 +490,11 @@
         $('#upload-modal-subtitle').text('File diproses ke preview dan belum masuk laporan sebelum dikonfirmasi.');
         $('#upload-file-meta').text(isPdfReport ? 'PDF, maksimum 20 MB' : 'XLSX atau XLS, maksimum 20 MB');
         $('#upload-provider-mark').html('<i class="fal ' + (isPdfReport ? 'fa-file-pdf' : 'fa-file-spreadsheet') + '"></i>');
+        $('#upload-history-title').text('History ' + (bioskop === 'CINEPOLIS PDF' ? 'Cinepolis' : bioskop === 'PLATINUM PDF' ? 'Platinum' : bioskop));
         $(".custom-dropdown-menu").hide();
         $('#modal-upload').appendTo('body');
         $('#modal-upload').modal('show');
+        loadUploadHistory();
     });
 
     const $modal = $('#modal-upload');
@@ -524,16 +526,17 @@
     }
 
     function loadUploadHistory() {
-        $('#upload-history-loading').removeClass('d-none');
+        if (!bioskop) return;
+        $('#upload-history-loading').removeClass('d-none').html('<i class="fal fa-spinner-third fa-spin mr-1"></i> Memuat histori...');
         $('#upload-history-empty, #upload-history-table-wrap').addClass('d-none');
-        $.get(uploadHistoryUrl).done(function (response) {
+        $.get(uploadHistoryUrl, { provider: bioskop }).done(function (response) {
             var rows = response.data || [];
             $('#upload-history-loading').addClass('d-none');
             $('#upload-history-empty').toggleClass('d-none', rows.length > 0);
             $('#upload-history-table-wrap').toggleClass('d-none', rows.length === 0);
             $('#upload-history-table tbody').html(rows.map(function (item) {
                 var count = item.status === 'Berhasil diimport' ? item.imported_rows : item.preview_rows;
-                return '<tr><td><div class="upload-file-name" title="' + escapeHtml(item.original_filename) + '"><i class="fal ' + (String(item.provider).indexOf('PDF') !== -1 ? 'fa-file-pdf' : 'fa-file-spreadsheet') + '"></i><span>' + escapeHtml(item.original_filename) + '</span></div><small class="text-muted">' + formatUploadBytes(item.file_size) + '</small></td><td>' + escapeHtml(item.provider) + '</td><td>' + escapeHtml((item.uploader || {}).name || '-') + '</td><td>' + escapeHtml(formatUploadDate(item.uploaded_at)) + '</td><td><span class="upload-history-status ' + uploadHistoryStatusClass(item.status) + '">' + escapeHtml(item.status) + '</span></td><td>' + escapeHtml(count) + ' baris</td></tr>';
+                return '<tr><td><div class="upload-file-name" title="' + escapeHtml(item.original_filename) + '"><i class="fal ' + (String(item.provider).indexOf('PDF') !== -1 ? 'fa-file-pdf' : 'fa-file-spreadsheet') + '"></i><span>' + escapeHtml(item.original_filename) + '</span></div><small class="text-muted">' + formatUploadBytes(item.file_size) + '</small></td><td>' + escapeHtml((item.uploader || {}).name || '-') + '</td><td>' + escapeHtml(formatUploadDate(item.uploaded_at)) + '</td><td><span class="upload-history-status ' + uploadHistoryStatusClass(item.status) + '">' + escapeHtml(item.status) + '</span></td><td>' + escapeHtml(count) + ' baris</td></tr>';
             }).join(''));
         }).fail(function () {
             $('#upload-history-loading').removeClass('d-none').text('Histori upload belum dapat dimuat.');
@@ -541,7 +544,6 @@
     }
 
     $('#refresh-upload-history').on('click', loadUploadHistory);
-    loadUploadHistory();
 
     $('#uploadFile').on('change', function () {
         var file = this.files && this.files[0];
