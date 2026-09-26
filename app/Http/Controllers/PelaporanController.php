@@ -1333,6 +1333,12 @@ class PelaporanController extends Controller
         try {
             $parsed = $parser->parse($request->file('file')->getPathname());
             $mapping = $this->mapLegacyPreview($parsed['rows'], 'NSC');
+            $mapping['pending_free_assignments'] = $parsed['pending_free_assignments'] ?? [];
+            foreach ($mapping['pending_free_assignments'] as $pending) {
+                $mapping['blocking_issues'][] = 'Tiket Free '.$pending['jumlah'].' pada sheet '.$pending['source_sheet'].' baris '.$pending['source_row'].' belum ditentukan show-nya.';
+            }
+            $mapping['blocking_issues'] = array_values(array_unique($mapping['blocking_issues']));
+            $mapping['summary']['blocked'] = count($mapping['preview']) - count($mapping['rows']);
             $mapping['warnings'] = array_values(array_unique(array_merge($parsed['warnings'] ?? [], $mapping['warnings'] ?? [])));
             $mapping['summary'] = array_merge($mapping['summary'], [
                 'paid' => $parsed['totals']['paid'],
@@ -1345,6 +1351,7 @@ class PelaporanController extends Controller
                 'provider' => 'NSC',
                 'rows' => $parsed['rows'],
                 'mapping' => $mapping,
+                'pending_free_assignments' => $parsed['pending_free_assignments'] ?? [],
                 'created_by' => Auth::user()->uuid ?? null,
             ], now()->addMinutes(30));
             return response()->json(array_merge(['status' => 'success', 'token' => $token], $mapping));
@@ -1352,6 +1359,45 @@ class PelaporanController extends Controller
             report($e);
             return response()->json(['status' => 'failed', 'message' => 'Preview NSC gagal: '.$e->getMessage()], 422);
         }
+    }
+
+    public function assignNscFreeShow(Request $request)
+    {
+        $request->validate(['token' => 'required|string', 'assignment_key' => 'required|string', 'show' => 'required|integer|min:1|max:7']);
+        $cacheKey = $this->legacyPreviewKey($request->input('token'));
+        $cached = Cache::get($cacheKey);
+        if (!$cached || ($cached['provider'] ?? null) !== 'NSC') return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa.'], 422);
+        if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
+
+        $pending = collect($cached['pending_free_assignments'] ?? [])->firstWhere('key', $request->input('assignment_key'));
+        if (!$pending) return response()->json(['status' => 'failed', 'message' => 'Alokasi tiket Free tidak ditemukan pada preview.'], 422);
+        $selected = collect($pending['candidate_shows'])->firstWhere('show', (int) $request->input('show'));
+        if (!$selected) return response()->json(['status' => 'failed', 'message' => 'Show yang dipilih tidak tersedia pada laporan sumber.'], 422);
+
+        $source = collect($cached['rows'])->first(fn ($row) => (int) $row['source_row'] === (int) $pending['source_row']
+            && (string) ($row['source_sheet'] ?? '') === (string) $pending['source_sheet']
+            && (string) $row['studio'] === (string) $pending['studio']);
+        if (!$source) return response()->json(['status' => 'failed', 'message' => 'Detail sumber untuk alokasi tiket Free tidak ditemukan.'], 422);
+
+        $cached['rows'][] = array_merge($source, [
+            'ticket_name' => 'BOGOF',
+            'jam_tayang' => $selected['jam_tayang'],
+            'show' => (string) $selected['show'],
+            'jumlah' => $pending['jumlah'],
+            'harga' => 0.0,
+            'tax' => 0,
+            'net' => 0,
+        ]);
+        $cached['pending_free_assignments'] = array_values(array_filter($cached['pending_free_assignments'], fn ($item) => $item['key'] !== $pending['key']));
+        $mapping = $this->mapLegacyPreview($cached['rows'], 'NSC');
+        $mapping['pending_free_assignments'] = $cached['pending_free_assignments'];
+        foreach ($mapping['pending_free_assignments'] as $item) {
+            $mapping['blocking_issues'][] = 'Tiket Free '.$item['jumlah'].' pada sheet '.$item['source_sheet'].' baris '.$item['source_row'].' belum ditentukan show-nya.';
+        }
+        $mapping['blocking_issues'] = array_values(array_unique($mapping['blocking_issues']));
+        $cached['mapping'] = $mapping;
+        Cache::put($cacheKey, $cached, now()->addMinutes(30));
+        return response()->json(array_merge(['status' => 'success', 'message' => 'Show untuk tiket Free berhasil ditentukan.', 'token' => $request->input('token')], $mapping));
     }
 
     public function previewLegacyExcel(Request $request, string $provider)
@@ -1391,6 +1437,9 @@ class PelaporanController extends Controller
         }
         if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) {
             return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
+        }
+        if ($provider === 'NSC' && !empty($cached['pending_free_assignments'])) {
+            return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena masih ada tiket Free yang belum ditentukan show-nya.'], 422);
         }
         $mapping = $this->mapLegacyPreview($cached['rows'], $provider);
         if (!empty($mapping['blocking_issues'])) {

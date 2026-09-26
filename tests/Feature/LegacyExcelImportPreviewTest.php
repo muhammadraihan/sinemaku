@@ -279,6 +279,34 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->assertSame(0, DB::table('pelaporans')->count());
     }
 
+    public function test_nsc_can_assign_unallocated_free_to_a_source_show_before_confirm(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'nsc-category', 'name' => 'NSC']);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.nsc'), ['file' => $this->makeNscMissingFreeFile()]);
+        $preview->assertOk()->assertJsonPath('pending_free_assignments.0.jumlah', 5);
+        $this->assertNotEmpty($preview->json('blocking_issues'));
+        $this->actingAs($owner)->post(route('pelaporan.upload.nsc.confirm'), ['token' => $preview->json('token')])->assertStatus(422);
+        $this->actingAs($owner)->post(route('pelaporan.upload.nsc.assign-free'), [
+            'token' => $preview->json('token'),
+            'assignment_key' => $preview->json('pending_free_assignments.0.key'),
+            'show' => 7,
+        ])->assertStatus(422);
+
+        $assigned = $this->actingAs($owner)->post(route('pelaporan.upload.nsc.assign-free'), [
+            'token' => $preview->json('token'),
+            'assignment_key' => $preview->json('pending_free_assignments.0.key'),
+            'show' => 3,
+        ]);
+
+        $assigned->assertOk()->assertJsonPath('status', 'success')->assertJsonPath('pending_free_assignments', [])
+            ->assertJsonPath('preview.1.ticket_name', 'BOGOF')
+            ->assertJsonPath('preview.1.jam_tayang', '14:00')
+            ->assertJsonPath('preview.1.jumlah', 5);
+        $this->assertSame(0, DB::table('pelaporans')->count());
+    }
+
     public function test_nsc_confirm_import_persists_paid_and_bogof_rows_once(): void
     {
         $owner = $this->createUser();
@@ -421,6 +449,24 @@ class LegacyExcelImportPreviewTest extends TestCase
             ['1', '2D', 'Regular', 'Rp 25000', '10:00', 4, 2, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 4, 2, 'Rp 100000'],
             ['Grand Total', null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 4, 2, '100000'],
         ], 'nsc.xlsx');
+    }
+
+    private function makeNscMissingFreeFile(): UploadedFile
+    {
+        return $this->makeWorkbook([
+            [null, 'TICKET SALES REPORT'],
+            ['Site :', 'NSC TEST'],
+            ['Address :', 'JAKARTA'],
+            [],
+            ['Distributor :', 'SINEMAKU PICTURES'],
+            ['Movie Title :', 'FILM NSC'],
+            ['Show Date :', '24-Sep-26'],
+            [],
+            ['Cinema', 'Movie Format', 'Seat Grade', 'Price', '1st Showtime', null, null, '2nd Showtime', null, null, '3rd Showtime', null, null, '4th Showtime', null, null, '5th Showtime', null, null, '6th Showtime', null, null, '7th Showtime', null, null, 'Total', null, 'Total Sales'],
+            [null, null, null, null, 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Paid', 'Free'],
+            ['1', '2D', 'Regular', 'Rp 25000', null, null, null, null, null, null, '14:00', 4, null, null, null, null, null, null, null, null, null, null, null, null, null, 4, 5, 'Rp 100000'],
+            ['Grand Total', null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 4, 5, '100000'],
+        ], 'nsc-missing-free.xlsx');
     }
 
     private function makeSamsFile(): UploadedFile

@@ -52,6 +52,23 @@ class NscXlsxParserTest extends TestCase
     }
 
     /** @test */
+    public function it_requires_an_operator_to_allocate_total_free_when_the_show_is_blank(): void
+    {
+        $path = $this->workbook([
+            'Format' => $this->sheetRows('NSC DIENG WONOSOBO', '24-Sep-26', [
+                ['1', '2D', 'Regular', ' Rp 30,000 ', null, null, null, null, null, null, '14:00', 10, null],
+            ], [10, 5, 300000]),
+        ]);
+
+        $result = (new NscXlsxParser())->parse($path);
+
+        $this->assertSame(['REGULAR'], array_column($result['rows'], 'ticket_name'));
+        $this->assertSame(5.0, $result['pending_free_assignments'][0]['jumlah']);
+        $this->assertSame('14:00', $result['pending_free_assignments'][0]['candidate_shows'][0]['jam_tayang']);
+        $this->assertSame(3, $result['pending_free_assignments'][0]['candidate_shows'][0]['show']);
+    }
+
+    /** @test */
     public function it_rejects_sales_that_do_not_reconcile_with_paid_total(): void
     {
         $path = $this->workbook([

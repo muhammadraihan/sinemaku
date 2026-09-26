@@ -340,7 +340,7 @@
 <div class="modal fade cinepolis-preview-modal" id="modal-legacy-preview" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
   <div class="modal-dialog modal-xl modal-dialog-centered" role="document"><div class="modal-content">
     <div class="modal-header"><h4 class="modal-title">Preview Import Excel <small class="m-0 text-muted">Periksa mapping sebelum menyimpan</small></h4><button type="button" class="close" data-dismiss="modal"><span aria-hidden="true"><i class="fal fa-times"></i></span></button></div>
-    <div class="modal-body"><div id="legacy-preview-summary" class="cinepolis-preview-summary mb-3"></div><div id="legacy-preview-issues" class="alert alert-danger d-none"></div><div id="legacy-preview-warnings" class="alert alert-warning d-none"></div><div class="table-responsive"><table id="legacy-preview-table" class="table table-bordered table-hover cinepolis-preview-table w-100"><thead><tr><th>Status</th><th>Baris</th><th>Tanggal</th><th>Film</th><th>Bioskop</th><th>Kota</th><th>Studio</th><th>Jam</th><th>Show</th><th>Tipe Tiket</th><th>Harga</th><th>Jumlah</th></tr></thead><tbody></tbody></table></div></div>
+    <div class="modal-body"><div id="legacy-preview-summary" class="cinepolis-preview-summary mb-3"></div><div id="legacy-preview-free-assignments" class="alert alert-warning d-none"></div><div id="legacy-preview-issues" class="alert alert-danger d-none"></div><div id="legacy-preview-warnings" class="alert alert-warning d-none"></div><div class="table-responsive"><table id="legacy-preview-table" class="table table-bordered table-hover cinepolis-preview-table w-100"><thead><tr><th>Status</th><th>Baris</th><th>Tanggal</th><th>Film</th><th>Bioskop</th><th>Kota</th><th>Studio</th><th>Jam</th><th>Show</th><th>Tipe Tiket</th><th>Harga</th><th>Jumlah</th></tr></thead><tbody></tbody></table></div></div>
     <div class="modal-footer"><button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button><button type="button" id="btn-confirm-legacy-import" class="btn btn-primary" disabled>Konfirmasi Import</button></div>
     <div class="cinepolis-preview-swal-target"></div>
   </div></div>
@@ -754,7 +754,7 @@
                 'XXI': { preview: @json(route('pelaporan.upload.xxi')), confirm: @json(route('pelaporan.upload.xxi.confirm')), quick: @json(route('pelaporan.upload.xxi.quick-master')) },
                 'CGV': { preview: @json(route('pelaporan.upload.cgv')), confirm: @json(route('pelaporan.upload.cgv.confirm')), quick: @json(route('pelaporan.upload.cgv.quick-master')) },
                 'SAMS STUDIOS': { preview: @json(route('pelaporan.upload.sams')), confirm: @json(route('pelaporan.upload.sams.confirm')), quick: @json(route('pelaporan.upload.sams.quick-master')) },
-                'NSC': { preview: @json(route('pelaporan.upload.nsc')), confirm: @json(route('pelaporan.upload.nsc.confirm')), quick: @json(route('pelaporan.upload.nsc.quick-master')) }
+                'NSC': { preview: @json(route('pelaporan.upload.nsc')), confirm: @json(route('pelaporan.upload.nsc.confirm')), quick: @json(route('pelaporan.upload.nsc.quick-master')), assignFree: @json(route('pelaporan.upload.nsc.assign-free')) }
             };
             $.ajax({ url: legacyUrls[bioskop].preview, method: 'POST', data: formData, contentType: false, processData: false })
                 .done(function (res) {
@@ -954,8 +954,30 @@
             return $.post(state.urls.quick,p).then(function(response){ if (!response || response.status !== 'success') { throw new Error(response && response.message ? response.message : 'Master gagal disimpan.'); } return response; }).catch(function(xhr){ var json=xhr.responseJSON||{}; var message=json.message||xhr.message||((json.errors&&Object.values(json.errors)[0]) ? Object.values(json.errors)[0][0] : 'Master gagal disimpan.'); Swal.showValidationMessage(message); return false; }); }}).then(function(result){if(result.isConfirmed&&result.value){showLegacyPreview(result.value,state.provider,state.urls);Swal.fire({target:target,icon:'success',title:'Master tersimpan',text:result.value.message,timer:1200,showConfirmButton:false});}});
     }
 
+    function renderNscFreeAssignments(res, urls) {
+        var assignments = res.pending_free_assignments || [];
+        var container = $('#legacy-preview-free-assignments');
+        if (!assignments.length) { container.addClass('d-none').empty(); return; }
+        container.removeClass('d-none').html('<strong>Tentukan lokasi tiket Free</strong><p class="mb-2">Total Free dari sumber belum mencantumkan show. Pilih show untuk setiap baris berikut sebelum import:</p>' + assignments.map(function (item) {
+            var options = (item.candidate_shows || []).map(function (show) { return '<option value="' + escapeHtml(show.show) + '">Show ' + escapeHtml(show.show) + ' — ' + escapeHtml(show.jam_tayang) + '</option>'; }).join('');
+            return '<div class="d-flex align-items-center flex-wrap mb-2 nsc-free-assignment" data-key="' + escapeHtml(item.key) + '"><span class="mr-2">Studio ' + escapeHtml(item.studio) + ', ' + escapeHtml(item.jumlah) + ' tiket Free:</span><select class="form-control form-control-sm mr-2 nsc-free-show" style="max-width:220px"><option value="">Pilih show</option>' + options + '</select><button type="button" class="btn btn-sm btn-warning nsc-assign-free" disabled>Tentukan Show</button></div>';
+        }).join(''));
+        container.find('.nsc-free-show').on('change', function () { $(this).siblings('.nsc-assign-free').prop('disabled', !$(this).val()); });
+        container.find('.nsc-assign-free').on('click', function () {
+            var button = $(this), row = button.closest('.nsc-free-assignment');
+            button.prop('disabled', true).text('Menyimpan...');
+            $.post(urls.assignFree, { token: res.token, assignment_key: row.data('key'), show: row.find('.nsc-free-show').val() }).done(function (next) {
+                showLegacyPreview(next, 'NSC', urls);
+            }).fail(function (xhr) {
+                button.prop('disabled', false).text('Tentukan Show');
+                Swal.fire({ icon: 'error', title: 'Alokasi gagal', text: (xhr.responseJSON || {}).message || 'Alokasi tiket Free gagal.' });
+            });
+        });
+    }
+
     function showLegacyPreview(res, provider, urls) {
         activeLegacyPreview = { res: res, provider: provider, urls: urls };
+        renderNscFreeAssignments(res, urls);
         var summary = res.summary || {};
         $('#legacy-preview-summary').html([
             ['Provider', summary.provider], ['Baris sumber', summary.rows], ['Siap import', summary.ready], ['Diblokir', summary.blocked]

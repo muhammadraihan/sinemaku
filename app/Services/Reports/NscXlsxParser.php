@@ -25,6 +25,7 @@ class NscXlsxParser
         $cinemaName = null;
         $filmName = null;
         $dates = [];
+        $pendingFreeAssignments = [];
 
         foreach ($book->getWorksheetIterator() as $sheet) {
             $parsed = $this->parseSheet($sheet->toArray(null, true, true, false), $sheet->getTitle());
@@ -41,6 +42,7 @@ class NscXlsxParser
             }
             $dates[] = $parsed['report_date'];
             $rows = array_merge($rows, $parsed['rows']);
+            $pendingFreeAssignments = array_merge($pendingFreeAssignments, $parsed['pending_free_assignments']);
             $warnings = array_merge($warnings, $parsed['warnings']);
         }
 
@@ -48,10 +50,11 @@ class NscXlsxParser
             throw new \InvalidArgumentException('Tidak ada detail penjualan NSC yang dapat diparse dari workbook.');
         }
 
+        $pendingFree = array_sum(array_column($pendingFreeAssignments, 'jumlah'));
         $totals = [
             'paid' => array_sum(array_map(fn ($row) => $row['ticket_name'] === 'REGULAR' ? $row['jumlah'] : 0, $rows)),
-            'free' => array_sum(array_map(fn ($row) => $row['ticket_name'] === 'BOGOF' ? $row['jumlah'] : 0, $rows)),
-            'admits' => array_sum(array_column($rows, 'jumlah')),
+            'free' => array_sum(array_map(fn ($row) => $row['ticket_name'] === 'BOGOF' ? $row['jumlah'] : 0, $rows)) + $pendingFree,
+            'admits' => array_sum(array_column($rows, 'jumlah')) + $pendingFree,
             'gross' => round(array_sum(array_map(fn ($row) => $row['harga'] * $row['jumlah'], $rows)), 2),
         ];
 
@@ -61,6 +64,7 @@ class NscXlsxParser
             'report_date' => count(array_unique($dates)) === 1 ? $dates[0] : null,
             'rows' => $rows,
             'totals' => $totals,
+            'pending_free_assignments' => $pendingFreeAssignments,
             'warnings' => array_values(array_unique($warnings)),
         ];
     }
@@ -90,6 +94,7 @@ class NscXlsxParser
 
         $rows = [];
         $warnings = [];
+        $pendingFreeAssignments = [];
         for ($index = $headerIndex + 2; $index < count($source); $index++) {
             $line = $source[$index];
             $first = $this->normalize($line[0] ?? '');
@@ -137,8 +142,26 @@ class NscXlsxParser
                     throw new \InvalidArgumentException('Total Sales tidak sama dengan detail show pada sheet '.$sheetName.' baris '.($index + 1).'.');
                 }
             }
-            if (abs($rowPaid - $detailPaid) > 0.01 || abs($rowFree - $detailFree) > 0.01) {
-                throw new \InvalidArgumentException('Total tiket Paid/Free tidak sama dengan detail show pada sheet '.$sheetName.' baris '.($index + 1).'.');
+            if (abs($rowPaid - $detailPaid) > 0.01) {
+                throw new \InvalidArgumentException('Total tiket Paid tidak sama dengan detail show pada sheet '.$sheetName.' baris '.($index + 1).'.');
+            }
+            if (abs($rowFree - $detailFree) > 0.01) {
+                $unallocatedFree = $rowFree - $detailFree;
+                if ($unallocatedFree < 0 || !$active) {
+                    throw new \InvalidArgumentException('Total tiket Free tidak sama dengan detail show pada sheet '.$sheetName.' baris '.($index + 1).'.');
+                }
+                $pendingFreeAssignments[] = [
+                    'key' => hash('sha256', $sheetName.'|'.($index + 1).'|'.$studio.'|'.$reportDate),
+                    'source_row' => $index + 1,
+                    'source_sheet' => $sheetName,
+                    'studio' => $studio,
+                    'jumlah' => $unallocatedFree,
+                    'candidate_shows' => array_map(fn ($item) => [
+                        'show' => $item['show'],
+                        'jam_tayang' => $item['time'],
+                    ], $active),
+                ];
+                $warnings[] = 'Sheet '.$sheetName.' baris '.($index + 1).': '.$this->displayNumber($unallocatedFree).' tiket Free belum memiliki show dan harus ditentukan pada preview.';
             }
 
             foreach ($active as $item) {
@@ -151,7 +174,7 @@ class NscXlsxParser
             }
         }
 
-        return ['cinema_name' => $cinema, 'film_name' => $film, 'report_date' => $reportDate, 'rows' => $rows, 'warnings' => $warnings];
+        return ['cinema_name' => $cinema, 'film_name' => $film, 'report_date' => $reportDate, 'rows' => $rows, 'pending_free_assignments' => $pendingFreeAssignments, 'warnings' => $warnings];
     }
 
     private function normalizedRow(int $sourceRow, string $date, string $film, string $cinema, string $studio, string $ticket, string $time, int $show, float $count, float $price, string $sheet): array
