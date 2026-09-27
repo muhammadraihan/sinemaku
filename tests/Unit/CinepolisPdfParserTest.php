@@ -374,6 +374,42 @@ PDF;
     }
 
     /** @test */
+    public function it_parses_ticket_type_rows_without_movie_format_using_indonesian_money(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+Mandau City mall
+Detailed Distributors Report
+From Saturday 26/09/2026 06:00 am Until Sunday 27/09/2026 06:00 am Ticket Detail Level: Ticket Type Movie
+Format: All Split Movie Format: No
+SINEMAKU
+MEMBURU PEMANGSA CINEMA04
+Admits Gross Tax NetTicket PriceTicket Type
+26/09/2026
+13:20 REGULAR 59.000,00 19 1.121.000,00 101.909,16 1.019.090,840001
+1.019.090,84101.909,161.121.000,0019
+18:05 REGULAR 59.000,00 18 1.062.000,00 96.545,52 965.454,480001
+965.454,4896.545,521.062.000,0018
+Day Total 37 2.183.000,00 198.454,68 1.984.545,32
+198.454,6837 1.984.545,322.183.000,00Total for Film this Screen
+PDF;
+
+        $result = $parser->parseText($text);
+
+        $this->assertSame('MANDAU CITY MALL', $result['cinema_name']);
+        $this->assertSame('MEMBURU PEMANGSA', $result['film_name']);
+        $this->assertSame('04', $result['studio']);
+        $this->assertSame(['4', '4'], array_column($result['rows'], 'studio'));
+        $this->assertSame('2026-09-26', $result['report_date']);
+        $this->assertSame(['13:20', '18:05'], array_column($result['rows'], 'jam_tayang'));
+        $this->assertSame([19, 18], array_column($result['rows'], 'jumlah'));
+        $this->assertSame(37, $result['totals']['admits']);
+        $this->assertSame(2183000.0, $result['totals']['gross']);
+        $this->assertSame(198454.68, $result['totals']['tax_amount']);
+        $this->assertSame(1984545.32, $result['totals']['net']);
+    }
+
+    /** @test */
     public function it_rejects_pdf_without_parseable_cinema_name()
     {
         $parser = new CinepolisPdfParser();

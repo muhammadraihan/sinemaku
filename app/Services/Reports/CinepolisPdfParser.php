@@ -147,7 +147,7 @@ class CinepolisPdfParser
         // Some Vista Ticket Type exports omit Movie Format altogether and append
         // a report-page artifact after the two-decimal net amount. Accept only
         // the complete six-column monetary shape; arithmetic is still checked below.
-        $ticketWithoutAttribute = '/^(?:(\d{1,2}:\d{2})\s+)?([A-Z][A-Z0-9\- ]*?)\s+([\d,]+\.\d{2})\s+(\d+)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})(?:\d*)\s*$/i';
+        $ticketWithoutAttribute = '/^(?:(\d{1,2}:\d{2})\s+)?([A-Z][A-Z0-9\- ]*?)\s+('.$money.')\s+(\d+)\s+('.$money.')\s+('.$money.')\s+('.$money.')(?:\d*)\s*$/i';
 
         $rows = [];
         $currentTime = null;
