@@ -115,6 +115,35 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->actingAs($owner)->post(route('pelaporan.upload.xxi.confirm'), ['token' => $token])->assertStatus(422);
     }
 
+    public function test_xxi_free_pass_requires_a_valid_show_then_persists_at_zero_value(): void
+    {
+        $owner = $this->seedResolvedXxiMappings();
+        DB::table('type_tikets')->insert(['uuid' => 'xxi-free-pass', 'name' => 'FREE PASS', 'kategori' => 'xxi-category']);
+        DB::table('kapasitas')->insert(['uuid' => 'xxi-free-capacity', 'kategori' => 'xxi-category', 'nama_bioskop' => 'xxi-cinema', 'type_tiket' => 'xxi-free-pass', 'studio' => '1', 'kapasitas' => '100']);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.xxi'), ['file' => $this->makeXxiFreePassFile()]);
+        $preview->assertOk()->assertJsonPath('status', 'success')
+            ->assertJsonPath('pending_free_assignments.0.jumlah', 2)
+            ->assertJsonPath('pending_free_assignments.0.candidate_shows.0.show', 1);
+        $this->assertSame(0, DB::table('pelaporans')->count());
+        $this->actingAs($owner)->post(route('pelaporan.upload.xxi.confirm'), ['token' => $preview->json('token')])->assertStatus(422);
+        $this->actingAs($owner)->post(route('pelaporan.upload.xxi.assign-free'), [
+            'token' => $preview->json('token'), 'assignment_key' => $preview->json('pending_free_assignments.0.key'), 'show' => 2,
+        ])->assertStatus(422);
+
+        $assigned = $this->actingAs($owner)->post(route('pelaporan.upload.xxi.assign-free'), [
+            'token' => $preview->json('token'), 'assignment_key' => $preview->json('pending_free_assignments.0.key'), 'show' => 1,
+        ]);
+        $assigned->assertOk()->assertJsonPath('pending_free_assignments', [])
+            ->assertJsonPath('preview.1.ticket_name', 'FREE PASS')
+            ->assertJsonPath('preview.1.jumlah', 2)
+            ->assertJsonPath('preview.1.harga', 0);
+
+        $this->actingAs($owner)->post(route('pelaporan.upload.xxi.confirm'), ['token' => $preview->json('token')])
+            ->assertOk()->assertJsonPath('inserted', 2);
+        $this->assertDatabaseHas('pelaporans', ['type_tiket' => 'xxi-free-pass', 'show' => '1', 'jumlah' => '2', 'harga' => '0', 'gross' => '0', 'net' => '0']);
+    }
+
     public function test_xxi_preview_resolves_duplicate_cinema_names_by_exact_city(): void
     {
         $owner = $this->createUser();
@@ -490,6 +519,14 @@ class LegacyExcelImportPreviewTest extends TestCase
             ['Date', 'Film', 'Cinema', 'City', 'Studio', '11', '13', '15', '17', '19', '21', 'Total', 'Price', 'Free'],
             ['2026-01-01', 'FILM TEST', 'XXI TEST', 'JAKARTA', '1', '10', '-', '-', '-', '-', '-', '', '50000', ''],
         ], 'xxi.xlsx');
+    }
+
+    private function makeXxiFreePassFile(): UploadedFile
+    {
+        return $this->makeWorkbook([
+            ['Date', 'Film', 'Cinema', 'City', 'Studio', '11', '13', '15', '17', '19', '21', 'Total', 'Price', 'Free'],
+            ['2026-01-01', 'FILM TEST', 'XXI TEST', 'JAKARTA', '1', '10', '-', '-', '-', '-', '-', '10', '50000', '2'],
+        ], 'xxi-free-pass.xlsx');
     }
 
     private function makeCgvFile(): UploadedFile

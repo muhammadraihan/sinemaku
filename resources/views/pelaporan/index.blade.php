@@ -870,10 +870,10 @@
 
         if (bioskop !== 'CINEPOLIS PDF') {
             var legacyUrls = {
-                'XXI': { preview: @json(route('pelaporan.upload.xxi')), confirm: @json(route('pelaporan.upload.xxi.confirm')), quick: @json(route('pelaporan.upload.xxi.quick-master')) },
                 'CGV': { preview: @json(route('pelaporan.upload.cgv')), confirm: @json(route('pelaporan.upload.cgv.confirm')), quick: @json(route('pelaporan.upload.cgv.quick-master')) },
                 'SAMS STUDIOS': { preview: @json(route('pelaporan.upload.sams')), confirm: @json(route('pelaporan.upload.sams.confirm')), quick: @json(route('pelaporan.upload.sams.quick-master')) },
-                'NSC': { preview: @json(route('pelaporan.upload.nsc')), confirm: @json(route('pelaporan.upload.nsc.confirm')), quick: @json(route('pelaporan.upload.nsc.quick-master')), assignFree: @json(route('pelaporan.upload.nsc.assign-free')) }
+                'NSC': { preview: @json(route('pelaporan.upload.nsc')), confirm: @json(route('pelaporan.upload.nsc.confirm')), quick: @json(route('pelaporan.upload.nsc.quick-master')), assignFree: @json(route('pelaporan.upload.nsc.assign-free')) },
+                'XXI': { preview: @json(route('pelaporan.upload.xxi')), confirm: @json(route('pelaporan.upload.xxi.confirm')), quick: @json(route('pelaporan.upload.xxi.quick-master')), assignFree: @json(route('pelaporan.upload.xxi.assign-free')) }
             };
             $.ajax({ url: legacyUrls[bioskop].preview, method: 'POST', data: formData, contentType: false, processData: false })
                 .done(function (res) {
@@ -1073,7 +1073,7 @@
             return $.post(state.urls.quick,p).then(function(response){ if (!response || response.status !== 'success') { throw new Error(response && response.message ? response.message : 'Master gagal disimpan.'); } return response; }).catch(function(xhr){ var json=xhr.responseJSON||{}; var message=json.message||xhr.message||((json.errors&&Object.values(json.errors)[0]) ? Object.values(json.errors)[0][0] : 'Master gagal disimpan.'); Swal.showValidationMessage(message); return false; }); }}).then(function(result){if(result.isConfirmed&&result.value){showLegacyPreview(result.value,state.provider,state.urls);Swal.fire({target:target,icon:'success',title:'Master tersimpan',text:result.value.message,timer:1200,showConfirmButton:false});}});
     }
 
-    function renderNscFreeAssignments(res, urls) {
+    function renderFreeAssignments(res, provider, urls) {
         var assignments = res.pending_free_assignments || [];
         var container = $('#legacy-preview-free-assignments');
         if (!assignments.length) { container.addClass('d-none').empty(); return; }
@@ -1086,7 +1086,7 @@
             var button = $(this), row = button.closest('.nsc-free-assignment');
             button.prop('disabled', true).text('Menyimpan...');
             $.post(urls.assignFree, { token: res.token, assignment_key: row.data('key'), show: row.find('.nsc-free-show').val() }).done(function (next) {
-                showLegacyPreview(next, 'NSC', urls);
+                showLegacyPreview(next, provider, urls);
             }).fail(function (xhr) {
                 button.prop('disabled', false).text('Tentukan Show');
                 Swal.fire({ icon: 'error', title: 'Alokasi gagal', text: (xhr.responseJSON || {}).message || 'Alokasi tiket Free gagal.' });
@@ -1096,7 +1096,7 @@
 
     function showLegacyPreview(res, provider, urls) {
         activeLegacyPreview = { res: res, provider: provider, urls: urls };
-        renderNscFreeAssignments(res, urls);
+        renderFreeAssignments(res, provider, urls);
         var summary = res.summary || {};
         $('#legacy-preview-summary').html([
             ['Provider', summary.provider], ['Baris sumber', summary.rows], ['Siap import', summary.ready], ['Diblokir', summary.blocked]

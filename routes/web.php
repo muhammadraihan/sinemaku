@@ -85,6 +85,8 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::get('get-chart-city', [GrafikKotaController::class,'getTopCities'])->name('getTopCities');
     Route::post('/pelaporan/upload-xxi', [PelaporanController::class, 'uploadXXI'])
     ->name('pelaporan.upload.xxi');
+    Route::post('/pelaporan/upload-xxi/assign-free', [PelaporanController::class, 'assignXxiFreeShow'])
+    ->name('pelaporan.upload.xxi.assign-free');
     Route::post('/pelaporan/upload-xxi/confirm', [PelaporanController::class, 'confirmLegacyExcel'])->defaults('provider', 'XXI')
     ->name('pelaporan.upload.xxi.confirm');
     Route::post('/pelaporan/upload-xxi/quick-master', [PelaporanController::class, 'quickMasterLegacy'])->defaults('provider', 'XXI')
