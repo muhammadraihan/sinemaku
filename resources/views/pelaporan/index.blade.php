@@ -133,8 +133,9 @@
 .upload-history-card__header { display:flex; justify-content:space-between; align-items:center; padding:17px 20px; border-bottom:1px solid #edf1f5; }
 .upload-history-card__header h4 { color:#1d2939; font-weight:700; }
 .upload-history-state { padding:26px 20px; text-align:center; font-size:13px; }
+#upload-history-table-wrap { max-height:280px; overflow-y:auto; overflow-x:auto; }
 #upload-history-table { font-size:12px; }
-#upload-history-table thead th { border-top:0; color:#667085; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+#upload-history-table thead th { position:sticky; top:0; z-index:2; border-top:0; color:#667085; font-size:11px; text-transform:uppercase; letter-spacing:.04em; background:#fff; box-shadow:0 1px 0 #edf1f5; }
 .upload-file-name { display:flex; align-items:center; min-width:190px; max-width:300px; }
 .upload-file-name i { color:#16807a; font-size:18px; margin-right:9px; }
 .upload-file-name span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

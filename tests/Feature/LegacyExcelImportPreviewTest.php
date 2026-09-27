@@ -86,6 +86,8 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->assertStringContainsString('function loadUploadHistory()', $view);
         $this->assertStringContainsString("$.get(uploadHistoryUrl, { provider: bioskop })", $view);
         $this->assertStringContainsString('Belum ada file provider ini yang berhasil diimport.', $view);
+        $this->assertStringContainsString('#upload-history-table-wrap { max-height:280px; overflow-y:auto; overflow-x:auto; }', $view);
+        $this->assertStringContainsString('#upload-history-table thead th { position:sticky; top:0;', $view);
         $this->assertStringContainsString("route('pelaporan.upload-history')", $view);
         $this->assertStringContainsString('.swal2-container { z-index: 3000 !important; }', $view);
         $this->assertStringContainsString("$('#legacy-preview-issues .legacy-quick-master').off('click').on('click'", $view);
