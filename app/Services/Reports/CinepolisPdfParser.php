@@ -141,6 +141,8 @@ class CinepolisPdfParser
                 && (stripos($line, 'Price') !== false || stripos($line, 'Type') !== false);
         });
         $detailLines = $headerIndex === null ? $lines : array_slice($lines, $headerIndex + 1);
+        $usesAverageTicketPrice = $headerIndex !== null
+            && stripos($lines[$headerIndex], 'Avg Ticket Price') !== false;
         $money = '[\d.,]+';
         $ticketBeforePrice = '/^(?:(\d{1,2}:\d{2})\s+)?([A-Z][A-Z0-9\- ]*?)\s+('.$money.')\s+(\d+)\s+('.$money.')\s+('.$money.')\s+('.$money.')\s*(2D|3D)\s*$/i';
         $ticketAfterAttribute = '/^(?:(\d{1,2}:\d{2})\s+)?('.$money.')\s+(\d+)\s+('.$money.')\s+('.$money.')\s+('.$money.')\s*(2D|3D)\s*([A-Z][A-Z0-9\- ]+)\s*$/i';
@@ -222,10 +224,12 @@ class CinepolisPdfParser
                 continue;
             }
             // Some complimentary Ticket Class rows print a zero ticket price while
-            // retaining their attributed gross. Vista also rounds tax and net per
-            // detail row, which can make their sum differ from gross by Rp1. Keep
-            // price x admits strict and allow only that documented rounding variance.
-            if (($price > 0 && abs(($price * $admits) - $gross) > 0.02)
+            // retaining their attributed gross. "Avg Ticket Price" is a rounded
+            // average with two decimals, so multiplying it by every admit can differ
+            // from source gross by at most Rp0.005 per admit. Ordinary Ticket Price
+            // exports retain the strict Rp0.02 product check.
+            $priceTolerance = $usesAverageTicketPrice ? ($admits * 0.005 + 0.000001) : 0.02;
+            if (($price > 0 && abs(($price * $admits) - $gross) > $priceTolerance)
                 || abs(($taxAmount + $net) - $gross) > 1.00) {
                 throw new \InvalidArgumentException('Detail nominal PDF tidak konsisten pada jam ' . $currentTime . '.');
             }

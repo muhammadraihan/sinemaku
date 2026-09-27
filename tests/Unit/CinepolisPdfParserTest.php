@@ -410,6 +410,43 @@ PDF;
     }
 
     /** @test */
+    public function it_accepts_rounded_average_ticket_prices_for_ticket_class_rows(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+Plaza Medan Fair
+Detailed Distributors Report
+From Friday 25/09/2026 06:00 am Until Saturday 26/09/2026 06:00 am Ticket Detail Level: Ticket Class
+SINEMAKU
+MEMBURU PEMANGSA CINEMA08
+Admits Gross Tax NetAvg Ticket PriceTicket Class Attribute
+25/09/2026
+11:30 REGULAR 49,000.00 6 294,000.00 26,727.30 267,272.702D
+14:00 REGULAR 47,638.89 36 1,715,000.00 155,909.25 1,559,090.752D
+REGULAR 51,000.00 4 204,000.00 18,545.44 185,454.562D
+16:30 REGULAR 45,301.89 53 2,401,000.00 218,272.95 2,182,727.052D
+REGULAR 51,000.00 13 663,000.00 60,272.68 602,727.322D
+19:00 REGULAR 45,230.77 39 1,764,000.00 160,363.80 1,603,636.202D
+REGULAR 51,000.00 14 714,000.00 64,909.04 649,090.962D
+21:30 REGULAR 36,217.39 23 833,000.00 75,727.35 757,272.652D
+REGULAR 51,000.00 2 102,000.00 9,272.72 92,727.282D
+Day Total Paid 190 8,690,000.00 790,000.53 7,899,999.47
+0.00 0.00 0.00 0Day Total Complementory
+790,000.53190 7,899,999.478,690,000.00Total for Film this Screen
+PDF;
+
+        $result = $parser->parseText($text);
+
+        $this->assertSame('PLAZA MEDAN FAIR', $result['cinema_name']);
+        $this->assertSame('2026-09-25', $result['report_date']);
+        $this->assertSame(9, count($result['rows']));
+        $this->assertSame(190, $result['totals']['admits']);
+        $this->assertSame(8690000.0, $result['totals']['gross']);
+        $this->assertSame(790000.53, $result['totals']['tax_amount']);
+        $this->assertSame(7899999.47, $result['totals']['net']);
+    }
+
+    /** @test */
     public function it_rejects_pdf_without_parseable_cinema_name()
     {
         $parser = new CinepolisPdfParser();
