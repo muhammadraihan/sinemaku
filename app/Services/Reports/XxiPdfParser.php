@@ -29,12 +29,26 @@ class XxiPdfParser
         }
 
         try {
-            $process = new Process(['pdftotext', '-layout', $realPath, $outputPath]);
-            $process->setTimeout(60);
-            $process->run();
+            $binary = (string) config('services.pdftotext.binary', 'pdftotext');
+            if (!function_exists('proc_open')) {
+                throw new \RuntimeException('Fungsi PHP proc_open dinonaktifkan pada server ini, sehingga PDF XXI tidak dapat diekstrak. Aktifkan proc_open atau gunakan import Excel XXI.');
+            }
+
+            try {
+                $process = new Process([$binary, '-layout', $realPath, $outputPath]);
+                $process->setTimeout(60);
+                $process->run();
+            } catch (\Symfony\Component\Process\Exception\RuntimeException $exception) {
+                throw new \RuntimeException('Binary pdftotext tidak tersedia pada server ini ('.$binary.'). Pasang poppler-utils atau atur XXI_PDFTOTEXT_BINARY ke path absolutnya.');
+            }
 
             if (!$process->isSuccessful()) {
-                throw new \InvalidArgumentException('Isi PDF XXI tidak dapat diekstrak dengan pdftotext -layout.');
+                $error = trim($process->getErrorOutput());
+                if ($process->getExitCode() === 127 || preg_match('/(?:not found|command not found|No such file)/i', $error) === 1) {
+                    throw new \RuntimeException('Binary pdftotext tidak tersedia pada server ini ('.$binary.'). Pasang poppler-utils atau atur XXI_PDFTOTEXT_BINARY ke path absolutnya.');
+                }
+
+                throw new \InvalidArgumentException('Isi PDF XXI tidak dapat diekstrak dengan pdftotext -layout: '.$error);
             }
 
             $text = file_get_contents($outputPath);

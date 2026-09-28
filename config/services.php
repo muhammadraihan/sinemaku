@@ -30,6 +30,10 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'pdftotext' => [
+        'binary' => env('XXI_PDFTOTEXT_BINARY', 'pdftotext'),
+    ],
+
     'cinepoint_ingest' => [
         'key_id' => env('CINEPOINT_INGEST_KEY_ID', 'cinepoint-vps-1'),
         'secret' => env('CINEPOINT_INGEST_SECRET'),
