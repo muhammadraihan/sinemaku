@@ -57,6 +57,70 @@ class XxiPdfDoctorTest extends TestCase
         }
     }
 
+    /**
+     * A layout variant without blank-line separators must parse identically.
+     *
+     * The generator prints long cinema names on the row below their numbers. A
+     * missing blank line between them previously aborted the import with
+     * "baris sumber malformed"; the parser now joins the adjacent name line.
+     */
+    public function test_layout_without_blank_separators_parses_identically(): void
+    {
+        $withBreaks = implode("\n", [
+            'FILM MEMBURU PEMANGSA',
+            'SHOW: SABTU, 26 SEPTEMBER 2026',
+            '** JAKARTA **',
+            'BLOK M XXI 3 314 - 17 33 75 66 71 - 262 4',
+            '** KLATEN **',
+            '2 134 - - - - - - 9 9 -',
+            'KLATEN TOWN SQUARE XXI',
+            '3 134 - - 13 - 14 - - 27 -',
+            'TOTAL 298 4',
+        ]);
+
+        // Same content with every blank line removed.
+        $withoutBreaks = implode("\n", array_values(array_filter(
+            preg_split('/\R/u', $withBreaks),
+            fn (string $line) => trim($line) !== ''
+        )));
+
+        $parser = new XxiPdfParser();
+        $parsed = $parser->parseText($withoutBreaks);
+
+        $this->assertSame('MEMBURU PEMANGSA', $parsed['film_name']);
+        $this->assertSame('2026-09-26', $parsed['report_date']);
+        $this->assertSame(['ptn' => 298, 'fp' => 4], $parsed['source_totals']);
+        $klaten = array_values(array_filter($parsed['rows'], fn (array $row) => $row['source_cinema'] === 'KLATEN TOWN SQUARE XXI'));
+
+        $this->assertNotEmpty($klaten, 'Baris KLATEN TOWN SQUARE XXI harus terbaca.');
+        $this->assertSame('KLATEN', $klaten[0]['source_city']);
+        $this->assertSame(['7', '3', '5'], array_values(array_map(fn (array $row) => $row['show'], $klaten)));
+    }
+
+    /**
+     * The malformed-row error must name the offending content, otherwise the
+     * operator cannot tell which layout variant broke.
+     */
+    public function test_malformed_row_error_includes_the_offending_content(): void
+    {
+        $text = implode("\n", [
+            'FILM MEMBURU PEMANGSA',
+            'SHOW: SABTU, 26 SEPTEMBER 2026',
+            '** JAKARTA **',
+            'BLOK M XXI 3 314 - 17 33 75 66 71 - 262 4',
+            // Leading columns are numbers, the tail is all dashes so the row
+            // looks like data, but PTN is a dash where a number is required —
+            // so neither adjacency join can rescue it.
+            'ANEH XXI 3 100 - - - - - - - - -',
+        ]);
+
+        try {
+            (new XxiPdfParser())->parseText($text);
+            $this->fail('Kesalahan baris malformed seharusnya dilempar.');
+        } catch (\InvalidArgumentException $exception) {
+            $this->assertStringContainsString('Isi baris:', $exception->getMessage());
+        }
+    }
     /** The built-in path must be what the parser uses when no binary exists. */
     public function test_parser_prefers_built_in_extractor_over_a_missing_binary(): void
     {

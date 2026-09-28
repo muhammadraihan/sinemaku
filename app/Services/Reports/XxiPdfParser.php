@@ -139,9 +139,27 @@ class XxiPdfParser
                     $sourceRow--;
                 }
             }
+            // This generator wraps long cinema names onto the row *below* the
+            // numbers. Layout text normally separates the two with a blank line,
+            // but a missing separator must not be fatal: join the following name
+            // line in front of the numeric row. The strict row shape plus the
+            // show-total/PTN reconciliation below reject any join that is not a
+            // real row.
+            if ($parsed === null && isset($lines[$index + 1]) && $this->isCinemaFragment($lines[$index + 1])) {
+                $joined = $this->sourceRow($lines[$index + 1].' '.$line);
+                if ($joined !== null) {
+                    $parsed = $joined;
+                }
+            }
             if ($parsed === null) {
                 if ($city !== null && $this->looksLikeMalformedSourceRow($line)) {
-                    throw new \InvalidArgumentException('Baris sumber XXI '.$sourceRow.' malformed dan tidak dapat ditebak.');
+                    throw new \InvalidArgumentException(
+                        'Baris sumber XXI '.$sourceRow.' malformed dan tidak dapat ditebak.'
+                        .' Isi baris: "'.$line.'"'
+                        .($this->nearestCinemaName($lines, $index) !== null
+                            ? ' Nama bioskop terdekat: "'.$this->nearestCinemaName($lines, $index).'".'
+                            : '')
+                    );
                 }
                 continue;
             }
@@ -320,6 +338,39 @@ class XxiPdfParser
             return $name;
         }
         return $currentCinema ?? '';
+    }
+
+    /**
+     * Best-effort cinema name near a malformed row, for the error message only.
+     *
+     * Text after the row is searched before text above it because this
+     * generator prints a wrapped cinema name *below* its numbers; the parser
+     * reads it from `P+1`, so reporting what the parser would have joined makes
+     * the failure diagnosable without the PDF at hand.
+     */
+    private function nearestCinemaName(array $lines, int $rowIndex): ?string
+    {
+        foreach ([[1, 2], [-1, -2]] as [$from, $to]) {
+            $parts = [];
+            for ($offset = $from; $offset !== $to + ($to > 0 ? 1 : -1); $offset += $from) {
+                $index = $rowIndex + $offset;
+                if (!isset($lines[$index])) {
+                    break;
+                }
+                $candidate = $lines[$index];
+                if ($candidate === '' || $this->sourceRow($candidate) !== null || !$this->isCinemaFragment($candidate)) {
+                    break;
+                }
+                $parts[] = $candidate;
+            }
+
+            $name = $this->normalizeName(implode(' ', array_unique($parts)));
+            if ($name !== '') {
+                return $name;
+            }
+        }
+
+        return null;
     }
 
     private function isCinemaFragment(string $line): bool
