@@ -179,10 +179,15 @@ class MasterBioskopPriceManagementTest extends TestCase
         $this->assertStringContainsString('data-edit-pane="prices"', $edit);
         $this->assertStringContainsString('data-edit-pane="holidays"', $edit);
         $this->assertStringContainsString('class="edit-pane-stage"', $edit);
-        $this->assertStringContainsString('function lockEditWizardToPriceStep()', $edit);
-        $this->assertStringContainsString("\$prices.addClass('active')", $edit);
-        $this->assertStringContainsString("const panelHeight=Math.ceil(\$panel.outerHeight(true))", $edit);
-        $this->assertStringContainsString("\$panel.css({height:panelHeight+'px',minHeight:panelHeight+'px',maxHeight:panelHeight+'px'})", $edit);
+
+        // The edit wizard must size itself to the viewport, not to the price
+        // step. Locking the panel height to the price pane clipped the taller
+        // identity pane so its "Simpan identitas" button was unreachable on
+        // short viewports (verified 1366x640 and 390x844).
+        $this->assertStringContainsString('function fitEditWizard()', $edit);
+        $this->assertStringContainsString("$(window).on('resize.edit-wizard',fitEditWizard)", $edit);
+        $this->assertStringNotContainsString('lockEditWizardToPriceStep', $edit);
+        $this->assertStringNotContainsString('const panelHeight=Math.ceil($panel.outerHeight(true))', $edit);
     }
 
     private function user(): User
