@@ -19,6 +19,16 @@ class MasterBioskop extends Model
         return $this->belongsTo(KategoriBioskop::class, 'type', 'uuid');
     }
 
+    public function ticketPrices()
+    {
+        return $this->hasMany(CinemaTicketPrice::class, 'master_bioskop_uuid', 'uuid');
+    }
+
+    public function capacities()
+    {
+        return $this->hasMany(Kapasitas::class, 'nama_bioskop', 'uuid');
+    }
+
     public function userCreate() {
         return $this->belongsTo(User::class, 'created_by', 'uuid');
     }

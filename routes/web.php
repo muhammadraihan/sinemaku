@@ -48,11 +48,20 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::resource('roles', 'RoleController');
     Route::resource('slide', 'SlideController');
     Route::resource('masterbioskop', 'MasterBioskopController');
+    Route::post('masterbioskop/{id}/harga-tiket', 'MasterBioskopController@storeTicketPrice')->name('masterbioskop.ticket-prices.store');
+    Route::put('masterbioskop/{id}/harga-tiket/{price}', 'MasterBioskopController@updateTicketPrice')->name('masterbioskop.ticket-prices.update');
+    Route::delete('masterbioskop/{id}/harga-tiket/{price}', 'MasterBioskopController@destroyTicketPrice')->name('masterbioskop.ticket-prices.destroy');
+    Route::post('masterbioskop/hari-libur', 'MasterBioskopController@storeHoliday')->name('masterbioskop.holidays.store');
+    Route::delete('masterbioskop/hari-libur/{holiday}', 'MasterBioskopController@destroyHoliday')->name('masterbioskop.holidays.destroy');
+    Route::get('masterbioskop/hari-libur/sinkronisasi', 'MasterBioskopController@previewHolidaySync')->name('masterbioskop.holidays.sync.preview');
+    Route::post('masterbioskop/hari-libur/sinkronisasi', 'MasterBioskopController@applyHolidaySync')->name('masterbioskop.holidays.sync.apply');
+
     Route::resource('kategoribioskop', 'KategoriBioskopController');
     Route::resource('typetiket', 'TypeTiketController');
     Route::resource('masterfilm', 'MasterFilmController')->except(['show']);
     Route::get('pelaporan/upload-history', [PelaporanController::class, 'uploadHistory'])
         ->name('pelaporan.upload-history');
+    Route::post('pelaporan/import-preview/correct', [PelaporanController::class, 'correctImportPreview'])->name('pelaporan.import-preview.correct');
     Route::resource('pelaporan', 'PelaporanController');
     Route::resource('laporan', 'LaporanController');
     Route::resource('kapasitas', 'KapasitasController');

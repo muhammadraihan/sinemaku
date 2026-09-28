@@ -362,7 +362,7 @@
             <form id="uploadForm" action="{{ route('pelaporan.upload.xxi') }}" method="POST" enctype="multipart/form-data">
               @csrf
               <label for="uploadFile" class="upload-dropzone" id="upload-dropzone">
-                <input type="file" name="file" id="uploadFile" accept=".xlsx,.xls" required>
+                <input type="file" name="file" id="uploadFile" accept=".xlsx,.xls,.pdf" required>
                 <span class="upload-dropzone__icon"><i class="fal fa-cloud-upload"></i></span>
                 <strong id="upload-file-title">Klik untuk memilih file</strong>
                 <span id="upload-file-meta">XLSX atau XLS, maksimum 20 MB</span>
@@ -411,7 +411,7 @@
 
 <div class="modal fade cinepolis-preview-modal" id="modal-legacy-preview" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
   <div class="modal-dialog modal-xl modal-dialog-centered" role="document"><div class="modal-content">
-    <div class="modal-header"><h4 class="modal-title">Preview Import Excel <small class="m-0 text-muted">Periksa mapping sebelum menyimpan</small></h4><button type="button" class="close" data-dismiss="modal"><span aria-hidden="true"><i class="fal fa-times"></i></span></button></div>
+    <div class="modal-header"><h4 class="modal-title">Preview Import XXI <small class="m-0 text-muted">Periksa mapping sebelum menyimpan</small></h4><button type="button" class="close" data-dismiss="modal"><span aria-hidden="true"><i class="fal fa-times"></i></span></button></div>
     <div class="modal-body"><div id="legacy-preview-summary" class="cinepolis-preview-summary mb-3"></div><div id="legacy-preview-free-assignments" class="alert alert-warning d-none"></div><div id="legacy-preview-issues" class="alert alert-danger d-none"></div><div id="legacy-preview-warnings" class="alert alert-warning d-none"></div><div class="table-responsive"><table id="legacy-preview-table" class="table table-bordered table-hover cinepolis-preview-table w-100"><thead><tr><th>Status</th><th>Baris</th><th>Tanggal</th><th>Film</th><th>Bioskop</th><th>Kota</th><th>Studio</th><th>Jam</th><th>Show</th><th>Tipe Tiket</th><th>Harga</th><th>Jumlah</th></tr></thead><tbody></tbody></table></div></div>
     <div class="modal-footer"><button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button><button type="button" id="btn-confirm-legacy-import" class="btn btn-primary" disabled>Konfirmasi Import</button></div>
     <div class="cinepolis-preview-swal-target"></div>
@@ -448,6 +448,7 @@
 @endsection
 
 @section('js')
+<script src="{{ asset('js/import-preview-editor.js') }}?v={{ filemtime(public_path('js/import-preview-editor.js')) }}"></script>
 <script src="{{asset('js/datagrid/datatables/datatables.bundle.js')}}"></script>
 <script src="{{asset('js/formplugins/select2/select2.bundle.js')}}"></script>
 {{-- <script src="{{ asset('assets/js/sweetalert2.bundle.js') }}"></script> --}}
@@ -484,13 +485,14 @@
     $(document).on('click', '.open-upload-modal', function(e){
         e.preventDefault();
         bioskop = $(this).attr("data-bioskop");
-        var isPdfReport = bioskop === 'CINEPOLIS PDF' || bioskop === 'PLATINUM PDF';
+        var isDedicatedPdfReport = bioskop === 'CINEPOLIS PDF' || bioskop === 'PLATINUM PDF';
+        var acceptsPdf = isDedicatedPdfReport || bioskop === 'XXI';
         var pdfProvider = bioskop === 'PLATINUM PDF' ? 'Platinum' : 'Cinepolis';
-        $('#uploadFile').attr('accept', isPdfReport ? '.pdf,application/pdf' : '.xlsx,.xls');
-        $('#upload-modal-title').text((isPdfReport ? pdfProvider : bioskop) + ' — Upload laporan');
+        $('#uploadFile').attr('accept', isDedicatedPdfReport ? '.pdf,application/pdf' : (bioskop === 'XXI' ? '.xlsx,.xls,.pdf,application/pdf' : '.xlsx,.xls'));
+        $('#upload-modal-title').text((isDedicatedPdfReport ? pdfProvider : bioskop) + ' — Upload laporan');
         $('#upload-modal-subtitle').text('File diproses ke preview dan belum masuk laporan sebelum dikonfirmasi.');
-        $('#upload-file-meta').text(isPdfReport ? 'PDF, maksimum 20 MB' : 'XLSX atau XLS, maksimum 20 MB');
-        $('#upload-provider-mark').html('<i class="fal ' + (isPdfReport ? 'fa-file-pdf' : 'fa-file-spreadsheet') + '"></i>');
+        $('#upload-file-meta').text(isDedicatedPdfReport ? 'PDF, maksimum 20 MB' : (bioskop === 'XXI' ? 'PDF, XLSX, atau XLS, maksimum 20 MB' : 'XLSX atau XLS, maksimum 20 MB'));
+        $('#upload-provider-mark').html('<i class="fal ' + (acceptsPdf ? 'fa-file-pdf' : 'fa-file-spreadsheet') + '"></i>');
         $('#upload-history-title').text('History ' + (bioskop === 'CINEPOLIS PDF' ? 'Cinepolis' : bioskop === 'PLATINUM PDF' ? 'Platinum' : bioskop));
         $(".custom-dropdown-menu").hide();
         $('#modal-upload').appendTo('body');
@@ -606,7 +608,7 @@
     });
 
     function escapeHtml(value) {
-        return $('<div>').text(value == null ? '' : value).html();
+        return $('<div>').text(value == null ? '' : value).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function openPreviewAfterUploadModal(callback) {
@@ -668,6 +670,7 @@
     startDummyProgress();
 
     function showCinepolisPreview(res) {
+        ImportPreviewEditor.destroy('#cinepolis-preview-table');
         var summary = res.summary || {};
         var money = function (value) { return 'IDR ' + Number(value || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
         var metrics = [
@@ -729,11 +732,12 @@
         } else {
             $('#btn-confirm-cinepolis-import').data('selected-cinema-uuid', '');
         }
+        ImportPreviewEditor.mount('#cinepolis-preview-table', res, activePdfProvider.toUpperCase() + ' PDF', @json(route('pelaporan.import-preview.correct')), showCinepolisPreview);
         $('#modal-cinepolis-preview').modal('show');
     }
 
     function escapeHtml(value) {
-        return $('<div>').text(value == null ? '' : value).html();
+        return $('<div>').text(value == null ? '' : value).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function quickMasterActionForIssue(issue, context, preview) {
@@ -1096,6 +1100,7 @@
     }
 
     function showLegacyPreview(res, provider, urls) {
+        ImportPreviewEditor.destroy('#legacy-preview-table');
         activeLegacyPreview = { res: res, provider: provider, urls: urls };
         renderFreeAssignments(res, provider, urls);
         var summary = res.summary || {};
@@ -1119,9 +1124,10 @@
             event.stopPropagation();
             openLegacyQuickMaster($(this));
         });
-        $('#legacy-preview-warnings').toggleClass('d-none', !(res.warnings || []).length).html((res.warnings || []).join('<br>'));
+        $('#legacy-preview-warnings').toggleClass('d-none', !(res.warnings || []).length).html((res.warnings || []).map(escapeHtml).join('<br>'));
         $('#legacy-preview-table tbody').html((res.preview || []).map(function(row) { return '<tr class="'+(row.mapping_status !== 'Siap' ? 'is-blocked' : '')+'"><td>'+escapeHtml(row.mapping_status)+'</td><td>'+escapeHtml(row.source_row)+'</td><td>'+escapeHtml(row.tgl_tayang)+'</td><td>'+escapeHtml(row.nama_film)+'</td><td>'+escapeHtml(row.bioskop)+'</td><td>'+escapeHtml(row.kota || '-')+'</td><td>'+escapeHtml(row.studio)+'</td><td>'+escapeHtml(row.jam_tayang)+'</td><td>'+escapeHtml(row.show)+'</td><td>'+escapeHtml(row.ticket_name)+'</td><td>'+escapeHtml(row.harga)+'</td><td>'+escapeHtml(row.jumlah)+'</td></tr>'; }).join(''));
         $('#btn-confirm-legacy-import').data('token', res.token).prop('disabled', !res.token || issues.length > 0);
+        ImportPreviewEditor.mount('#legacy-preview-table', res, provider, @json(route('pelaporan.import-preview.correct')), function (next) { showLegacyPreview(next, provider, urls); });
         $('#modal-legacy-preview').modal('show');
     }
     $('#btn-confirm-legacy-import').off('click').on('click', function () { var state=activeLegacyPreview, token=$(this).data('token'), button=$(this); if(!token)return; Swal.fire({target:document.querySelector('#modal-legacy-preview .cinepolis-preview-swal-target'),title:'Konfirmasi Import',text:'Data preview akan disimpan ke laporan. Lanjutkan?',icon:'warning',showCancelButton:true,confirmButtonText:'Ya, Import'}).then(function(choice){if(!choice.isConfirmed)return;button.prop('disabled',true);$.post(state.urls.confirm,{token:token}).done(function(result){$('#modal-legacy-preview').modal('hide');Swal.fire({icon:'success',title:'Berhasil',text:result.message}).then(function(){$('#datatable').DataTable().ajax.reload(null,false);});}).fail(function(xhr){button.prop('disabled',false);Swal.fire({icon:'error',title:'Import diblokir',text:(xhr.responseJSON||{}).message||'Import gagal.'});});}); });

@@ -1,0 +1,293 @@
+<?php
+
+namespace App\Services\Reports;
+
+use Symfony\Component\Process\Process;
+
+class XxiPdfParser
+{
+    private const SHOWTIMES = [
+        1 => '11:00',
+        2 => '13:00',
+        3 => '15:00',
+        4 => '17:00',
+        5 => '19:00',
+        6 => '21:00',
+        7 => '23:00',
+    ];
+
+    public function parse(string $pdfPath): array
+    {
+        $realPath = realpath($pdfPath);
+        if ($realPath === false || !is_file($realPath) || !is_readable($realPath)) {
+            throw new \InvalidArgumentException('File PDF XXI tidak dapat dibaca.');
+        }
+
+        $outputPath = tempnam(sys_get_temp_dir(), 'xxi-pdf-');
+        if ($outputPath === false) {
+            throw new \RuntimeException('File sementara untuk ekstraksi PDF tidak dapat dibuat.');
+        }
+
+        try {
+            $process = new Process(['pdftotext', '-layout', $realPath, $outputPath]);
+            $process->setTimeout(60);
+            $process->run();
+
+            if (!$process->isSuccessful()) {
+                throw new \InvalidArgumentException('Isi PDF XXI tidak dapat diekstrak dengan pdftotext -layout.');
+            }
+
+            $text = file_get_contents($outputPath);
+            if ($text === false || trim($text) === '') {
+                throw new \InvalidArgumentException('Isi PDF XXI kosong atau tidak memiliki text layer.');
+            }
+
+            return $this->parseText($text);
+        } finally {
+            @unlink($outputPath);
+        }
+    }
+
+    public function parseText(string $text): array
+    {
+        $physicalLines = preg_split('/\R/u', str_replace("\x0c", "\n", $text));
+        $lines = array_map(function ($line) {
+            return trim(preg_replace('/[\t ]+/u', ' ', (string) $line));
+        }, $physicalLines);
+
+        $filmName = $this->filmName($lines);
+        $reportDate = $this->reportDate($lines);
+        $printedTotals = $this->printedTotals($lines);
+        $rows = [];
+        $pending = [];
+        $sourcePtn = 0;
+        $sourceFp = 0;
+        $city = null;
+        $currentCinema = null;
+
+        foreach ($lines as $index => $line) {
+            if (preg_match('/^\*\*\s*(.+?)\s*\*\*$/u', $line, $match)) {
+                $city = $this->normalizeName($match[1]);
+                $currentCinema = null;
+                continue;
+            }
+
+            $sourceRow = $index + 1;
+            $parsed = $this->sourceRow($line);
+            if ($parsed === null && isset($lines[$index - 1]) && $this->isCinemaFragment($lines[$index - 1])) {
+                $parsed = $this->sourceRow($lines[$index - 1].' '.$line);
+                if ($parsed !== null) {
+                    $sourceRow--;
+                }
+            }
+            if ($parsed === null) {
+                if ($city !== null && $this->looksLikeMalformedSourceRow($line)) {
+                    throw new \InvalidArgumentException('Baris sumber XXI '.$sourceRow.' malformed dan tidak dapat ditebak.');
+                }
+                continue;
+            }
+            if ($city === null) {
+                throw new \InvalidArgumentException('Heading kota tidak ditemukan untuk baris sumber XXI '.$sourceRow.'.');
+            }
+
+            $cinema = $parsed['cinema'];
+            if ($cinema === '') {
+                $cinema = $this->wrappedCinemaName($lines, $index, $currentCinema);
+            }
+            if ($cinema === '') {
+                throw new \InvalidArgumentException('Nama cinema tidak dapat dibaca pada baris sumber XXI '.$sourceRow.'.');
+            }
+            $currentCinema = $cinema;
+
+            $showTotal = array_sum($parsed['shows']);
+            if ($showTotal !== $parsed['ptn']) {
+                throw new \InvalidArgumentException('Jumlah show tidak sama dengan PTN pada baris sumber XXI '.$sourceRow.'.');
+            }
+
+            $candidateShows = [];
+            foreach ($parsed['shows'] as $show => $count) {
+                if ($count === 0) {
+                    continue;
+                }
+                $candidateShows[] = ['show' => $show, 'jam_tayang' => self::SHOWTIMES[$show]];
+                $rows[] = [
+                    'source_row' => $sourceRow,
+                    'tgl_tayang' => $reportDate,
+                    'nama_film' => $filmName,
+                    'source_cinema' => $cinema,
+                    'source_city' => $city,
+                    'studio' => (string) $parsed['studio'],
+                    'capacity' => $parsed['capacity'],
+                    'ticket_name' => 'REGULAR',
+                    'jam_tayang' => self::SHOWTIMES[$show],
+                    'show' => (string) $show,
+                    'jumlah' => $count,
+                    'harga' => 0.0,
+                    'tax' => 0.0,
+                    'net' => 0.0,
+                ];
+            }
+
+            if ($parsed['fp'] > 0) {
+                if (!$candidateShows) {
+                    throw new \InvalidArgumentException('FP tidak memiliki kandidat show valid pada baris sumber XXI '.$sourceRow.'.');
+                }
+                $pending[] = [
+                    'key' => 'XXI-'.$sourceRow,
+                    'source_row' => $sourceRow,
+                    'source_cinema' => $cinema,
+                    'source_city' => $city,
+                    'jumlah' => $parsed['fp'],
+                    'candidate_shows' => $candidateShows,
+                ];
+            }
+
+            $sourcePtn += $parsed['ptn'];
+            $sourceFp += $parsed['fp'];
+        }
+
+        if (!$rows) {
+            throw new \InvalidArgumentException('Tidak ada baris penonton XXI yang dapat diparse.');
+        }
+        if ($printedTotals !== null && ($sourcePtn !== $printedTotals['ptn'] || $sourceFp !== $printedTotals['fp'])) {
+            throw new \InvalidArgumentException('Total detail XXI tidak sama dengan TOTAL PTN/FP sumber.');
+        }
+
+        return [
+            'film_name' => $filmName,
+            'report_date' => $reportDate,
+            'rows' => $rows,
+            'pending_free_assignments' => $pending,
+            'source_totals' => $printedTotals ?? ['ptn' => $sourcePtn, 'fp' => $sourceFp],
+        ];
+    }
+
+    private function filmName(array $lines): string
+    {
+        foreach ($lines as $line) {
+            if (preg_match('/^FILM\s+(.+)$/iu', $line, $match)) {
+                $film = $this->normalizeName($match[1]);
+                if ($film !== '') {
+                    return $film;
+                }
+            }
+        }
+
+        throw new \InvalidArgumentException('Nama film tidak dapat dibaca dari PDF XXI.');
+    }
+
+    private function reportDate(array $lines): string
+    {
+        $months = [
+            'JANUARY' => 1, 'JANUARI' => 1,
+            'FEBRUARY' => 2, 'FEBRUARI' => 2,
+            'MARCH' => 3, 'MARET' => 3,
+            'APRIL' => 4,
+            'MAY' => 5, 'MEI' => 5,
+            'JUNE' => 6, 'JUNI' => 6,
+            'JULY' => 7, 'JULI' => 7,
+            'AUGUST' => 8, 'AGUSTUS' => 8,
+            'SEPTEMBER' => 9,
+            'OCTOBER' => 10, 'OKTOBER' => 10,
+            'NOVEMBER' => 11,
+            'DECEMBER' => 12, 'DESEMBER' => 12,
+        ];
+
+        foreach ($lines as $line) {
+            if (!preg_match('/^(?:SHOW|REPORT\s*DATE|TANGGAL\s*LAPORAN)\s*:\s*(?:[\p{L}]+\s*,?\s*)?(\d{1,2})\s+([\p{L}]+)\s+(\d{4})$/iu', $line, $match)) {
+                continue;
+            }
+            $monthName = mb_strtoupper($match[2], 'UTF-8');
+            $month = $months[$monthName] ?? null;
+            $day = (int) $match[1];
+            $year = (int) $match[3];
+            if ($month === null || !checkdate($month, $day, $year)) {
+                break;
+            }
+            return sprintf('%04d-%02d-%02d', $year, $month, $day);
+        }
+
+        throw new \InvalidArgumentException('Tanggal show/laporan tidak dapat dibaca dari PDF XXI.');
+    }
+
+    private function sourceRow(string $line): ?array
+    {
+        $token = '(?:-|\d[\d,]*)';
+        if (!preg_match('/^(.*?)\s+(\d+)\s+(\d[\d,]*)\s+('.$token.')\s+('.$token.')\s+('.$token.')\s+('.$token.')\s+('.$token.')\s+('.$token.')\s+('.$token.')\s+(\d[\d,]*)\s+('.$token.')$/u', $line, $match)) {
+            return null;
+        }
+
+        $shows = [];
+        for ($show = 1; $show <= 7; $show++) {
+            $shows[$show] = $this->integerToken($match[$show + 3]);
+        }
+
+        return [
+            'cinema' => $this->normalizeName($match[1]),
+            'studio' => (int) $match[2],
+            'capacity' => $this->integerToken($match[3]),
+            'shows' => $shows,
+            'ptn' => $this->integerToken($match[11]),
+            'fp' => $this->integerToken($match[12]),
+        ];
+    }
+
+    private function printedTotals(array $lines): ?array
+    {
+        $found = null;
+        foreach ($lines as $line) {
+            if (preg_match('/\bTOTAL\s+([\d,]+)\s+(-|[\d,]+)\s*$/iu', $line, $match)) {
+                $found = ['ptn' => $this->integerToken($match[1]), 'fp' => $this->integerToken($match[2])];
+            }
+        }
+        return $found;
+    }
+
+    private function wrappedCinemaName(array $lines, int $rowIndex, ?string $currentCinema): string
+    {
+        $parts = [];
+        for ($offset = -2; $offset <= 2; $offset++) {
+            if ($offset === 0 || !isset($lines[$rowIndex + $offset])) {
+                continue;
+            }
+            $candidate = $lines[$rowIndex + $offset];
+            if ($candidate === '' || $this->sourceRow($candidate) !== null || !$this->isCinemaFragment($candidate)) {
+                continue;
+            }
+            $parts[] = $candidate;
+        }
+        $name = $this->normalizeName(implode(' ', array_unique($parts)));
+        if ($name !== '') {
+            return $name;
+        }
+        return $currentCinema ?? '';
+    }
+
+    private function isCinemaFragment(string $line): bool
+    {
+        return preg_match('/\d/', $line) !== 1
+            && preg_match('/^\*\*/', $line) !== 1
+            && preg_match('/^(?:FILM|RELEASE|SHOW|GROUP|CINEMA|TOTAL|Halaman|Created|Catatan)/iu', $line) !== 1;
+    }
+
+    private function looksLikeMalformedSourceRow(string $line): bool
+    {
+        if ($line === '' || preg_match('/^(?:FILM|RELEASE|SHOW|GROUP|CINEMA|TOTAL|Halaman|Created|Catatan)/iu', $line)) {
+            return false;
+        }
+        return preg_match('/(?:^|\s)(?:-|\d[\d,]*)(?:\s+(?:-|\d[\d,]*)){4,}\s*$/u', $line) === 1;
+    }
+
+    private function integerToken(string $value): int
+    {
+        if ($value === '-') {
+            return 0;
+        }
+        return (int) str_replace(',', '', $value);
+    }
+
+    private function normalizeName(string $value): string
+    {
+        return mb_strtoupper(trim(preg_replace('/\s+/u', ' ', $value)), 'UTF-8');
+    }
+}

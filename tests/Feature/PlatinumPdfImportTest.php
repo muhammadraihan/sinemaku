@@ -12,6 +12,25 @@ use Tests\TestCase;
 
 class PlatinumPdfImportTest extends TestCase
 {
+    public function test_inline_pdf_correction_preserves_identity_and_source_totals_through_confirm(): void
+    {
+        $user = $this->seedMappings();
+        $this->app->instance(PlatinumPdfParser::class, $this->parser());
+        $file = UploadedFile::fake()->create('platinum.pdf', 10, 'application/pdf');
+        $preview = $this->actingAs($user)->post(route('pelaporan.upload.platinum.preview'), ['file'=>$file])->assertOk();
+        $payload = ['provider'=>'PLATINUM PDF','token'=>$preview->json('token'),'row_id'=>$preview->json('preview.0.row_id'),'changes'=>['jam_tayang'=>'09:15'],'reason'=>'Koreksi jam sumber'];
+        $edited = $this->postJson(route('pelaporan.import-preview.correct'), $payload)->assertOk()->assertJsonPath('preview.0.jam_tayang', '09:15');
+        $this->assertSame($preview->json('summary.gross'), $edited->json('summary.gross'));
+        $this->assertSame(0, DB::table('pelaporans')->count());
+        $financial = $this->postJson(route('pelaporan.import-preview.correct'), array_replace($payload, ['changes'=>['jumlah'=>$preview->json('preview.0.jumlah') + 1]]))->assertOk();
+        $this->assertNotEmpty($financial->json('blocking_issues'));
+        $this->assertSame($preview->json('summary.source_gross'), $financial->json('summary.source_gross'));
+        $this->postJson(route('pelaporan.upload.platinum.confirm'), ['token'=>$payload['token']])->assertUnprocessable();
+        $this->postJson(route('pelaporan.import-preview.correct'), array_replace($payload, ['changes'=>['jumlah'=>$preview->json('preview.0.jumlah')]]))->assertOk()->assertJsonPath('blocking_issues', []);
+        $this->postJson(route('pelaporan.upload.platinum.confirm'), ['token'=>$payload['token']])->assertOk();
+        $this->assertDatabaseHas('pelaporans', ['jam_tayang'=>'09:15']);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

@@ -4,6 +4,10 @@
 
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/datagrid/datatables/datatables.bundle.css')}}">
+<style>
+.price-monitor{display:flex;gap:10px;min-width:240px}.price-monitor span{display:flex;flex-direction:column}.price-monitor small{font-size:10px;color:#8a94a6;white-space:nowrap}.price-monitor strong{font-size:12px;white-space:nowrap}.price-monitor .badge{align-self:flex-start}
+@media(max-width:768px){.price-monitor{gap:6px;min-width:210px}.price-monitor small{font-size:9px}.price-monitor strong{font-size:11px}}
+</style>
 @endsection
 
 @section('content')
@@ -43,6 +47,7 @@
                 <th>Kota</th>
                 <th>Pajak</th>
                 <th>No. Telephone</th>
+                <th>Harga REGULAR XXI</th>
                 <th width="120px">Aksi</th>
                 </tr>
                         </thead>
@@ -113,6 +118,7 @@
             {data: 'kota', name: 'kota'},
             {data: 'pajak', name: 'pajak'},
             {data: 'no_telephone', name: 'no_telephone'},
+            {data: 'ticket_price_summary', name: 'ticket_price_summary', orderable: false, searchable: false},
             {data: 'action', name: 'action', orderable: false, searchable: false},
         ]
     });

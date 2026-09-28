@@ -1,158 +1,32 @@
 @extends('layouts.page')
-
-@section('title', 'Bioskop Edit')
-
+@section('title', 'Edit Bioskop')
 @section('css')
 <link rel="stylesheet" media="screen, print" href="{{asset('css/formplugins/select2/select2.bundle.css')}}">
-<link rel="stylesheet" media="screen, print"
-    href="{{asset('css/formplugins/bootstrap-datepicker/bootstrap-datepicker.css')}}">
+<style>
+#cinema-edit-wizard{max-width:1160px;margin:0 auto}#cinema-edit-wizard>.panel{display:flex;flex-direction:column}#cinema-edit-wizard>.panel>.panel-container{min-height:0;overflow:hidden}#cinema-edit-wizard>.panel>.panel-container>.panel-content{display:flex;flex-direction:column}.edit-pane-stage{height:auto;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable}.edit-wizard-nav{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #e5e9f2;margin-bottom:24px}.edit-step{display:flex;align-items:center;gap:11px;padding:16px;border:0;border-bottom:3px solid transparent;background:transparent;color:#7d8797;text-align:left}.edit-step.active{color:#2769c8;border-bottom-color:#2769c8}.edit-step-no{width:31px;height:31px;flex:0 0 31px;border-radius:50%;display:grid;place-items:center;background:#eef1f6;font-weight:700;font-size:12px}.edit-step.active .edit-step-no{background:#2769c8;color:#fff}.edit-step strong,.edit-step small{display:block}.edit-step small{color:#98a1af}.edit-pane{display:none}.edit-pane.active{display:block}.section-note{border-left:3px solid #4f8fe8;background:#f4f8ff;padding:14px 16px;color:#41536d;margin-bottom:20px}.price-table input{min-width:120px}.wizard-actions{display:flex;justify-content:space-between;gap:12px;padding-top:20px;margin-top:24px;border-top:1px solid #e8ecf2}@media(max-width:700px){.edit-wizard-nav{display:flex;overflow:auto}.edit-step{min-width:180px}.edit-step small{display:none}.wizard-actions{flex-wrap:wrap}}
+/* Constrain the scroll chain inside the existing fixed panel. */
+#cinema-edit-wizard>.panel>.panel-hdr{flex-shrink:0}
+#cinema-edit-wizard>.panel>.panel-container{flex:1;display:flex;flex-direction:column}
+#cinema-edit-wizard>.panel>.panel-container>.panel-content{flex:1;min-height:0}
+#cinema-edit-wizard .edit-pane-stage{flex:1;min-height:0}
+#cinema-edit-wizard .edit-wizard-nav,#cinema-edit-wizard .wizard-actions{flex-shrink:0}
+.holiday-preview-scroll{max-height:320px;max-height:min(320px,45vh);overflow:auto;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}
+</style>
 @endsection
-
 @section('content')
-<div class="col-xxl">
-    <div id="panel-1" class="panel">
-        <div class="panel-hdr">
-        <h2>Edit <span class="fw-300"><i>Bioskop</i></span></h2>
-            <div class="panel-toolbar">
-                <a class="nav-link active" href="{{route('masterbioskop.index')}}"><i class="fal fa-arrow-alt-left">
-                    </i>
-                    <span class="nav-link-text">Kembali</span>
-                </a>
-                <button class="btn btn-panel" data-action="panel-fullscreen" data-toggle="tooltip"
-                    data-offset="0,10" data-original-title="Fullscreen"></button>
-            </div>
-        </div>
-        <div class="panel-container show">
-            <div class="panel-content">
-                <div class="panel-tag">
-                    Field dengan <code>*</code> tidak boleh kosong.
-                </div>
-                @if (count($errors) > 0)
-                        <div class="alert alert-danger">
-                            <ul>
-                                @foreach ($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        </div>
-                @endif
-                {!! Form::open(['route' => ['masterbioskop.update',$bioskop->uuid],'method' => 'PUT','class' =>
-                'needs-validation','novalidate', 'enctype' => 'multipart/form-data']) !!}
-                <div class="form-group col-md-4 mb-3">
-                    {{ Form::label('type','Bioskop',['class' => 'required form-label'])}}
-                    {!! Form::select('type', $bioskop_kategori, $bioskop->type,
-                    ['id'=>'type','class'
-                    => 'custom-select'.($errors->has('type') ? 'is-invalid':'') ,'required'
-                    => '', 'placeholder' => 'Pilih Bioskop ...'])!!}
-                    @if ($errors->has('type'))
-                    <div class="invalid-feedback">{{ $errors->first('type') }}</div>
-                    @endif
-                </div>
-                <div class="form-group col-md-4 mb-3">
-                    {{ Form::label('nama_bioskop','Nama Bioskop',['class' => 'required form-label'])}}
-                    {{ Form::text('nama_bioskop',$bioskop->nama_bioskop,['placeholder' => 'Nama Bioskop','class' => 'form-control '.($errors->has('nama_bioskop') ? 'is-invalid':''),'required'])}}
-                    @if ($errors->has('nama_bioskop'))
-                    <div class="invalid-feedback">{{ $errors->first('nama_bioskop') }}</div>
-                    @endif
-                </div>
-                <div class="form-group col-md-4 mb-3">
-                    {{ Form::label('kota','Kota',['class' => 'required form-label'])}}
-                    {{ Form::text('kota',$bioskop->kota,['placeholder' => 'Kota','class' => 'form-control '.($errors->has('kota') ? 'is-invalid':''),'required'])}}
-                    @if ($errors->has('kota'))
-                    <div class="invalid-feedback">{{ $errors->first('kota') }}</div>
-                    @endif
-                </div>
-                <div class="form-group col-md-4 mb-3">
-                    {{ Form::label('pajak','Pajak',['class' => 'required form-label'])}}
-                    {{ Form::text('pajak',$bioskop->pajak,['placeholder' => 'Pajak','class' => 'form-control '.($errors->has('pajak') ? 'is-invalid':''),'required'])}}
-                    @if ($errors->has('pajak'))
-                    <div class="invalid-feedback">{{ $errors->first('pajak') }}</div>
-                    @endif
-                </div>
-                <div class="form-group col-md-4 mb-3">
-                    {{ Form::label('no_telephone','No. Telephone',['class' => 'required form-label'])}}
-                    {{ Form::text('no_telephone',$bioskop->no_telephone,['placeholder' => 'No. Telephone','class' => 'form-control '.($errors->has('no_telephone') ? 'is-invalid':''),'required'])}}
-                    @if ($errors->has('no_telephone'))
-                    <div class="invalid-feedback">{{ $errors->first('no_telephone') }}</div>
-                    @endif
-                </div>
-            <div
-                class="panel-content border-faded border-left-0 border-right-0 border-bottom-0 d-flex flex-row align-items-center">
-                <button class="btn btn-primary ml-auto" type="submit">Submit</button>
-            </div>
-            {!! Form::close() !!}
-        </div>
-    </div>
+<div id="cinema-edit-wizard" class="col-xxl"><div class="panel"><div class="panel-hdr"><h2>Edit <span class="fw-300"><i>{{ $bioskop->nama_bioskop }}</i></span></h2><div class="panel-toolbar"><a class="nav-link active" href="{{ route('masterbioskop.index') }}"><i class="fal fa-arrow-alt-left"></i> Kembali</a></div></div><div class="panel-container show"><div class="panel-content">
+@if($errors->any())<div class="alert alert-danger"><strong>Perubahan belum dapat disimpan.</strong><ul class="mb-0 mt-1">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+@if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+<div class="edit-wizard-nav" role="tablist"><button type="button" class="edit-step active" data-edit-step="identity"><span class="edit-step-no">1</span><span><strong>Identitas</strong><small>Profil dan lokasi bioskop</small></span></button><button type="button" class="edit-step" data-edit-step="prices"><span class="edit-step-no">2</span><span><strong>Harga tiket</strong><small>Tarif dan periode berlaku</small></span></button><button type="button" class="edit-step" data-edit-step="holidays"><span class="edit-step-no">3</span><span><strong>Hari libur</strong><small>Tanggal tarif akhir pekan</small></span></button></div>
+<div class="edit-pane-stage">
+<div class="edit-pane active" data-edit-pane="identity"><div class="section-note"><strong>Identitas bioskop.</strong> Perubahan kategori dapat memengaruhi tipe tiket dan mapping laporan yang sudah terhubung.</div>{!! Form::open(['route'=>['masterbioskop.update',$bioskop->uuid],'method'=>'PUT','id'=>'identity-form']) !!}<div class="row"><div class="form-group col-md-6"><label class="required form-label">Kategori Bioskop</label>{!! Form::select('type',$bioskop_kategori,old('type',$bioskop->type),['id'=>'type','class'=>'custom-select','required','placeholder'=>'Pilih bioskop...']) !!}</div><div class="form-group col-md-6"><label class="required form-label">Nama Bioskop</label><input name="nama_bioskop" value="{{ old('nama_bioskop',$bioskop->nama_bioskop) }}" class="form-control" required></div><div class="form-group col-md-4"><label class="required form-label">Kota</label><input name="kota" value="{{ old('kota',$bioskop->kota) }}" class="form-control" required></div><div class="form-group col-md-4"><label class="form-label">Pajak (%)</label><input name="pajak" value="{{ old('pajak',$bioskop->pajak) }}" type="number" min="0" max="100" step="0.01" class="form-control"></div><div class="form-group col-md-4"><label class="form-label">No. Telepon</label><input name="no_telephone" value="{{ old('no_telephone',$bioskop->no_telephone) }}" class="form-control"></div></div><button class="btn btn-primary" type="submit"><i class="fal fa-save mr-1"></i>Simpan identitas</button>{!! Form::close() !!}</div>
+<div class="edit-pane" data-edit-pane="prices"><div class="section-note"><strong>Harga per periode.</strong> PDF XXI menggunakan harga REGULAR yang aktif pada tanggal laporan. Periode tipe tiket yang sama tidak boleh bertabrakan.</div>@if($ticketPrices->isEmpty())<div class="alert alert-warning">Belum ada harga tiket untuk bioskop ini.</div>@else<div class="table-responsive"><table class="table table-bordered table-hover price-table"><thead class="thead-themed"><tr><th>Tipe</th><th>Senin–Kamis</th><th>Jumat</th><th>Sabtu/Minggu & libur</th><th>Periode</th><th>Aksi</th></tr></thead><tbody>@foreach($ticketPrices as $price)<tr><td><strong>{{ optional($price->ticketType)->name ?: '—' }}</strong></td><td><input form="price-update-{{ $price->uuid }}" name="weekday_price" type="text" inputmode="decimal" value="{{ number_format((float) $price->weekday_price, 2, ',', '.') }}" class="form-control form-control-sm" required></td><td><input form="price-update-{{ $price->uuid }}" name="friday_price" type="text" inputmode="decimal" value="{{ number_format((float) $price->friday_price, 2, ',', '.') }}" class="form-control form-control-sm" required></td><td><input form="price-update-{{ $price->uuid }}" name="weekend_holiday_price" type="text" inputmode="decimal" value="{{ number_format((float) $price->weekend_holiday_price, 2, ',', '.') }}" class="form-control form-control-sm" required></td><td><input form="price-update-{{ $price->uuid }}" name="valid_from" type="date" value="{{ $price->valid_from->toDateString() }}" class="form-control form-control-sm mb-1" required><input form="price-update-{{ $price->uuid }}" name="valid_until" type="date" value="{{ optional($price->valid_until)->toDateString() }}" class="form-control form-control-sm"></td><td><form id="price-update-{{ $price->uuid }}" method="POST" action="{{ route('masterbioskop.ticket-prices.update',[$bioskop->uuid,$price->uuid]) }}">@csrf @method('PUT')<button class="btn btn-sm btn-outline-primary mb-1"><i class="fal fa-save"></i> Simpan</button></form><form method="POST" action="{{ route('masterbioskop.ticket-prices.destroy',[$bioskop->uuid,$price->uuid]) }}" class="price-delete-form">@csrf @method('DELETE')<button class="btn btn-sm btn-outline-danger"><i class="fal fa-trash"></i> Hapus</button></form></td></tr>@endforeach</tbody></table></div>@endif
+@if($ticketTypes->isEmpty())<div class="alert alert-danger">Kategori ini belum memiliki tipe tiket.</div>@else<form method="POST" action="{{ route('masterbioskop.ticket-prices.store',$bioskop->uuid) }}" class="border rounded p-3 mt-3">@csrf<h5 class="mb-3">Tambah periode harga</h5><div class="row"><div class="form-group col-md-4"><label class="required">Tipe tiket</label><select name="type_tiket_uuid" class="custom-select" required><option value="">Pilih...</option>@foreach($ticketTypes as $ticket)<option value="{{ $ticket->uuid }}">{{ $ticket->name }}</option>@endforeach</select></div><div class="form-group col-md-4"><label class="required">Berlaku mulai</label><input type="date" name="valid_from" value="{{ now()->toDateString() }}" class="form-control" required></div><div class="form-group col-md-4"><label>Berlaku sampai</label><input type="date" name="valid_until" class="form-control"></div><div class="form-group col-md-4"><label class="required">Senin–Kamis</label><input type="text" inputmode="decimal" name="weekday_price" class="form-control" placeholder="40.000,00" required></div><div class="form-group col-md-4"><label class="required">Jumat</label><input type="text" inputmode="decimal" name="friday_price" class="form-control" placeholder="40.000,00" required></div><div class="form-group col-md-4"><label class="required">Sabtu/Minggu & libur</label><input type="text" inputmode="decimal" name="weekend_holiday_price" class="form-control" placeholder="40.000,00" required></div></div><button class="btn btn-primary"><i class="fal fa-plus mr-1"></i>Tambah harga</button></form>@endif</div>
+<div class="edit-pane" data-edit-pane="holidays" id="holidays"><div class="section-note"><strong>Kalender hari libur.</strong> Tanggal aktif memakai tarif Sabtu/Minggu & hari libur untuk seluruh bioskop.</div>@if($errors->has('holiday_sync'))<div class="alert alert-danger">{{ $errors->first('holiday_sync') }}</div>@endif<div class="border rounded p-3 mb-3"><div class="d-flex justify-content-between align-items-center flex-wrap"><div><strong>Ambil kalender Indonesia</strong><div class="text-muted small">Preview dahulu; hanya event berlabel hari libur nasional yang dapat dipilih untuk disimpan.</div></div><form method="GET" action="{{ route('masterbioskop.holidays.sync.preview') }}" class="form-inline mt-2 mt-md-0"><label class="sr-only" for="holiday-year">Tahun</label><input id="holiday-year" name="year" type="number" min="2020" max="2100" value="{{ session('holiday_sync_preview.year', now()->year) }}" class="form-control mr-2" required><button class="btn btn-outline-primary">Ambil preview</button></form></div>@if(session('holiday_sync_preview.items'))<form method="POST" action="{{ route('masterbioskop.holidays.sync.apply') }}" class="mt-3">@csrf<div class="table-responsive holiday-preview-scroll" tabindex="0" role="region" aria-label="Preview hari libur"><table class="table table-sm table-bordered mb-2"><thead class="thead-themed"><tr><th style="width:40px"><input type="checkbox" id="holiday-select-all" checked></th><th>Tanggal</th><th>Hari libur</th></tr></thead><tbody>@foreach(session('holiday_sync_preview.items') as $item)<tr><td><input class="holiday-sync-item" type="checkbox" name="holiday_dates[]" value="{{ $item['holiday_date'] }}" checked></td><td>{{ \Carbon\Carbon::parse($item['holiday_date'])->format('d M Y') }}</td><td>{{ $item['name'] }}</td></tr>@endforeach</tbody></table></div><button class="btn btn-primary">Simpan pilihan ({{ session('holiday_sync_preview_count') }})</button></form>@endif</div><div class="row"><div class="col-lg-5"><form method="POST" action="{{ route('masterbioskop.holidays.store') }}" class="border rounded p-3">@csrf<h5>Tambah hari libur</h5><div class="form-group"><label class="required">Tanggal</label><input type="date" name="holiday_date" class="form-control" required></div><div class="form-group"><label class="required">Nama hari libur</label><input name="name" class="form-control" required></div><button class="btn btn-outline-primary">Simpan hari libur</button></form></div><div class="col-lg-7 mt-3 mt-lg-0"><div class="table-responsive"><table class="table table-sm table-bordered"><thead class="thead-themed"><tr><th>Tanggal</th><th>Nama</th><th></th></tr></thead><tbody>@forelse($holidays as $holiday)<tr><td>{{ $holiday->holiday_date->format('d M Y') }}</td><td>{{ $holiday->name }}</td><td class="text-right"><form method="POST" action="{{ route('masterbioskop.holidays.destroy',$holiday->uuid) }}" class="holiday-delete-form">@csrf @method('DELETE')<button class="btn btn-xs btn-outline-danger">Hapus</button></form></td></tr>@empty<tr><td colspan="3" class="text-muted">Belum ada hari libur manual.</td></tr>@endforelse</tbody></table></div></div></div></div>
 </div>
+<div class="wizard-actions"><button type="button" id="edit-prev" class="btn btn-outline-secondary d-none"><i class="fal fa-arrow-left mr-1"></i>Sebelumnya</button><span></span><button type="button" id="edit-next" class="btn btn-primary">Lanjut ke harga<i class="fal fa-arrow-right ml-1"></i></button></div>
+</div></div></div></div>
 @endsection
-
 @section('js')
-<script src="{{asset('js/formplugins/select2/select2.bundle.js')}}"></script>
-<script src="{{asset('js/formplugins/bootstrap-datepicker/bootstrap-datepicker.js')}}"></script>
-<script>
-    $(document).ready(function(){
-        $('.kategori').select2();
-        $('#type').select2();
-
-        $('#photo').change(function(){
-            
-            let reader = new FileReader();
-         
-            reader.onload = (e) => { 
-         
-              $('#preview-image-before-upload').attr('src', e.target.result); 
-            }
-         
-            reader.readAsDataURL(this.files[0]); 
-           
-           });
-
-           $('.tgl_awal').datepicker({
-            orientation: "bottom left",
-            format:'yyyy-mm-dd', // Notice the Extra space at the beginning
-            todayHighlight:'TRUE',
-            autoclose: true,
-            todayBtn: "linked",
-            clearBtn: true,
-        });
-
-        $('.tgl_akhir').datepicker({
-            orientation: "bottom left",
-            format:'yyyy-mm-dd', // Notice the Extra space at the beginning
-            todayHighlight:'TRUE',
-            autoclose: true,
-            todayBtn: "linked",
-            clearBtn: true,
-        });
-        
-        // Generate a password string
-        function randString(){
-            var chars = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNP123456789";
-            var string_length = 8;
-            var randomstring = '';
-            for (var i = 0; i < string_length; i++) {
-                var rnum = Math.floor(Math.random() * chars.length);
-                randomstring += chars.substring(rnum, rnum + 1);
-            }
-            return randomstring;
-        }
-        
-        // Create a new password
-        $(".getNewPass").click(function(){
-            var field = $('#password').closest('div').find('input[name="password"]');
-            field.val(randString(field));
-        });
-
-        //Enable input and button change password
-        $('#enablePassChange').click(function() {
-            if ($(this).is(':checked')) {
-                $('#passwordForm').attr('disabled',false); //enable input
-                $('#getNewPass').attr('disabled',false); //enable button
-            } else {
-                    $('#passwordForm').attr('disabled', true); //disable input
-                    $('#getNewPass').attr('disabled', true); //disable button
-            }
-        });
-    });
-</script>
+<script src="{{asset('js/formplugins/select2/select2.bundle.js')}}"></script><script>$(function(){const names=['identity','prices','holidays'];let current=0;const $stage=$('.edit-pane-stage'),$panel=$('#cinema-edit-wizard>.panel');$('#type').select2();const formatPrice=value=>{const normalized=String(value||'').trim().replace(/\./g,'').replace(',','.');if(!/^\d+(\.\d{1,2})?$/.test(normalized))return value;return new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(normalized))};$(document).on('blur','input[name="weekday_price"],input[name="friday_price"],input[name="weekend_holiday_price"]',function(){this.value=formatPrice(this.value)});function lockEditWizardToPriceStep(){const $prices=$('[data-edit-pane="prices"]');const previouslyActive=$prices.hasClass('active');$panel.css({height:'auto',minHeight:'',maxHeight:''});$('.edit-pane').removeClass('active');$prices.addClass('active');const panelHeight=Math.ceil($panel.outerHeight(true));$panel.css({height:panelHeight+'px',minHeight:panelHeight+'px',maxHeight:panelHeight+'px'});if(!previouslyActive){$prices.removeClass('active');$('[data-edit-pane="'+names[current]+'"]').addClass('active')}}function show(index){current=index;$('.edit-step').removeClass('active');$('.edit-step[data-edit-step="'+names[index]+'"]').addClass('active');$('.edit-pane').removeClass('active');$('[data-edit-pane="'+names[index]+'"]').addClass('active');$stage.scrollTop(0);$('#edit-prev').toggleClass('d-none',index===0);$('#edit-next').toggleClass('d-none',index===names.length-1).html(index===0?'Lanjut ke harga<i class="fal fa-arrow-right ml-1"></i>':'Lanjut ke hari libur<i class="fal fa-arrow-right ml-1"></i>')}$('.edit-step').on('click',function(){show(names.indexOf($(this).data('edit-step')))});$('#edit-prev').on('click',()=>show(Math.max(0,current-1)));$('#edit-next').on('click',()=>show(Math.min(names.length-1,current+1)));const hash=location.hash.replace('#','');if(names.includes(hash))current=names.indexOf(hash);lockEditWizardToPriceStep();show(current);$(window).on('resize.edit-wizard',lockEditWizardToPriceStep);});</script>
 @endsection

@@ -33,6 +33,8 @@ use Illuminate\Support\Facades\Schema;
 use App\Services\Reports\CinepolisPdfParser;
 use App\Services\Reports\PlatinumPdfParser;
 use App\Services\Reports\NscXlsxParser;
+use App\Services\Reports\XxiPdfParser;
+use App\Services\Reports\CinemaTicketPriceResolver;
 
 class PelaporanController extends Controller
 {
@@ -41,6 +43,8 @@ class PelaporanController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
+    use \App\Http\Controllers\Concerns\CorrectsImportPreview;
+
     public function index()
     {
         $pelaporan = Pelaporan::all();
@@ -479,7 +483,7 @@ class PelaporanController extends Controller
             $mapping = $this->mapCinepolisPreview($parsed);
             $uploadMetadata = $this->previewUploadMetadata($request, 'CINEPOLIS PDF', count($mapping['preview']));
             $token = (string) Str::uuid();
-            Cache::put('cinepolis_pdf_preview:' . $token, [
+            $this->putImportPreview('cinepolis_pdf_preview:' . $token, [
                 'parsed' => $parsed,
                 'mapping' => $mapping,
                 'upload_metadata' => $uploadMetadata,
@@ -517,12 +521,17 @@ class PelaporanController extends Controller
 
     public function quickMasterCinepolis(Request $request)
     {
+        return Cache::lock('report-import-mutation', 120)->block(5, fn () => $this->quickMasterCinepolisLocked($request));
+    }
+
+    private function quickMasterCinepolisLocked(Request $request)
+    {
         $request->validate([
             'token' => 'required|string',
             'resource' => 'required|in:cinema,film,ticket_type,capacity',
         ]);
         $cacheKey = 'cinepolis_pdf_preview:' . $request->input('token');
-        $cached = Cache::get($cacheKey);
+        $cached = $this->getImportPreview($cacheKey);
         if (!$cached) {
             return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa. Silakan upload ulang PDF.'], 422);
         }
@@ -595,7 +604,7 @@ class PelaporanController extends Controller
 
         $freshMapping = $this->mapCinepolisPreview($parsed, $request->input('cinema_uuid'));
         $cached['mapping'] = $freshMapping;
-        Cache::put($cacheKey, $cached, now()->addMinutes(15));
+        $this->putImportPreview($cacheKey, $cached, now()->addMinutes(15));
         return response()->json(array_merge([
             'status' => 'success',
             'message' => 'Master berhasil ditambahkan.',
@@ -627,16 +636,21 @@ class PelaporanController extends Controller
 
     public function confirmCinepolisPdf(Request $request)
     {
+        return Cache::lock('report-import-mutation', 120)->block(5, fn () => $this->confirmCinepolisPdfLocked($request));
+    }
+
+    private function confirmCinepolisPdfLocked(Request $request)
+    {
         $request->validate(['token' => 'required|string']);
         $cacheKey = 'cinepolis_pdf_preview:' . $request->input('token');
-        $cached = Cache::get($cacheKey);
+        $cached = $this->getImportPreview($cacheKey);
         if (!$cached) {
             return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa. Silakan upload ulang PDF.'], 422);
         }
         if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) {
             return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
         }
-        $mapping = $cached['mapping'];
+        $mapping = $this->mapCinepolisPreview($cached['parsed'], $cached['mapping']['cinema_uuid'] ?? null);
         if (!empty($mapping['cinema_mapping']['ambiguous'])) {
             $selectedCinemaUuid = (string) $request->input('cinema_uuid');
             $allowedCinemaUuids = array_column($mapping['cinema_mapping']['candidates'], 'uuid');
@@ -663,6 +677,7 @@ class PelaporanController extends Controller
                 ->whereDate('tgl_tayang', $row['tanggal'])
                 ->where('jam_tayang', $row['jam_tayang'])
                 ->where('show', $row['show'])
+                ->where('studio', $resolved['studio_uuid'])
                 ->where('type_tiket', $resolved['ticket_uuid'])
                 ->where('harga', $row['harga'])
                 ->where('jumlah', $row['jumlah'])
@@ -704,15 +719,16 @@ class PelaporanController extends Controller
 
         DB::transaction(function () use ($rows, $cached) {
             Pelaporan::insert($rows);
-            $this->createUploadHistory($cached['upload_metadata'] ?? null, count($rows));
+            $this->createUploadHistory($cached['upload_metadata'] ?? null, count($rows), 'Berhasil diimport', $this->correctionHistory($cached));
         });
         Cache::forget($cacheKey);
 
         return response()->json(['status' => 'success', 'message' => count($rows) . ' baris Cinepolis berhasil diimport.', 'inserted' => count($rows)]);
     }
 
-    private function mapCinepolisPreview(array $parsed, ?string $selectedCinemaUuid = null): array
+    private function mapCinepolisPreview(array &$parsed, ?string $selectedCinemaUuid = null): array
     {
+        $this->prepareCorrectionRows($parsed['rows']);
         $category = KategoriBioskop::whereRaw('UPPER(name) = ?', ['CINEPOLIS'])->first();
         $cinemaMatch = $category ? $this->resolveCinepolisCinema($category->uuid, $parsed['cinema_name'], $selectedCinemaUuid) : [
             'cinema' => null,
@@ -727,7 +743,7 @@ class PelaporanController extends Controller
             $query->where('nama', $city)->orWhere('nama', 'Kota ' . $city);
         })->first() : null;
         $province = $cityRecord ? optional(Province::where('uuid', $cityRecord->provinsi_id)->first())->nama : null;
-        $blocking = [];
+        $blocking = array_merge($this->correctionIssues($parsed['rows']), $this->duplicateCorrectionRows($parsed['rows'], true));
         $warnings = [];
         if (!$category) $blocking[] = 'Kategori CINEPOLIS belum tersedia di Master Kategori Bioskop.';
         if (!$cinema && !$cinemaMatch['ambiguous']) {
@@ -894,7 +910,7 @@ class PelaporanController extends Controller
             $mapping = $this->mapPlatinumPreview($parsed);
             $uploadMetadata = $this->previewUploadMetadata($request, 'PLATINUM PDF', count($mapping['preview']));
             $token = (string) Str::uuid();
-            Cache::put('platinum_pdf_preview:' . $token, [
+            $this->putImportPreview('platinum_pdf_preview:' . $token, [
                 'parsed' => $parsed,
                 'mapping' => $mapping,
                 'upload_metadata' => $uploadMetadata,
@@ -932,12 +948,17 @@ class PelaporanController extends Controller
 
     public function quickMasterPlatinum(Request $request)
     {
+        return Cache::lock('report-import-mutation', 120)->block(5, fn () => $this->quickMasterPlatinumLocked($request));
+    }
+
+    private function quickMasterPlatinumLocked(Request $request)
+    {
         $request->validate([
             'token' => 'required|string',
             'resource' => 'required|in:cinema,film,ticket_type,capacity',
         ]);
         $cacheKey = 'platinum_pdf_preview:' . $request->input('token');
-        $cached = Cache::get($cacheKey);
+        $cached = $this->getImportPreview($cacheKey);
         if (!$cached) {
             return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa. Silakan upload ulang PDF.'], 422);
         }
@@ -1010,7 +1031,7 @@ class PelaporanController extends Controller
 
         $freshMapping = $this->mapPlatinumPreview($parsed, $request->input('cinema_uuid'));
         $cached['mapping'] = $freshMapping;
-        Cache::put($cacheKey, $cached, now()->addMinutes(15));
+        $this->putImportPreview($cacheKey, $cached, now()->addMinutes(15));
         return response()->json(array_merge([
             'status' => 'success',
             'message' => 'Master berhasil ditambahkan.',
@@ -1036,16 +1057,21 @@ class PelaporanController extends Controller
 
     public function confirmPlatinumPdf(Request $request)
     {
+        return Cache::lock('report-import-mutation', 120)->block(5, fn () => $this->confirmPlatinumPdfLocked($request));
+    }
+
+    private function confirmPlatinumPdfLocked(Request $request)
+    {
         $request->validate(['token' => 'required|string']);
         $cacheKey = 'platinum_pdf_preview:' . $request->input('token');
-        $cached = Cache::get($cacheKey);
+        $cached = $this->getImportPreview($cacheKey);
         if (!$cached) {
             return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa. Silakan upload ulang PDF.'], 422);
         }
         if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) {
             return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
         }
-        $mapping = $cached['mapping'];
+        $mapping = $this->mapPlatinumPreview($cached['parsed'], $cached['mapping']['cinema_uuid'] ?? null);
         if (!empty($mapping['cinema_mapping']['ambiguous'])) {
             $selectedCinemaUuid = (string) $request->input('cinema_uuid');
             $allowedCinemaUuids = array_column($mapping['cinema_mapping']['candidates'], 'uuid');
@@ -1072,6 +1098,7 @@ class PelaporanController extends Controller
                 ->whereDate('tgl_tayang', $row['tanggal'])
                 ->where('jam_tayang', $row['jam_tayang'])
                 ->where('show', $row['show'])
+                ->where('studio', $resolved['studio_uuid'])
                 ->where('type_tiket', $resolved['ticket_uuid'])
                 ->where('harga', $row['harga'])
                 ->where('jumlah', $row['jumlah'])
@@ -1113,15 +1140,16 @@ class PelaporanController extends Controller
 
         DB::transaction(function () use ($rows, $cached) {
             Pelaporan::insert($rows);
-            $this->createUploadHistory($cached['upload_metadata'] ?? null, count($rows));
+            $this->createUploadHistory($cached['upload_metadata'] ?? null, count($rows), 'Berhasil diimport', $this->correctionHistory($cached));
         });
         Cache::forget($cacheKey);
 
         return response()->json(['status' => 'success', 'message' => count($rows) . ' baris Platinum berhasil diimport.', 'inserted' => count($rows)]);
     }
 
-    private function mapPlatinumPreview(array $parsed, ?string $selectedCinemaUuid = null): array
+    private function mapPlatinumPreview(array &$parsed, ?string $selectedCinemaUuid = null): array
     {
+        $this->prepareCorrectionRows($parsed['rows']);
         $category = KategoriBioskop::whereRaw('UPPER(name) = ?', ['PLATINUM'])->first();
         $cinemaMatch = $category ? $this->resolvePlatinumCinema($category->uuid, $parsed['cinema_name'], $selectedCinemaUuid) : [
             'cinema' => null,
@@ -1136,7 +1164,7 @@ class PelaporanController extends Controller
             $query->where('nama', $city)->orWhere('nama', 'Kota ' . $city);
         })->first() : null;
         $province = $cityRecord ? optional(Province::where('uuid', $cityRecord->provinsi_id)->first())->nama : null;
-        $blocking = [];
+        $blocking = array_merge($this->correctionIssues($parsed['rows']), $this->duplicateCorrectionRows($parsed['rows'], true));
         $warnings = $parsed['warnings'] ?? [];
         if (!$category) $blocking[] = 'Kategori PLATINUM belum tersedia di Master Kategori Bioskop.';
         if (!$cinema && !$cinemaMatch['ambiguous']) {
@@ -1314,27 +1342,38 @@ class PelaporanController extends Controller
         return trim(preg_replace('/\s+/', ' ', $value));
     }
 
-    public function uploadXXI(Request $request)
+    public function uploadXXI(Request $request, XxiPdfParser $pdfParser)
     {
-        $request->validate(['file' => 'required|file|mimes:xlsx,xls|max:20480'], [
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls,pdf|max:20480'], [
             'file.required' => 'File wajib diunggah.',
-            'file.mimes' => 'Format file harus .xlsx atau .xls.',
+            'file.mimes' => 'Format file XXI harus .xlsx, .xls, atau .pdf.',
             'file.max' => 'Ukuran file maksimal 20MB.',
         ]);
 
         try {
-            $rows = $this->parseLegacyExcel($request->file('file')->getPathname(), 'XXI');
-            $pending = $this->xxiPendingFreeAssignments($request->file('file')->getPathname(), $rows);
-            $mapping = $this->mapLegacyPreview($rows, 'XXI');
+            $extension = strtolower((string) $request->file('file')->getClientOriginalExtension());
+            if ($extension === 'pdf') {
+                $parsed = $pdfParser->parse($request->file('file')->getPathname());
+                $rows = $parsed['rows'];
+                $pending = $parsed['pending_free_assignments'] ?? [];
+                $sourceType = 'pdf';
+            } else {
+                $rows = $this->parseLegacyExcel($request->file('file')->getPathname(), 'XXI');
+                $pending = $this->xxiPendingFreeAssignments($request->file('file')->getPathname(), $rows);
+                $sourceType = 'excel';
+            }
+            $mapping = $this->mapLegacyPreview($rows, 'XXI', $sourceType === 'pdf');
             $mapping = $this->withPendingFreeAssignments($mapping, $pending);
+            if (isset($parsed['source_totals'])) $mapping['source_totals'] = $parsed['source_totals'];
             $uploadMetadata = $this->previewUploadMetadata($request, 'XXI', count($mapping['preview']));
             $token = (string) Str::uuid();
-            Cache::put($this->legacyPreviewKey($token), [
+            $this->putImportPreview($this->legacyPreviewKey($token), [
                 'provider' => 'XXI', 'rows' => $rows, 'mapping' => $mapping,
+                'source_type' => $sourceType,
                 'pending_free_assignments' => $pending, 'upload_metadata' => $uploadMetadata,
                 'created_by' => Auth::user()->uuid ?? null,
             ], now()->addMinutes(30));
-            return response()->json(array_merge(['status' => 'success', 'token' => $token], $mapping));
+            return response()->json(array_merge(['status' => 'success', 'token' => $token, 'source_type' => $sourceType], $mapping));
         } catch (\Throwable $e) {
             report($e);
             return response()->json(['status' => 'failed', 'message' => 'Preview XXI gagal: '.$e->getMessage()], 422);
@@ -1385,8 +1424,13 @@ class PelaporanController extends Controller
 
     public function assignXxiFreeShow(Request $request)
     {
-        $request->validate(['token' => 'required|string', 'assignment_key' => 'required|string', 'show' => 'required|integer|min:1|max:6']);
-        $cacheKey = $this->legacyPreviewKey($request->input('token')); $cached = Cache::get($cacheKey);
+        return Cache::lock('report-import-mutation', 120)->block(5, fn () => $this->assignXxiFreeShowLocked($request));
+    }
+
+    private function assignXxiFreeShowLocked(Request $request)
+    {
+        $request->validate(['token' => 'required|string', 'assignment_key' => 'required|string', 'show' => 'required|integer|min:1|max:7']);
+        $cacheKey = $this->legacyPreviewKey($request->input('token')); $cached = $this->getImportPreview($cacheKey);
         if (!$cached || ($cached['provider'] ?? null) !== 'XXI') return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa.'], 422);
         if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
         $pending = collect($cached['pending_free_assignments'] ?? [])->firstWhere('key', $request->input('assignment_key'));
@@ -1395,10 +1439,10 @@ class PelaporanController extends Controller
         if (!$selected) return response()->json(['status' => 'failed', 'message' => 'Show yang dipilih tidak tersedia pada laporan sumber.'], 422);
         $source = collect($cached['rows'])->firstWhere('source_row', $pending['source_row']);
         if (!$source) return response()->json(['status' => 'failed', 'message' => 'Detail sumber untuk alokasi tiket Free tidak ditemukan.'], 422);
-        $cached['rows'][] = array_merge($source, ['ticket_name' => 'FREE PASS', 'jam_tayang' => $selected['jam_tayang'], 'show' => (string) $selected['show'], 'jumlah' => $pending['jumlah'], 'harga' => 0.0, 'tax' => 0, 'net' => 0]);
+        $cached['rows'][] = array_merge($source, ['row_id' => null, 'original_row' => null, 'correction_issues' => [], 'ticket_name' => 'FREE PASS', 'jam_tayang' => $selected['jam_tayang'], 'show' => (string) $selected['show'], 'jumlah' => $pending['jumlah'], 'harga' => 0.0, 'tax' => 0, 'net' => 0]);
         $cached['pending_free_assignments'] = array_values(array_filter($cached['pending_free_assignments'], fn ($item) => $item['key'] !== $pending['key']));
-        $mapping = $this->withPendingFreeAssignments($this->mapLegacyPreview($cached['rows'], 'XXI'), $cached['pending_free_assignments']);
-        $cached['mapping'] = $mapping; Cache::put($cacheKey, $cached, now()->addMinutes(30));
+        $mapping = $this->withPendingFreeAssignments($this->mapLegacyPreview($cached['rows'], 'XXI', ($cached['source_type'] ?? null) === 'pdf'), $cached['pending_free_assignments']);
+        $cached['mapping'] = $mapping; $this->putImportPreview($cacheKey, $cached, now()->addMinutes(30));
         return response()->json(array_merge(['status' => 'success', 'message' => 'Show untuk tiket Free berhasil ditentukan.', 'token' => $request->input('token')], $mapping));
     }
 
@@ -1434,7 +1478,7 @@ class PelaporanController extends Controller
             ]);
             $uploadMetadata = $this->previewUploadMetadata($request, 'NSC', count($mapping['preview']));
             $token = (string) Str::uuid();
-            Cache::put($this->legacyPreviewKey($token), [
+            $this->putImportPreview($this->legacyPreviewKey($token), [
                 'provider' => 'NSC',
                 'rows' => $parsed['rows'],
                 'mapping' => $mapping,
@@ -1451,9 +1495,14 @@ class PelaporanController extends Controller
 
     public function assignNscFreeShow(Request $request)
     {
+        return Cache::lock('report-import-mutation', 120)->block(5, fn () => $this->assignNscFreeShowLocked($request));
+    }
+
+    private function assignNscFreeShowLocked(Request $request)
+    {
         $request->validate(['token' => 'required|string', 'assignment_key' => 'required|string', 'show' => 'required|integer|min:1|max:7']);
         $cacheKey = $this->legacyPreviewKey($request->input('token'));
-        $cached = Cache::get($cacheKey);
+        $cached = $this->getImportPreview($cacheKey);
         if (!$cached || ($cached['provider'] ?? null) !== 'NSC') return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa.'], 422);
         if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
 
@@ -1468,6 +1517,7 @@ class PelaporanController extends Controller
         if (!$source) return response()->json(['status' => 'failed', 'message' => 'Detail sumber untuk alokasi tiket Free tidak ditemukan.'], 422);
 
         $cached['rows'][] = array_merge($source, [
+            'row_id' => null, 'original_row' => null, 'correction_issues' => [],
             'ticket_name' => 'BOGOF',
             'jam_tayang' => $selected['jam_tayang'],
             'show' => (string) $selected['show'],
@@ -1484,7 +1534,7 @@ class PelaporanController extends Controller
         }
         $mapping['blocking_issues'] = array_values(array_unique($mapping['blocking_issues']));
         $cached['mapping'] = $mapping;
-        Cache::put($cacheKey, $cached, now()->addMinutes(30));
+        $this->putImportPreview($cacheKey, $cached, now()->addMinutes(30));
         return response()->json(array_merge(['status' => 'success', 'message' => 'Show untuk tiket Free berhasil ditentukan.', 'token' => $request->input('token')], $mapping));
     }
 
@@ -1503,7 +1553,7 @@ class PelaporanController extends Controller
             $mapping = $this->mapLegacyPreview($rows, $provider);
             $uploadMetadata = $this->previewUploadMetadata($request, $provider, count($mapping['preview']));
             $token = (string) Str::uuid();
-            Cache::put($this->legacyPreviewKey($token), [
+            $this->putImportPreview($this->legacyPreviewKey($token), [
                 'provider' => $provider,
                 'rows' => $rows,
                 'mapping' => $mapping,
@@ -1519,9 +1569,14 @@ class PelaporanController extends Controller
 
     public function confirmLegacyExcel(Request $request, string $provider)
     {
+        return Cache::lock('report-import-mutation', 120)->block(5, fn () => $this->confirmLegacyExcelLocked($request, $provider));
+    }
+
+    private function confirmLegacyExcelLocked(Request $request, string $provider)
+    {
         $request->validate(['token' => 'required|string']);
         $cacheKey = $this->legacyPreviewKey($request->input('token'));
-        $cached = Cache::get($cacheKey);
+        $cached = $this->getImportPreview($cacheKey);
         if (!$cached || ($cached['provider'] ?? null) !== $provider) {
             return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa. Silakan upload ulang file.'], 422);
         }
@@ -1531,7 +1586,7 @@ class PelaporanController extends Controller
         if (in_array($provider, ['NSC', 'XXI'], true) && !empty($cached['pending_free_assignments'])) {
             return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena masih ada tiket Free yang belum ditentukan show-nya.'], 422);
         }
-        $mapping = $this->mapLegacyPreview($cached['rows'], $provider);
+        $mapping = $this->mapLegacyPreview($cached['rows'], $provider, $provider === 'XXI' && ($cached['source_type'] ?? null) === 'pdf');
         if (!empty($mapping['blocking_issues'])) {
             return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena mapping belum lengkap.', 'issues' => $mapping['blocking_issues']], 422);
         }
@@ -1540,7 +1595,7 @@ class PelaporanController extends Controller
             $duplicate = Pelaporan::where('kategori', $row['kategori'])->where('nama_bioskop', $row['nama_bioskop'])
                 ->where('nama_film', $row['nama_film'])->whereDate('tgl_tayang', $row['tgl_tayang'])
                 ->where('jam_tayang', $row['jam_tayang'])->where('show', $row['show'])
-                ->where('type_tiket', $row['type_tiket'])->where('harga', $row['harga'])->where('jumlah', $row['jumlah'])->exists();
+                ->where('studio', $row['studio'])->where('type_tiket', $row['type_tiket'])->where('harga', $row['harga'])->where('jumlah', $row['jumlah'])->exists();
             if ($duplicate) {
                 return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena terdapat data yang sudah pernah diimport.'], 422);
             }
@@ -1551,7 +1606,7 @@ class PelaporanController extends Controller
         }
         DB::transaction(function () use ($insertRows, $cached) {
             Pelaporan::insert($insertRows);
-            $this->createUploadHistory($cached['upload_metadata'] ?? null, count($insertRows));
+            $this->createUploadHistory($cached['upload_metadata'] ?? null, count($insertRows), 'Berhasil diimport', $this->correctionHistory($cached));
         });
         Cache::forget($cacheKey);
         return response()->json(['status' => 'success', 'message' => count($insertRows).' baris '.$provider.' berhasil diimport.', 'inserted' => count($insertRows)]);
@@ -1559,9 +1614,14 @@ class PelaporanController extends Controller
 
     public function quickMasterLegacy(Request $request, string $provider)
     {
+        return Cache::lock('report-import-mutation', 120)->block(5, fn () => $this->quickMasterLegacyLocked($request, $provider));
+    }
+
+    private function quickMasterLegacyLocked(Request $request, string $provider)
+    {
         $request->validate(['token' => 'required|string', 'resource' => 'required|in:cinema,film,ticket_type,capacity']);
         $cacheKey = $this->legacyPreviewKey($request->input('token'));
-        $cached = Cache::get($cacheKey);
+        $cached = $this->getImportPreview($cacheKey);
         if (!$cached || ($cached['provider'] ?? null) !== $provider) return response()->json(['status'=>'failed','message'=>'Preview sudah kedaluwarsa.'], 422);
         if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) return response()->json(['status'=>'failed','message'=>'Preview ini bukan milik sesi pengguna aktif.'], 403);
         $category = KategoriBioskop::whereRaw('UPPER(name) = ?', [$provider])->first();
@@ -1619,12 +1679,12 @@ class PelaporanController extends Controller
             $capacity->kapasitas = $request->input('kapasitas');
             $capacity->save();
         }
-        $fresh = $this->mapLegacyPreview($rows, $provider);
+        $fresh = $this->mapLegacyPreview($rows, $provider, $provider === 'XXI' && ($cached['source_type'] ?? null) === 'pdf');
         if (in_array($provider, ['NSC', 'XXI'], true)) {
             $fresh = $this->withPendingFreeAssignments($fresh, $cached['pending_free_assignments'] ?? []);
         }
         $cached['mapping'] = $fresh;
-        Cache::put($cacheKey, $cached, now()->addMinutes(30));
+        $this->putImportPreview($cacheKey, $cached, now()->addMinutes(30));
         return response()->json(array_merge(['status'=>'success','message'=>'Master berhasil ditambahkan.','token'=>$request->input('token')], $fresh));
     }
 
@@ -1735,9 +1795,10 @@ class PelaporanController extends Controller
 
     private function legacySourceRow($sourceRow,$date,$film,$cinema,$city,$studio,$ticket,$time,$show,$count,$price,$tax): array { return ['source_row'=>(int)$sourceRow,'tgl_tayang'=>$date,'nama_film'=>mb_strtoupper($film),'source_cinema'=>$cinema,'source_city'=>$city,'studio'=>$studio,'ticket_name'=>mb_strtoupper($ticket),'jam_tayang'=>$time,'show'=>(string)$show,'jumlah'=>(float)str_replace(',','',$count),'harga'=>$price,'tax'=>$tax,'net'=>0]; }
 
-    private function mapLegacyPreview(array $sourceRows, string $provider): array
+    private function mapLegacyPreview(array &$sourceRows, string $provider, bool $useXxiPriceMaster = false): array
     {
-        $category=KategoriBioskop::whereRaw('UPPER(name) = ?',[$provider])->first(); $issues=[]; $warnings=[]; $filmNames=collect($sourceRows)->pluck('nama_film')->unique();
+        $this->prepareCorrectionRows($sourceRows);
+        $category=KategoriBioskop::whereRaw('UPPER(name) = ?',[$provider])->first(); $issues=array_merge($this->correctionIssues($sourceRows), $this->duplicateCorrectionRows($sourceRows, false)); $warnings=[]; $filmNames=collect($sourceRows)->pluck('nama_film')->unique();
         $filmMap=MasterFilm::get()->filter(fn($f)=>in_array($this->legacyNormalize($f->name),$filmNames->map(fn($v)=>$this->legacyNormalize($v))->all(),true))->keyBy(fn($f)=>$this->legacyNormalize($f->name));
         $cinemas=$category?MasterBioskop::where('type',$category->uuid)->get():collect(); $cinemaMap=[];
         foreach (collect($sourceRows)->unique(fn($row)=>$this->legacyCinemaKey($row['source_cinema'],$row['source_city'])) as $row) {
@@ -1761,7 +1822,47 @@ class PelaporanController extends Controller
         if(!$category)$issues[]='Kategori '.$provider.' belum tersedia di Master Kategori Bioskop.';
         foreach($filmNames as $name)if(!$filmMap->has($this->legacyNormalize($name)))$issues[]='Film '.$name.' belum terdaftar di Master Film.';
         $ticketMap=$category?TypeTiket::where('kategori',$category->uuid)->get():collect(); $canonical=[]; $preview=[];
-        foreach($sourceRows as $row){ $cinema=$cinemaMap[$this->legacyCinemaKey($row['source_cinema'],$row['source_city'])]??null; $ticket=$ticketMap->first(fn($t)=>$this->legacyNormalize($t->name)===$this->legacyNormalize($row['ticket_name'])); $capacity=$cinema&&$ticket?$this->findLegacyCapacity($category->uuid,$cinema->uuid,$ticket->uuid,$row['studio']):null; if(!$ticket)$issues[]='Tipe tiket '.$row['ticket_name'].' belum tersedia untuk kategori '.$provider.'.'; if($cinema&&$ticket&&!$capacity)$issues[]='Studio '.$row['studio'].' belum memiliki mapping kapasitas untuk tipe tiket '.$row['ticket_name'].' di bioskop '.$row['source_cinema'].' (baris '.$row['source_row'].').'; $ready=$cinema&&isset($filmMap[$this->legacyNormalize($row['nama_film'])])&&$ticket&&$capacity; $preview[]=array_merge($row,['kategori'=>$provider,'bioskop'=>$row['source_cinema'],'kota'=>$cinema->kota??$row['source_city'],'cinema_uuid'=>$cinema->uuid??null,'film_uuid'=>$filmMap[$this->legacyNormalize($row['nama_film'])]->uuid??null,'ticket_uuid'=>$ticket->uuid??null,'capacity_uuid'=>$capacity->uuid??null,'mapping_status'=>$ready?'Siap':'Diblokir']); if($ready)$canonical[]=['kategori'=>$category->uuid,'provinsi'=>$this->legacyProvinceForCity($cinema->kota),'kota'=>$cinema->kota,'nama_bioskop'=>$cinema->uuid,'nama_film'=>$filmMap[$this->legacyNormalize($row['nama_film'])]->name,'tgl_tayang'=>$row['tgl_tayang'],'jam_tayang'=>$row['jam_tayang']?:'00:00','show'=>$row['show'],'type_tiket'=>$ticket->uuid,'harga'=>$row['harga'],'jumlah'=>$row['jumlah'],'gross'=>$row['harga']*$row['jumlah'],'tax'=>$cinema->pajak??0,'net'=>$row['net']?:($row['harga']*$row['jumlah'])-(($row['harga']*$row['jumlah'])*($cinema->pajak??0)/100),'studio'=>$capacity->uuid]; }
+        $priceResolver = $useXxiPriceMaster ? app(CinemaTicketPriceResolver::class) : null;
+        foreach ($sourceRows as $row) {
+            $cinema = $cinemaMap[$this->legacyCinemaKey($row['source_cinema'], $row['source_city'])] ?? null;
+            $ticket = $ticketMap->first(fn ($item) => $this->legacyNormalize($item->name) === $this->legacyNormalize($row['ticket_name']));
+            $capacity = $cinema && $ticket ? $this->findLegacyCapacity($category->uuid, $cinema->uuid, $ticket->uuid, $row['studio']) : null;
+            if (!$ticket) $issues[] = 'Tipe tiket '.$row['ticket_name'].' belum tersedia untuk kategori '.$provider.'.';
+            if ($cinema && $ticket && !$capacity) $issues[] = 'Studio '.$row['studio'].' belum memiliki mapping kapasitas untuk tipe tiket '.$row['ticket_name'].' di bioskop '.$row['source_cinema'].' (baris '.$row['source_row'].').';
+
+            $resolvedPrice = null;
+            if ($useXxiPriceMaster && $cinema && $ticket && $this->legacyNormalize($row['ticket_name']) === 'REGULAR') {
+                $resolvedPrice = $priceResolver->resolve($cinema->uuid, $ticket->uuid, $row['tgl_tayang']);
+                if (!$resolvedPrice) $issues[] = 'Harga REGULAR untuk '.$row['source_cinema'].' pada tanggal '.$row['tgl_tayang'].' belum tersedia.';
+            }
+            $effectivePrice = $resolvedPrice ? (float) $resolvedPrice['price'] : (float) $row['harga'];
+            $priceReady = !$useXxiPriceMaster || $this->legacyNormalize($row['ticket_name']) !== 'REGULAR' || $resolvedPrice;
+            $ready = $cinema && isset($filmMap[$this->legacyNormalize($row['nama_film'])]) && $ticket && $capacity && $priceReady;
+            $preview[] = array_merge($row, [
+                'harga' => $effectivePrice,
+                'price_day_group' => $resolvedPrice['day_group'] ?? null,
+                'price_from_master' => $useXxiPriceMaster,
+                'kategori' => $provider,
+                'bioskop' => $row['source_cinema'],
+                'kota' => $cinema->kota ?? $row['source_city'],
+                'cinema_uuid' => $cinema->uuid ?? null,
+                'film_uuid' => $filmMap[$this->legacyNormalize($row['nama_film'])]->uuid ?? null,
+                'ticket_uuid' => $ticket->uuid ?? null,
+                'capacity_uuid' => $capacity->uuid ?? null,
+                'mapping_status' => $ready ? 'Siap' : 'Diblokir',
+            ]);
+            if ($ready) {
+                $gross = $effectivePrice * (float) $row['jumlah'];
+                $tax = $cinema->pajak ?? 0;
+                $canonical[] = [
+                    'kategori' => $category->uuid, 'provinsi' => $this->legacyProvinceForCity($cinema->kota), 'kota' => $cinema->kota,
+                    'nama_bioskop' => $cinema->uuid, 'nama_film' => $filmMap[$this->legacyNormalize($row['nama_film'])]->name,
+                    'tgl_tayang' => $row['tgl_tayang'], 'jam_tayang' => $row['jam_tayang'] ?: '00:00', 'show' => $row['show'],
+                    'type_tiket' => $ticket->uuid, 'harga' => $effectivePrice, 'jumlah' => $row['jumlah'], 'gross' => $gross,
+                    'tax' => $tax, 'net' => $row['net'] ?: $gross - ($gross * $tax / 100), 'studio' => $capacity->uuid,
+                ];
+            }
+        }
         $cinemaNames=collect($sourceRows)->pluck('source_cinema')->unique();
         $issues=array_values(array_unique($issues)); return ['preview'=>$preview,'rows'=>$canonical,'blocking_issues'=>$issues,'warnings'=>$warnings,'summary'=>['provider'=>$provider,'rows'=>count($sourceRows),'ready'=>count($canonical),'blocked'=>count($sourceRows)-count($canonical)],'quick_master_context'=>['cinema_name'=>$cinemaNames->first(),'film_name'=>$filmNames->first(),'category_uuid'=>optional($category)->uuid,'ticket_types'=>$sourceRows?array_values(array_unique(array_column($sourceRows,'ticket_name'))):[],'studios'=>$sourceRows?array_values(array_unique(array_column($sourceRows,'studio'))):[]]];
     }

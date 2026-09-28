@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\Reports\XxiPdfParser;
+use Mockery;
+
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +62,15 @@ class LegacyExcelImportPreviewTest extends TestCase
             });
         }
 
+        Schema::create('cinema_ticket_prices', function ($table) {
+            $table->increments('id'); $table->string('uuid')->unique(); $table->string('master_bioskop_uuid'); $table->string('type_tiket_uuid');
+            $table->decimal('weekday_price', 15, 2); $table->decimal('friday_price', 15, 2); $table->decimal('weekend_holiday_price', 15, 2);
+            $table->date('valid_from'); $table->date('valid_until')->nullable(); $table->boolean('active')->default(true); $table->string('created_by')->nullable(); $table->string('edited_by')->nullable(); $table->timestamps();
+        });
+        Schema::create('calendar_holidays', function ($table) {
+            $table->increments('id'); $table->string('uuid')->unique(); $table->date('holiday_date')->unique(); $table->string('name'); $table->boolean('active')->default(true); $table->string('created_by')->nullable(); $table->string('edited_by')->nullable(); $table->timestamps();
+        });
+
         Schema::create('report_upload_histories', function ($table) {
             $table->increments('id');
             $table->string('uuid')->unique();
@@ -73,6 +85,16 @@ class LegacyExcelImportPreviewTest extends TestCase
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
         });
+    }
+
+    public function test_inline_editor_is_shared_by_pdf_and_excel_datatables(): void
+    {
+        $view = file_get_contents(resource_path('views/pelaporan/index.blade.php'));
+        $script = file_exists(public_path('js/import-preview-editor.js')) ? file_get_contents(public_path('js/import-preview-editor.js')) : '';
+        $this->assertStringContainsString('ImportPreviewEditor.mount', $view);
+        $this->assertStringContainsString('DataTable(', $script);
+        $this->assertStringContainsString('Simpan koreksi', $script);
+        $this->assertStringContainsString('Batal', $script);
     }
 
     public function test_preview_ui_has_a_modal_transition_fallback(): void
@@ -100,6 +122,25 @@ class LegacyExcelImportPreviewTest extends TestCase
         );
     }
 
+    public function test_inline_correction_is_remapped_audited_and_confirmed_without_preview_writes(): void
+    {
+        $owner = $this->seedResolvedXxiMappings();
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.xxi'), ['file' => $this->makeXxiFile()])->assertOk();
+        $id = $preview->json('preview.0.row_id');
+        $this->assertNotEmpty($id);
+        $edited = $this->postJson(route('pelaporan.import-preview.correct'), [
+            'provider' => 'XXI', 'token' => $preview->json('token'), 'row_id' => $id,
+            'changes' => ['jam_tayang' => '12:15'], 'reason' => 'Koreksi jam dari sumber',
+        ])->assertOk()->assertJsonPath('preview.0.jam_tayang', '12:15')->assertJsonPath('preview.0.row_id', $id);
+        $cached = Cache::get('legacy_excel_preview:'.$preview->json('token'));
+        $this->assertSame('11:00', $cached['rows'][0]['original_row']['jam_tayang']);
+        $this->assertCount(1, $cached['corrections']);
+        $this->assertSame(0, DB::table('pelaporans')->count());
+        $this->assertSame(0, DB::table('report_upload_histories')->count());
+        $this->postJson(route('pelaporan.upload.xxi.confirm'), ['token' => $preview->json('token')])->assertOk();
+        $this->assertDatabaseHas('pelaporans', ['jam_tayang' => '12:15', 'gross' => '500000', 'net' => '450000']);
+    }
+
     public function test_xxi_preview_writes_no_canonical_rows_then_confirm_consumes_its_user_bound_token(): void
     {
         $owner = $this->seedResolvedXxiMappings();
@@ -115,6 +156,42 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->actingAs($owner)->post(route('pelaporan.upload.xxi.confirm'), ['token' => $token])->assertOk()->assertJsonPath('inserted', 1);
         $this->assertSame(1, DB::table('pelaporans')->count());
         $this->actingAs($owner)->post(route('pelaporan.upload.xxi.confirm'), ['token' => $token])->assertStatus(422);
+    }
+
+    public function test_xxi_pdf_preview_uses_weekend_master_price_and_confirm_persists_show_seven(): void
+    {
+        $owner = $this->seedResolvedXxiMappings();
+        DB::table('cinema_ticket_prices')->insert([
+            'uuid' => 'xxi-price', 'master_bioskop_uuid' => 'xxi-cinema', 'type_tiket_uuid' => 'xxi-ticket',
+            'weekday_price' => 40000, 'friday_price' => 45000, 'weekend_holiday_price' => 50000,
+            'valid_from' => '2026-01-01', 'valid_until' => null, 'active' => true,
+        ]);
+        $parser = Mockery::mock(XxiPdfParser::class);
+        $parser->shouldReceive('parse')->once()->andReturn([
+            'rows' => [[
+                'source_row'=>10, 'tgl_tayang'=>'2026-09-26', 'nama_film'=>'FILM TEST', 'source_cinema'=>'XXI TEST', 'source_city'=>'JAKARTA',
+                'studio'=>'1', 'capacity'=>100, 'ticket_name'=>'REGULAR', 'jam_tayang'=>'23:00', 'show'=>'7', 'jumlah'=>3, 'harga'=>0.0, 'tax'=>0.0, 'net'=>0.0,
+            ]],
+            'pending_free_assignments' => [], 'source_totals' => ['ptn'=>3, 'fp'=>0],
+        ]);
+        $this->app->instance(XxiPdfParser::class, $parser);
+        $file = UploadedFile::fake()->create('xxi.pdf', 10, 'application/pdf');
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.xxi'), ['file' => $file]);
+        $preview->assertOk()->assertJsonPath('source_type', 'pdf')->assertJsonPath('preview.0.show', '7')
+            ->assertJsonPath('preview.0.jam_tayang', '23:00')->assertJsonPath('preview.0.harga', 50000)
+            ->assertJsonPath('preview.0.price_day_group', 'weekend_holiday')->assertJsonPath('blocking_issues', []);
+        $this->assertSame(0, DB::table('pelaporans')->count());
+        $this->actingAs($owner)->postJson(route('pelaporan.import-preview.correct'), [
+            'provider'=>'XXI','token'=>$preview->json('token'),'row_id'=>$preview->json('preview.0.row_id'),
+            'changes'=>['harga'=>1],'reason'=>'Harga palsu',
+        ])->assertUnprocessable();
+        $this->postJson(route('pelaporan.import-preview.correct'), [
+            'provider'=>'XXI','token'=>$preview->json('token'),'row_id'=>$preview->json('preview.0.row_id'),
+            'changes'=>['jam_tayang'=>'23:15'],'reason'=>'Jam dikoreksi',
+        ])->assertOk()->assertJsonPath('preview.0.harga', 50000)->assertJsonPath('source_type', 'pdf');
+        $this->actingAs($owner)->post(route('pelaporan.upload.xxi.confirm'), ['token'=>$preview->json('token')])->assertOk()->assertJsonPath('inserted', 1);
+        $this->assertDatabaseHas('pelaporans', ['show'=>'7','jam_tayang'=>'23:15','harga'=>'50000','jumlah'=>'3','gross'=>'150000']);
     }
 
     public function test_xxi_free_pass_requires_a_valid_show_then_persists_at_zero_value(): void
@@ -496,6 +573,61 @@ class LegacyExcelImportPreviewTest extends TestCase
             'token' => $preview->json('token'), 'resource' => 'film', 'name' => 'FILM PALSU',
         ])->assertStatus(422);
         $this->assertDatabaseMissing('master_films', ['name' => 'FILM PALSU']);
+    }
+
+    public function test_inline_corrections_reject_foreign_expired_invalid_and_canonical_payloads(): void
+    {
+        $owner = $this->seedResolvedXxiMappings();
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.xxi'), ['file' => $this->makeXxiFile()])->assertOk();
+        $payload = ['provider'=>'XXI','token'=>$preview->json('token'),'row_id'=>$preview->json('preview.0.row_id'),'changes'=>['jam_tayang'=>'12:15'],'reason'=>'Koreksi sumber'];
+        $other = $this->createUser('foreign', 'foreign@example.test');
+        $this->actingAs($other)->postJson(route('pelaporan.import-preview.correct'), $payload)->assertForbidden();
+        $this->actingAs($owner);
+        foreach ([['gross'=>1], ['jumlah'=>-1], ['jumlah'=>1.5], ['tgl_tayang'=>'2026-02-30'], ['jam_tayang'=>'25:00'], ['harga'=>'NaN'], ['ticket_name'=>'FREE PASS'], ['studio'=>'<script>']] as $changes) {
+            $this->postJson(route('pelaporan.import-preview.correct'), array_replace($payload, ['changes'=>$changes]))->assertUnprocessable();
+        }
+        $this->travel(31)->minutes();
+        $this->postJson(route('pelaporan.import-preview.correct'), $payload)->assertUnprocessable();
+        $this->assertSame(0, DB::table('pelaporans')->count());
+    }
+
+    public function test_inline_financial_correction_remains_blocked_through_free_remap_and_can_be_restored(): void
+    {
+        $owner = $this->seedResolvedXxiMappings();
+        DB::table('type_tikets')->insert(['uuid'=>'free-ticket','name'=>'FREE PASS','kategori'=>'xxi-category']);
+        DB::table('kapasitas')->insert(['uuid'=>'free-capacity','kategori'=>'xxi-category','nama_bioskop'=>'xxi-cinema','type_tiket'=>'free-ticket','studio'=>'1']);
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.xxi'), ['file'=>$this->makeXxiFreePassFile()])->assertOk();
+        $payload = ['provider'=>'XXI','token'=>$preview->json('token'),'row_id'=>$preview->json('preview.0.row_id'),'changes'=>['jumlah'=>11],'reason'=>'Koreksi sumber'];
+        $edited = $this->postJson(route('pelaporan.import-preview.correct'), $payload)->assertOk();
+        $this->assertStringContainsString('Rekonsiliasi sumber', implode(' ', $edited->json('blocking_issues')));
+        $assigned = $this->postJson(route('pelaporan.upload.xxi.assign-free'), ['token'=>$payload['token'],'assignment_key'=>$preview->json('pending_free_assignments.0.key'),'show'=>1])->assertOk();
+        $this->assertNotSame($assigned->json('preview.0.row_id'), $assigned->json('preview.1.row_id'));
+        $this->postJson(route('pelaporan.upload.xxi.confirm'), ['token'=>$payload['token']])->assertUnprocessable();
+        $this->postJson(route('pelaporan.import-preview.correct'), array_replace($payload, ['changes'=>['jumlah'=>10]]))->assertOk()->assertJsonPath('blocking_issues', []);
+        $this->postJson(route('pelaporan.upload.xxi.confirm'), ['token'=>$payload['token']])->assertOk();
+        $this->assertSame(2, DB::table('pelaporans')->count());
+        $this->assertStringContainsString('Koreksi sumber', DB::table('report_upload_histories')->value('message'));
+    }
+
+    public function test_inline_corrections_work_for_cgv_sams_and_nsc_and_survive_quick_master(): void
+    {
+        $owner = $this->createUser();
+        foreach (['cgv'=>['CGV','makeCgvFile'], 'sams'=>['SAMS STUDIOS','makeSamsFile'], 'nsc'=>['NSC','makeNscFile']] as $slug => [$provider,$factory]) {
+            DB::table('kategori_bioskops')->insert(['uuid'=>$slug,'name'=>$provider]);
+            $preview = $this->actingAs($owner)->post(route('pelaporan.upload.'.$slug), ['file'=>$this->$factory()])->assertOk();
+            $first = $preview->json('preview.0');
+            DB::table('master_bioskops')->insert(['uuid'=>$slug.'-cinema','type'=>$slug,'nama_bioskop'=>$first['source_cinema'],'kota'=>'JAKARTA','pajak'=>'10']);
+            DB::table('master_films')->insert(['uuid'=>$slug.'-film','name'=>$first['nama_film']]);
+            foreach (array_unique(array_column($preview->json('preview'),'ticket_name')) as $i=>$ticket) {
+                DB::table('type_tikets')->insert(['uuid'=>$slug.'-ticket-'.$i,'kategori'=>$slug,'name'=>$ticket]);
+                DB::table('kapasitas')->insert(['uuid'=>$slug.'-capacity-'.$i,'kategori'=>$slug,'nama_bioskop'=>$slug.'-cinema','type_tiket'=>$slug.'-ticket-'.$i,'studio'=>preg_replace('/[^0-9]/','',$first['studio'])]);
+            }
+            $payload = ['provider'=>$provider,'token'=>$preview->json('token'),'row_id'=>$first['row_id'],'changes'=>['jam_tayang'=>'09:15'],'reason'=>'Koreksi jam sumber'];
+            $this->postJson(route('pelaporan.import-preview.correct'), $payload)->assertOk()->assertJsonPath('preview.0.jam_tayang','09:15')->assertJsonPath('blocking_issues',[]);
+            $this->postJson(route('pelaporan.upload.'.$slug.'.quick-master'), ['token'=>$payload['token'],'resource'=>'capacity','source_row'=>$first['source_row'],'studio'=>$first['studio'],'ticket_name'=>$first['ticket_name'],'kapasitas'=>100])->assertOk()->assertJsonPath('preview.0.jam_tayang','09:15')->assertJsonPath('preview.0.row_id',$first['row_id']);
+            $this->postJson(route('pelaporan.upload.'.$slug.'.confirm'), ['token'=>$payload['token']])->assertOk();
+            $this->assertDatabaseHas('pelaporans',['kategori'=>$slug,'jam_tayang'=>'09:15']);
+        }
     }
 
     private function seedResolvedXxiMappings(): User
