@@ -82,6 +82,13 @@ class NscXlsxParser
         $cinema = $this->cleanName($site);
         $film = $this->cleanName($film);
         $reportDate = $this->parseDate($date);
+        $priceColumn = 3;
+        foreach ($source[$headerIndex] as $column => $value) {
+            if ($this->normalize($value) === 'PRICE') {
+                $priceColumn = (int) $column;
+                break;
+            }
+        }
         $columnGroups = [];
         foreach ($source[$headerIndex] as $column => $value) {
             if (preg_match('/^\d+(?:ST|ND|RD|TH)\s+SHOWTIME$/i', trim((string) $value))) {
@@ -91,6 +98,20 @@ class NscXlsxParser
         if (!$columnGroups) {
             $columnGroups = range(4, 22, 3);
         }
+        $totalColumn = null;
+        $totalSalesColumn = null;
+        foreach ($source[$headerIndex] as $column => $value) {
+            $header = $this->normalize($value);
+            if ($header === 'TOTAL') {
+                $totalColumn = (int) $column;
+            }
+            if ($header === 'TOTAL SALES') {
+                $totalSalesColumn = (int) $column;
+            }
+        }
+        $totalPaidColumn = $totalColumn ?? 25;
+        $totalFreeColumn = $totalColumn === null ? 26 : $totalColumn + 1;
+        $totalSalesColumn ??= 27;
 
         $rows = [];
         $warnings = [];
@@ -106,7 +127,7 @@ class NscXlsxParser
             }
 
             $studio = trim((string) ($line[0] ?? ''));
-            $price = $this->money($line[3] ?? null);
+            $price = $this->money($line[$priceColumn] ?? null);
             if ($studio === '' || $price === null) {
                 continue;
             }
@@ -127,9 +148,9 @@ class NscXlsxParser
                 continue;
             }
 
-            $rowPaid = $this->number($line[25] ?? null);
-            $rowFree = $this->number($line[26] ?? null);
-            $rowSales = $this->money($line[27] ?? null) ?? 0.0;
+            $rowPaid = $this->number($line[$totalPaidColumn] ?? null);
+            $rowFree = $this->number($line[$totalFreeColumn] ?? null);
+            $rowSales = $this->money($line[$totalSalesColumn] ?? null) ?? 0.0;
             $detailPaid = array_sum(array_column($active, 'paid'));
             $detailFree = array_sum(array_column($active, 'free'));
             if (abs($rowSales - ($rowPaid * $price)) > 0.01 || abs($rowSales - array_sum(array_map(fn ($item) => $item['paid'] * $price, $active))) > 0.01) {
@@ -184,16 +205,27 @@ class NscXlsxParser
 
     private function findLabelValue(array $rows, string $label): ?string
     {
+        $expectedLabel = $this->normalize($label);
         foreach ($rows as $row) {
-            $rowLabel = trim(rtrim($this->normalize($row[0] ?? ''), ':'));
-            $expectedLabel = $this->normalize($label);
+            $rawLabel = trim((string) ($row[0] ?? ''));
+            $normalizedRawLabel = $this->normalize($rawLabel);
+            $rowLabel = trim(rtrim($normalizedRawLabel, ':'));
+            $inlineValue = null;
+            if (preg_match('/^'.preg_quote($expectedLabel, '/').'\s*:\s*(.+)$/u', $normalizedRawLabel, $match)) {
+                $inlineValue = trim($match[1]);
+            }
             $hasSiteCode = $expectedLabel === 'SITE' && preg_match('/^SITE\s*:\s*\d+$/', $rowLabel);
-            if ($rowLabel === $expectedLabel || $hasSiteCode) {
+            if ($rowLabel === $expectedLabel || $hasSiteCode || $inlineValue !== null) {
+                $inlineIsSiteCode = $expectedLabel === 'SITE' && $inlineValue !== null && preg_match('/^\d+$/', $inlineValue);
+                if ($inlineValue !== null && $inlineValue !== '' && $inlineValue !== '-' && !$inlineIsSiteCode) {
+                    return $inlineValue;
+                }
                 foreach (array_slice($row, 1) as $value) {
                     $value = trim((string) $value);
-                    if ($value !== '') {
-                        return $value;
+                    if ($value === '' || $value === ':' || $value === '-') {
+                        continue;
                     }
+                    return $value;
                 }
                 return null;
             }
@@ -211,10 +243,15 @@ class NscXlsxParser
     {
         try {
             if (is_numeric($value)) return ExcelDate::excelToDateTimeObject($value)->format('Y-m-d');
+            $value = trim((string) $value);
             foreach (['m/d/Y', 'd-M-y', 'd-M-Y', 'd/m/Y', 'Y-m-d'] as $format) {
-                try { return Carbon::createFromFormat($format, trim((string) $value))->format('Y-m-d'); } catch (\Throwable $e) {}
+                $parsed = \DateTimeImmutable::createFromFormat('!'.$format, $value);
+                $errors = \DateTimeImmutable::getLastErrors();
+                if ($parsed !== false && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))) {
+                    return $parsed->format('Y-m-d');
+                }
             }
-            return Carbon::parse((string) $value)->format('Y-m-d');
+            return Carbon::parse($value)->format('Y-m-d');
         } catch (\Throwable $e) {
             throw new \InvalidArgumentException('Tanggal laporan NSC tidak dapat dibaca: '.$value.'.');
         }

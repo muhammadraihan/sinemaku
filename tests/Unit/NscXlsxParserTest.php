@@ -111,6 +111,56 @@ class NscXlsxParserTest extends TestCase
     }
 
     /** @test */
+    public function it_parses_separator_metadata_and_price_column_from_real_nsc_layout(): void
+    {
+        $rows = [
+            ['TICKET SALES REPORT'],
+            ['Site', ':', 'NSC HAVANA JAJAG'],
+            ['Address', ':', 'Alamat'],
+            [],
+            ['Distributor', ':', 'Sinemaku Pictures'],
+            ['Movie Title', ':', 'MEMBURU PEMANGSA'],
+            ['Show Date', ':', '27 September 2026'],
+            [],
+            ['Cinema', null, 'Movie Format', 'Seat Grade', 'Price', '1st Showtime', null, null, '2nd Showtime', null, null, '3rd Showtime', null, null, '4th Showtime', null, null, '5th Showtime', null, null, '6th Showtime', null, null, 'Total', null, 'Total Sales'],
+            [null, null, null, null, null, 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Time', 'Paid', 'Free', 'Paid', 'Free'],
+            ['2', null, '2D', 'Regular', ' Rp 35,000 ', null, null, null, null, null, null, '14:00', 8, 0, null, null, null, null, null, null, null, null, null, 8, 0, ' Rp 280,000 '],
+            ['Grand Total', null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 8, 0, ' Rp 280,000 '],
+        ];
+        $path = $this->workbook(['Format' => $rows]);
+
+        $result = (new NscXlsxParser())->parse($path);
+
+        $this->assertSame('NSC HAVANA JAJAG', $result['cinema_name']);
+        $this->assertSame('2026-09-27', $result['report_date']);
+        $this->assertSame([8.0], array_column($result['rows'], 'jumlah'));
+        $this->assertSame([35000.0], array_column($result['rows'], 'harga'));
+        $this->assertSame(['14:00'], array_column($result['rows'], 'jam_tayang'));
+        $this->assertSame(280000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
+    public function it_parses_inline_metadata_values_from_nsc_nganjuk_layout(): void
+    {
+        $rows = $this->sheetRows('NSC NGANJUK', '27/09/2026', [
+            ['2', '2D', 'Regular', ' Rp 35,000 ', '10:30', 0, 0, '12:35', 0, 0, '14:00', 0, 0, '16:20', 0, 0, '18:45', 11, 0],
+        ], [11, 0, 385000]);
+        $rows[1] = ['Site : NSC NGANJUK'];
+        $rows[5] = ['Movie Title : MEMBURU PEMANGSA'];
+        $rows[6] = ['Show Date : 27/09/2026'];
+        $path = $this->workbook(['Format' => $rows]);
+
+        $result = (new NscXlsxParser())->parse($path);
+
+        $this->assertSame('NSC NGANJUK', $result['cinema_name']);
+        $this->assertSame('MEMBURU PEMANGSA', $result['film_name']);
+        $this->assertSame('2026-09-27', $result['report_date']);
+        $this->assertSame(['18:45'], array_column($result['rows'], 'jam_tayang'));
+        $this->assertSame([11.0], array_column($result['rows'], 'jumlah'));
+        $this->assertSame(385000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
     public function it_rejects_sales_that_do_not_reconcile_with_paid_total(): void
     {
         $path = $this->workbook([
