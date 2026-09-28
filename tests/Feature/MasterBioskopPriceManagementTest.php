@@ -163,6 +163,17 @@ class MasterBioskopPriceManagementTest extends TestCase
             "const last=steps()-1;showStep(current>last?last:current)",
             $create
         );
+        // The stage must take the leftover space and the footer must keep its own
+        // height, so the action buttons stay inside the viewport instead of sinking
+        // below the fold when the panel is shorter than its fixed 780px default.
+        $this->assertStringContainsString('#cinema-wizard-form{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}', $create);
+        $this->assertStringContainsString('.wizard-pane-stage{flex:1 1 auto', $create);
+        $this->assertStringContainsString('justify-content:space-between;gap:12px;flex:0 0 auto}', $create);
+        $this->assertStringContainsString('function fitWizard()', $create);
+        $this->assertStringContainsString("$(window).on('resize',fitWizard)", $create);
+        $this->assertStringContainsString('fitWizard();$(window).on', $create);
+        $this->assertStringNotContainsString('height:780px;display:flex', $create);
+
         $this->assertStringContainsString('id="cinema-edit-wizard"', $edit);
         $this->assertStringContainsString('data-edit-pane="identity"', $edit);
         $this->assertStringContainsString('data-edit-pane="prices"', $edit);
