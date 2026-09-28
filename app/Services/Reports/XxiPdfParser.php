@@ -117,6 +117,7 @@ class XxiPdfParser
         $filmName = $this->filmName($lines);
         $reportDate = $this->reportDate($lines);
         $printedTotals = $this->printedTotals($lines);
+        $showColumns = $this->showColumnCount($lines);
         $rows = [];
         $pending = [];
         $sourcePtn = 0;
@@ -132,9 +133,9 @@ class XxiPdfParser
             }
 
             $sourceRow = $index + 1;
-            $parsed = $this->sourceRow($line);
+            $parsed = $this->sourceRow($line, $showColumns);
             if ($parsed === null && isset($lines[$index - 1]) && $this->isCinemaFragment($lines[$index - 1])) {
-                $parsed = $this->sourceRow($lines[$index - 1].' '.$line);
+                $parsed = $this->sourceRow($lines[$index - 1].' '.$line, $showColumns);
                 if ($parsed !== null) {
                     $sourceRow--;
                 }
@@ -146,7 +147,7 @@ class XxiPdfParser
             // show-total/PTN reconciliation below reject any join that is not a
             // real row.
             if ($parsed === null && isset($lines[$index + 1]) && $this->isCinemaFragment($lines[$index + 1])) {
-                $joined = $this->sourceRow($lines[$index + 1].' '.$line);
+                $joined = $this->sourceRow($lines[$index + 1].' '.$line, $showColumns);
                 if ($joined !== null) {
                     $parsed = $joined;
                 }
@@ -156,8 +157,8 @@ class XxiPdfParser
                     throw new \InvalidArgumentException(
                         'Baris sumber XXI '.$sourceRow.' malformed dan tidak dapat ditebak.'
                         .' Isi baris: "'.$line.'"'
-                        .($this->nearestCinemaName($lines, $index) !== null
-                            ? ' Nama bioskop terdekat: "'.$this->nearestCinemaName($lines, $index).'".'
+                        .(($nearest = $this->nearestCinemaName($lines, $index, $showColumns)) !== null
+                            ? ' Nama bioskop terdekat: "'.$nearest.'".'
                             : '')
                     );
                 }
@@ -169,7 +170,7 @@ class XxiPdfParser
 
             $cinema = $parsed['cinema'];
             if ($cinema === '') {
-                $cinema = $this->wrappedCinemaName($lines, $index, $currentCinema);
+                $cinema = $this->wrappedCinemaName($lines, $index, $currentCinema, $showColumns);
             }
             if ($cinema === '') {
                 throw new \InvalidArgumentException('Nama cinema tidak dapat dibaca pada baris sumber XXI '.$sourceRow.'.');
@@ -287,15 +288,40 @@ class XxiPdfParser
         throw new \InvalidArgumentException('Tanggal show/laporan tidak dapat dibaca dari PDF XXI.');
     }
 
-    private function sourceRow(string $line): ?array
+    /**
+     * Number of show columns in this report, read from the `1 2 3 ... PTN FP`
+     * header row.
+     *
+     * The generator emits six show columns when the report is generated before
+     * a midnight screening is scheduled and seven once it is, so the count must
+     * come from the source rather than being assumed.
+     */
+    private function showColumnCount(array $lines): int
+    {
+        foreach ($lines as $line) {
+            // The header may be its own line ("1 2 3 4 5 6 PTN FP") or part of the
+            // CINEMA/St/Kp header line, so it is matched anywhere before "PTN FP".
+            if (preg_match('/(?:^|\s)(1\s+2(?:\s+3(?:\s+4(?:\s+5(?:\s+6(?:\s+7)?)?)?)?)?)\s+PTN\s+FP$/u', $line, $match) === 1) {
+                return count(preg_split('/\s+/', trim($match[1])));
+            }
+        }
+
+        return 7;
+    }
+
+    private function sourceRow(string $line, int $showColumns): ?array
     {
         $token = '(?:-|\d[\d,]*)';
-        if (!preg_match('/^(.*?)\s+(\d+)\s+(\d[\d,]*)\s+('.$token.')\s+('.$token.')\s+('.$token.')\s+('.$token.')\s+('.$token.')\s+('.$token.')\s+('.$token.')\s+(\d[\d,]*)\s+('.$token.')$/u', $line, $match)) {
+        $pattern = '/^(.*?)\s+(\d+)\s+(\d[\d,]*)\s+'
+            .implode('\s+', array_fill(0, $showColumns, '('.$token.')'))
+            .'\s+(\d[\d,]*)\s+('.$token.')$/u';
+
+        if (!preg_match($pattern, $line, $match)) {
             return null;
         }
 
         $shows = [];
-        for ($show = 1; $show <= 7; $show++) {
+        for ($show = 1; $show <= $showColumns; $show++) {
             $shows[$show] = $this->integerToken($match[$show + 3]);
         }
 
@@ -304,8 +330,8 @@ class XxiPdfParser
             'studio' => (int) $match[2],
             'capacity' => $this->integerToken($match[3]),
             'shows' => $shows,
-            'ptn' => $this->integerToken($match[11]),
-            'fp' => $this->integerToken($match[12]),
+            'ptn' => $this->integerToken($match[$showColumns + 4]),
+            'fp' => $this->integerToken($match[$showColumns + 5]),
         ];
     }
 
@@ -320,7 +346,7 @@ class XxiPdfParser
         return $found;
     }
 
-    private function wrappedCinemaName(array $lines, int $rowIndex, ?string $currentCinema): string
+    private function wrappedCinemaName(array $lines, int $rowIndex, ?string $currentCinema, int $showColumns): string
     {
         $parts = [];
         for ($offset = -2; $offset <= 2; $offset++) {
@@ -328,7 +354,7 @@ class XxiPdfParser
                 continue;
             }
             $candidate = $lines[$rowIndex + $offset];
-            if ($candidate === '' || $this->sourceRow($candidate) !== null || !$this->isCinemaFragment($candidate)) {
+            if ($candidate === '' || $this->sourceRow($candidate, $showColumns) !== null || !$this->isCinemaFragment($candidate)) {
                 continue;
             }
             $parts[] = $candidate;
@@ -348,7 +374,7 @@ class XxiPdfParser
      * reads it from `P+1`, so reporting what the parser would have joined makes
      * the failure diagnosable without the PDF at hand.
      */
-    private function nearestCinemaName(array $lines, int $rowIndex): ?string
+    private function nearestCinemaName(array $lines, int $rowIndex, int $showColumns): ?string
     {
         foreach ([[1, 2], [-1, -2]] as [$from, $to]) {
             $parts = [];
@@ -358,7 +384,7 @@ class XxiPdfParser
                     break;
                 }
                 $candidate = $lines[$index];
-                if ($candidate === '' || $this->sourceRow($candidate) !== null || !$this->isCinemaFragment($candidate)) {
+                if ($candidate === '' || $this->sourceRow($candidate, $showColumns) !== null || !$this->isCinemaFragment($candidate)) {
                     break;
                 }
                 $parts[] = $candidate;

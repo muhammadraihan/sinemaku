@@ -121,6 +121,60 @@ class XxiPdfDoctorTest extends TestCase
             $this->assertStringContainsString('Isi baris:', $exception->getMessage());
         }
     }
+    /**
+     * Reports generated before a midnight screening is scheduled carry six show
+     * columns instead of seven. Assuming seven read PTN as a show count and
+     * aborted with "baris malformed", so the count must come from the header.
+     */
+    public function test_report_with_six_show_columns_parses_correctly(): void
+    {
+        $pdf = tempnam(sys_get_temp_dir(), 'xxi-six-').'.pdf';
+        copy(base_path('tests/Fixtures/xxi-report-six-shows.pdf'), $pdf);
+
+        try {
+            $result = (new XxiPdfParser())->parse($pdf);
+
+            $this->assertSame('2026-09-27', $result['report_date']);
+            $this->assertSame(4, count($result['rows']));
+            $this->assertSame(['ptn' => 149, 'fp' => 0], $result['source_totals']);
+
+            // Only shows 1-6 exist in this report; 23:00 (show 7) must not appear.
+            $shows = array_values(array_unique(array_map(fn (array $row) => (int) $row['show'], $result['rows'])));
+            sort($shows);
+            $this->assertSame([4, 5, 6], $shows);
+
+            $showtimes = array_values(array_unique(array_map(fn (array $row) => $row['jam_tayang'], $result['rows'])));
+            $this->assertNotContains('23:00', $showtimes);
+
+            // The parsed detail must reconcile with the printed source total.
+            $this->assertSame(
+                $result['source_totals']['ptn'],
+                array_sum(array_map(fn (array $row) => $row['jumlah'], $result['rows']))
+            );
+            $this->assertSame('ARION XXI', $result['rows'][0]['source_cinema']);
+        } finally {
+            @unlink($pdf);
+        }
+    }
+
+    /**
+     * Both layouts must be read from the same code path: the header decides the
+     * column count, so each report keeps its own show range.
+     */
+    public function test_seven_column_report_still_reads_show_seven(): void
+    {
+        $pdf = tempnam(sys_get_temp_dir(), 'xxi-seven-').'.pdf';
+        copy(base_path('tests/Fixtures/xxi-report.pdf'), $pdf);
+
+        try {
+            $result = (new XxiPdfParser())->parse($pdf);
+
+            $this->assertSame(['ptn' => 290, 'fp' => 4], $result['source_totals']);
+        } finally {
+            @unlink($pdf);
+        }
+    }
+
     /** The built-in path must be what the parser uses when no binary exists. */
     public function test_parser_prefers_built_in_extractor_over_a_missing_binary(): void
     {
