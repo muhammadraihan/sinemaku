@@ -12,6 +12,71 @@ class XxiPdfDoctorCommand extends Command
 
     protected $description = 'Periksa kesiapan ekstraksi PDF XXI (proc_open, pdftotext, dan hasil ekstraksi)';
 
+    private function finish(\App\Services\Reports\RemotePdfTextExtractor $remote): int
+    {
+        $pdf = (string) $this->option('pdf');
+        if ($pdf === '') {
+            $this->line('Uji ekstraksi dilewati (tanpa --pdf).');
+
+            return self::SUCCESS;
+        }
+
+        if (!is_readable($pdf)) {
+            $this->line('<error>GAGAL</error> File tidak dapat dibaca: '.$pdf);
+
+            return self::FAILURE;
+        }
+
+        try {
+            $result = app(\App\Services\Reports\XxiPdfParser::class)->parse($pdf);
+            $this->line('<info>OK</info> Ekstraksi berhasil: '.count($result['rows']).' baris, tanggal '.$result['report_date'].'.');
+
+            return self::SUCCESS;
+        } catch (Throwable $exception) {
+            $this->line('<error>GAGAL</error> '.$exception->getMessage());
+
+            return self::FAILURE;
+        }
+    }
+
+    private function binaryIsUsable(string $binary): bool
+    {
+        try {
+            $process = new Process([$binary, '-v']);
+            $process->setTimeout(15);
+            $process->run();
+        } catch (Throwable $exception) {
+            return false;
+        }
+
+        $output = $process->getOutput().$process->getErrorOutput();
+
+        return $process->getExitCode() !== 127
+            && preg_match('/(?:not found|command not found|No such file)/i', $output) !== 1;
+    }
+
+    private function binaryVersion(string $binary): string
+    {
+        $process = new Process([$binary, '-v']);
+        $process->setTimeout(15);
+        $process->run();
+
+        return $process->getOutput().$process->getErrorOutput();
+    }
+
+    private function candidateBinaries(): array
+    {
+        return array_values(array_filter(array_unique([
+            (string) config('services.pdftotext.binary', 'pdftotext'),
+            'pdftotext',
+            '/usr/bin/pdftotext',
+            '/usr/local/bin/pdftotext',
+            '/opt/homebrew/bin/pdftotext',
+            '/usr/local/poppler/bin/pdftotext',
+            '/usr/local/poppler-utils/bin/pdftotext',
+        ])));
+    }
+
     public function handle(): int
     {
         $this->line('PHP '.PHP_VERSION.' ('.PHP_SAPI.')');
@@ -25,20 +90,36 @@ class XxiPdfDoctorCommand extends Command
             $this->line('<error>GAGAL</error> Fungsi dinonaktifkan: '.implode(', ', $blocked));
         }
 
+        $remote = app(\App\Services\Reports\RemotePdfTextExtractor::class);
+        if ($remote->configured()) {
+            $this->line('Mode ekstraksi: layanan VPS ('.config('services.pdf_extract.url').')');
+        } else {
+            $this->line('Mode ekstraksi: binary lokal');
+        }
+
         $binary = (string) config('services.pdftotext.binary', 'pdftotext');
         $this->line('Binary pdftotext: '.$binary);
 
-        try {
-            $version = new Process([$binary, '-v']);
-            $version->setTimeout(15);
-            $version->run();
-            $this->line('<info>OK</info> pdftotext dapat dijalankan: '.trim($version->getOutput().$version->getErrorOutput()));
-        } catch (Throwable $exception) {
-            $this->line('<error>GAGAL</error> pdftotext tidak dapat dijalankan: '.$exception->getMessage());
-            $this->line('Minta penyedia hosting memasang poppler-utils atau isi path absolutnya pada XXL_PDFTOTEXT_BINARY.');
+        if ($remote->configured()) {
+            return $this->finish($remote);
+        }
+
+        if (!$this->binaryIsUsable($binary)) {
+            $this->line('<error>GAGAL</error> Binary pdftotext tidak ditemukan atau tidak dapat dijalankan: '.$binary);
+
+            foreach ($this->candidateBinaries() as $candidate) {
+                if ($candidate !== $binary && $this->binaryIsUsable($candidate)) {
+                    $this->line('<info>PETUNJUK</info> Kandidat yang berfungsi: '.$candidate);
+                    $this->line('Setel XXI_PDFTOTEXT_BINARY='.$candidate.' pada .env lalu jalankan ulang perintah ini.');
+                }
+            }
+
+            $this->line('Jika tidak ada kandidat, minta hosting memasang poppler-utils (shared hosting Hostinger tidak menyediakannya).');
 
             return self::FAILURE;
         }
+
+        $this->line('<info>OK</info> pdftotext dapat dijalankan: '.trim($this->binaryVersion($binary)));
 
         $pdf = (string) $this->option('pdf');
         if ($pdf === '') {

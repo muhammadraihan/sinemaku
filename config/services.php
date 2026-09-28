@@ -32,6 +32,15 @@ return [
 
     'pdftotext' => [
         'binary' => env('XXI_PDFTOTEXT_BINARY', 'pdftotext'),
+        // Built-in pure-PHP extractor: works without Poppler, so shared hosting
+        // never needs a VPS. Disable to force the binary or the remote service.
+        'builtin' => (bool) env('XXI_PDFTOTEXT_BUILTIN', true),
+    ],
+
+    'pdf_extract' => [
+        'url' => env('PDF_EXTRACT_URL'),
+        'secret' => env('PDF_EXTRACT_SECRET'),
+        'timeout' => (int) env('PDF_EXTRACT_TIMEOUT', 90),
     ],
 
     'cinepoint_ingest' => [

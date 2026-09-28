@@ -23,31 +23,64 @@ class XxiPdfParser
             throw new \InvalidArgumentException('File PDF XXI tidak dapat dibaca.');
         }
 
+        $extractor = app(RemotePdfTextExtractor::class);
+
+        $binary = (string) config('services.pdftotext.binary', 'pdftotext');
+        if ($this->binaryIsUsable($binary)) {
+            return $this->parseText($this->extractWithBinary($realPath, $binary));
+        }
+
+        // No external binary (shared hosting). The distributor reports use
+        // standard RC4 encryption with an empty user password, so the built-in
+        // extractor recovers the text in pure PHP. An unsupported variant
+        // (for example AES) throws here and falls through to the remote service.
+        $builtInReason = 'Ekstraksi PDF bawaan tidak tersedia';
+        if ((bool) config('services.pdftotext.builtin', true)) {
+            try {
+                return $this->parseText(app(PdfTextExtractor::class)->extract($realPath));
+            } catch (\RuntimeException $exception) {
+                $builtInReason = $exception->getMessage();
+            }
+        }
+
+        if ($extractor->configured()) {
+            return $this->parseText($extractor->extract($realPath));
+        }
+
+        throw new \RuntimeException($builtInReason.'. Pasang poppler-utils, atur XXI_PDFTOTEXT_BINARY ke path absolutnya, atau konfigurasikan layanan ekstraksi PDF di VPS.');
+    }
+
+    private function binaryIsUsable(string $binary): bool
+    {
+        if (!function_exists('proc_open') || $binary === '') {
+            return false;
+        }
+
+        try {
+            $process = new Process([$binary, '-v']);
+            $process->setTimeout(10);
+            $process->run();
+        } catch (\Symfony\Component\Process\Exception\RuntimeException $exception) {
+            return false;
+        }
+
+        return $process->isSuccessful() || $process->getExitCode() !== 127;
+    }
+
+    private function extractWithBinary(string $realPath, string $binary): string
+    {
         $outputPath = tempnam(sys_get_temp_dir(), 'xxi-pdf-');
         if ($outputPath === false) {
             throw new \RuntimeException('File sementara untuk ekstraksi PDF tidak dapat dibuat.');
         }
 
         try {
-            $binary = (string) config('services.pdftotext.binary', 'pdftotext');
-            if (!function_exists('proc_open')) {
-                throw new \RuntimeException('Fungsi PHP proc_open dinonaktifkan pada server ini, sehingga PDF XXI tidak dapat diekstrak. Aktifkan proc_open atau gunakan import Excel XXI.');
-            }
-
-            try {
-                $process = new Process([$binary, '-layout', $realPath, $outputPath]);
-                $process->setTimeout(60);
-                $process->run();
-            } catch (\Symfony\Component\Process\Exception\RuntimeException $exception) {
-                throw new \RuntimeException('Binary pdftotext tidak tersedia pada server ini ('.$binary.'). Pasang poppler-utils atau atur XXI_PDFTOTEXT_BINARY ke path absolutnya.');
-            }
+            $process = new Process([$binary, '-layout', $realPath, $outputPath]);
+            $process->setTimeout(60);
+            $process->run();
 
             if (!$process->isSuccessful()) {
                 $error = trim($process->getErrorOutput());
-                if ($process->getExitCode() === 127 || preg_match('/(?:not found|command not found|No such file)/i', $error) === 1) {
-                    throw new \RuntimeException('Binary pdftotext tidak tersedia pada server ini ('.$binary.'). Pasang poppler-utils atau atur XXI_PDFTOTEXT_BINARY ke path absolutnya.');
-                }
-
                 throw new \InvalidArgumentException('Isi PDF XXI tidak dapat diekstrak dengan pdftotext -layout: '.$error);
             }
 
@@ -56,7 +89,7 @@ class XxiPdfParser
                 throw new \InvalidArgumentException('Isi PDF XXI kosong atau tidak memiliki text layer.');
             }
 
-            return $this->parseText($text);
+            return $text;
         } finally {
             @unlink($outputPath);
         }
