@@ -143,6 +143,26 @@ class MasterBioskopPriceManagementTest extends TestCase
         $this->assertStringContainsString('data-price-step', $create);
         $this->assertStringContainsString("toUpperCase()==='XXI'", $create);
         $this->assertStringContainsString("name=\"ticket_price[weekday_price]\"", $create);
+
+        // The step bar must not be allowed to collapse inside the flex column: with
+        // height:780px on the panel and no flex-basis, the auto minimum size of this
+        // `overflow:auto` row is 0, so it was squeezed to a 1px sliver and the step
+        // labels vanished. Regression guard for that layout collapse.
+        $this->assertMatchesRegularExpression(
+            '/\.wizard-steps\{[^}]*flex:0 0 auto[^}]*\}/',
+            $create
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.wizard-steps\{[^}]*min-height:64px[^}]*\}/',
+            $create
+        );
+
+        // Choosing a category must re-evaluate the step list, otherwise the XXI-only
+        // price step never appears after the category select changes.
+        $this->assertStringContainsString(
+            "const last=steps()-1;showStep(current>last?last:current)",
+            $create
+        );
         $this->assertStringContainsString('id="cinema-edit-wizard"', $edit);
         $this->assertStringContainsString('data-edit-pane="identity"', $edit);
         $this->assertStringContainsString('data-edit-pane="prices"', $edit);
