@@ -77,4 +77,32 @@ class XxiPdfDoctorTest extends TestCase
             @unlink($pdf);
         }
     }
+
+    /**
+     * The production case: a path is configured (the default "pdftotext") but no
+     * binary exists. A missing binary exits 127 through the shell without
+     * throwing, so this must fall through to the built-in extractor rather than
+     * reporting an extraction failure.
+     */
+    public function test_configured_but_absent_binary_still_uses_the_built_in_extractor(): void
+    {
+        config([
+            'services.pdftotext.binary' => '/tidak-ada/pdftotext',
+            'services.pdftotext.builtin' => true,
+            'services.pdf_extract.url' => '',
+            'services.pdf_extract.secret' => '',
+        ]);
+
+        $pdf = tempnam(sys_get_temp_dir(), 'xxi-absent-').'.pdf';
+        copy(base_path('tests/Fixtures/xxi-report.pdf'), $pdf);
+
+        try {
+            $result = (new XxiPdfParser())->parse($pdf);
+
+            $this->assertSame(['ptn' => 290, 'fp' => 4], $result['source_totals']);
+            $this->assertSame(6, count($result['rows']));
+        } finally {
+            @unlink($pdf);
+        }
+    }
 }

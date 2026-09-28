@@ -7,15 +7,38 @@
 > `16MPEA_20260926.pdf`: **534 baris, PTN 16.274, FP 47, tanggal 2026-09-26** —
 > identik dengan hasil `pdftotext`.
 >
-> **Langkah yang perlu Anda lakukan di Hostinger sekarang hanya tiga:**
+> **Langkah yang perlu Anda lakukan di Hostinger sekarang hanya dua:**
 >
 > ```sh
 > php artisan config:cache
-> php artisan xxi:pdf-doctor --pdf=/path/laporan-xxi.pdf
+> php artisan xxi:pdf-doctor
 > ```
 >
-> lalu unggah PDF XXI lewat backoffice seperti biasa. Harus muncul
-> `OK Ekstraksi berhasil: ... baris`. Bila muncul `Mode ekstraksi: ...` yang
+> Perintah tanpa `--pdf` sudah cukup untuk memastikan import siap: ia akan
+> menampilkan `Jalur 2 (ekstraktor bawaan PHP): AKTIF`. Bila ingin menguji dengan
+> berkas nyata, lihat bagian **Soal `--pdf`** di bawah.
+>
+> **Soal `--pdf`: Anda tidak perlu tahu path absolut.** Cara termudah — taruh PDF
+> di `storage/app`, lalu sebutkan namanya saja:
+>
+> ```sh
+> php artisan xxi:pdf-doctor --pdf=laporan-xxi.pdf
+> ```
+>
+> Bingung menaruh di mana? Jalankan perintah **tanpa `--pdf`**; hasilnya
+> mencetak sendiri folder yang bisa dipakai beserta path absolutnya, contoh:
+>
+> ```text
+> Tempel PDF Anda di salah satu folder ini, lalu sebutkan nama berkasnya saja:
+>   /home/username/domains/domain-anda/storage/app (ada)
+>   /home/username/domains/domain-anda (ada)
+> ```
+>
+> Path absolut boleh disalin langsung dari situ, misalnya
+> `--pdf=/home/username/.../storage/app/laporan-xxi.pdf`. Bila berkas tidak
+> ditemukan, perintah juga memberi tahu path mana saja yang sudah dicoba.
+>
+> Harus muncul `OK Ekstraksi berhasil: ... baris`. Bila muncul keterangan yang
 > menyebut layanan VPS padahal Anda tidak memasangnya, kosongkan `PDF_EXTRACT_URL`
 > di `.env` lalu ulangi `config:cache`.
 >

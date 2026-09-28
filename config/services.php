@@ -34,7 +34,7 @@ return [
         'binary' => env('XXI_PDFTOTEXT_BINARY', 'pdftotext'),
         // Built-in pure-PHP extractor: works without Poppler, so shared hosting
         // never needs a VPS. Disable to force the binary or the remote service.
-        'builtin' => (bool) env('XXI_PDFTOTEXT_BUILTIN', true),
+        'builtin' => filter_var(env('XXI_PDFTOTEXT_BUILTIN', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
     ],
 
     'pdf_extract' => [

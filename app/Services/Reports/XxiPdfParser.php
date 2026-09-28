@@ -64,7 +64,19 @@ class XxiPdfParser
             return false;
         }
 
-        return $process->isSuccessful() || $process->getExitCode() !== 127;
+        // A missing binary makes the *shell* exit 127 without throwing, so the
+        // exit code alone is not enough: a configured-but-absent path (the
+        // Hostinger shared-hosting case) must be reported as unusable, or the
+        // built-in extractor never gets a chance to run.
+        if ($process->getExitCode() === 127) {
+            return false;
+        }
+
+        if (preg_match('/(?:not found|command not found|No such file|cannot execute)/i', $process->getOutput().$process->getErrorOutput()) === 1) {
+            return false;
+        }
+
+        return $process->isSuccessful();
     }
 
     private function extractWithBinary(string $realPath, string $binary): string
