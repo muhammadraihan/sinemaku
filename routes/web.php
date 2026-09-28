@@ -62,6 +62,7 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::get('pelaporan/upload-history', [PelaporanController::class, 'uploadHistory'])
         ->name('pelaporan.upload-history');
     Route::post('pelaporan/import-preview/correct', [PelaporanController::class, 'correctImportPreview'])->name('pelaporan.import-preview.correct');
+    Route::post('pelaporan/import-preview/exclude', [PelaporanController::class, 'excludeImportPreview'])->name('pelaporan.import-preview.exclude');
     Route::resource('pelaporan', 'PelaporanController');
     Route::resource('laporan', 'LaporanController');
     Route::resource('kapasitas', 'KapasitasController');

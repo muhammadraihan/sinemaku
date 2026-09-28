@@ -13,7 +13,10 @@
             if (!table.find('thead .correction-heading').length) table.find('thead tr').append('<th class="correction-heading">Koreksi</th>');
             table.find('tbody tr').each(function (index) {
                 var row = response.preview[index];
-                $(this).attr('data-row-id', row.row_id).append('<td><button type="button" class="btn btn-sm btn-outline-primary preview-edit">Koreksi</button></td>');
+                if (row.excluded) {
+                    $(this).addClass('is-excluded').children('td').first().text('Dikeluarkan');
+                }
+                $(this).attr('data-row-id', row.row_id).append('<td><button type="button" class="btn btn-sm btn-outline-primary preview-edit">Koreksi</button> <button type="button" class="btn btn-sm btn-outline-danger preview-exclude">'+(row.excluded?'Pulihkan':'Keluarkan')+'</button></td>');
             });
             var dt = table.DataTable({pageLength: 10, lengthMenu: [10,25,50,100], order: [], autoWidth: false, columnDefs:[{targets:-1,orderable:false,searchable:false}], language:{search:'Cari:',lengthMenu:'Tampilkan _MENU_ baris',info:'_START_–_END_ dari _TOTAL_ baris',emptyTable:'Tidak ada detail',paginate:{previous:'Sebelumnya',next:'Berikutnya'}}});
             var editing = null, busy = false, disabled = [];
@@ -68,6 +71,7 @@
                     Swal.fire({target:modal.find('.cinepolis-preview-swal-target')[0],icon:'error',title:'Koreksi belum disimpan',text:messages});
                 });
             });
+            table.on('click.correction', '.preview-exclude', function () { var id=$(this).closest('tr').attr('data-row-id'), row=response.preview.find(function(x){return x.row_id===id;}), restore=!!row.excluded; Swal.fire({target:modal.find('.cinepolis-preview-swal-target')[0],title:restore?'Pulihkan baris?':'Keluarkan baris?',input:'textarea',inputLabel:restore?'Catatan pemulihan (wajib)':'Alasan wajib',inputValidator:function(v){return v&&v.trim().length>=3?undefined:'Alasan minimal 3 karakter.';},showCancelButton:true,confirmButtonText:restore?'Pulihkan':'Keluarkan'}).then(function(r){if(!r.isConfirmed)return;$.ajax({url:url.replace('/correct','/exclude'),method:'POST',contentType:'application/json',headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')},data:JSON.stringify({token:response.token,provider:provider,row_id:id,reason:r.value.trim(),restore:restore})}).done(refresh);}); });
             modal.off('shown.bs.modal.correction').on('shown.bs.modal.correction', function () { dt.columns.adjust(); });
         }
     };

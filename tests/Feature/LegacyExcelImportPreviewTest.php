@@ -141,6 +141,17 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->assertDatabaseHas('pelaporans', ['jam_tayang' => '12:15', 'gross' => '500000', 'net' => '450000']);
     }
 
+    public function test_operator_can_exclude_and_restore_a_preview_row_with_reason_and_confirm_imports_only_included_rows(): void
+    {
+        $owner = $this->seedResolvedXxiMappings();
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.xxi'), ['file' => $this->makeXxiFile()])->assertOk();
+        $id = $preview->json('preview.0.row_id');
+        $this->postJson(route('pelaporan.import-preview.exclude'), ['provider'=>'XXI','token'=>$preview->json('token'),'row_id'=>$id,'reason'=>'Baris tidak valid'])->assertOk()->assertJsonPath('preview.0.excluded', true)->assertJsonPath('summary.imported_rows', 0);
+        $cached = Cache::get('legacy_excel_preview:'.$preview->json('token'));
+        $this->assertSame('Baris tidak valid', $cached['exclusions'][0]['reason']);
+        $this->postJson(route('pelaporan.upload.xxi.confirm'), ['token'=>$preview->json('token')])->assertOk()->assertJsonPath('inserted', 0);
+    }
+
     public function test_xxi_preview_writes_no_canonical_rows_then_confirm_consumes_its_user_bound_token(): void
     {
         $owner = $this->seedResolvedXxiMappings();

@@ -58,8 +58,43 @@ trait CorrectsImportPreview
 
     private function correctionHistory(array $cached): ?string
     {
-        if (empty($cached['corrections'])) return null;
-        return json_encode(['corrections' => $cached['corrections']], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        if (empty($cached['corrections']) && empty($cached['exclusions'])) return null;
+        return json_encode(['corrections' => $cached['corrections'] ?? [], 'partial_exclusions' => $cached['exclusions'] ?? []], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+
+
+    private function withImportTotals(array $mapping, array $rows, bool $pdf): array
+    {
+        $included = array_values(array_filter($rows, fn ($row) => empty($row['excluded'])));
+        $total = fn (array $set, string $field) => array_sum(array_map(fn ($row) => (float) ($row[$field] ?? 0), $set));
+        $source = $pdf ? ['admits'=>$total($rows,'jumlah'),'gross'=>$total($rows,'gross'),'tax_amount'=>$total($rows,'tax_amount'),'net'=>$total($rows,'net')] : ['admits'=>$total($rows,'jumlah'),'gross'=>array_sum(array_map(fn($row)=>(float)($row['jumlah']??0)*(float)($row['harga']??0),$rows))];
+        $import = $pdf ? ['admits'=>$total($included,'jumlah'),'gross'=>$total($included,'gross'),'tax_amount'=>$total($included,'tax_amount'),'net'=>$total($included,'net')] : ['admits'=>$total($included,'jumlah'),'gross'=>array_sum(array_map(fn($row)=>(float)($row['jumlah']??0)*(float)($row['harga']??0),$included))];
+        $mapping['summary'] = array_merge($mapping['summary'] ?? [], ['source_totals'=>$source,'import_totals'=>$import,'delta'=>array_map(fn($value,$key)=>$value-($import[$key]??0),$source,array_keys($source)),'imported_rows'=>count($included),'excluded_rows'=>count($rows)-count($included)]);
+        return $mapping;
+    }
+
+    public function excludeImportPreview(Request $request)
+    {
+        $data = $request->validate(['token'=>'required|uuid','provider'=>'required|in:XXI,CGV,SAMS STUDIOS,NSC,CINEPOLIS PDF,PLATINUM PDF','row_id'=>'required|uuid','reason'=>'required|string|min:3|max:500','restore'=>'nullable|boolean']);
+        $pdf = in_array($data['provider'], ['CINEPOLIS PDF', 'PLATINUM PDF'], true);
+        $key = $pdf ? strtolower(explode(' ', $data['provider'])[0]).'_pdf_preview:'.$data['token'] : $this->legacyPreviewKey($data['token']);
+        return Cache::lock('report-import-mutation', 120)->block(5, function () use ($data, $pdf, $key, $request) {
+            $cached=$this->getImportPreview($key);
+            if (!$cached || (!$pdf && ($cached['provider'] ?? null) !== $data['provider'])) return response()->json(['message'=>'Preview sudah kedaluwarsa. Silakan upload ulang file.'],422);
+            if (($cached['created_by'] ?? null)!==(Auth::user()->uuid ?? null)) return response()->json(['message'=>'Preview ini bukan milik sesi pengguna aktif.'],403);
+            $rows=$pdf ? $cached['parsed']['rows'] : $cached['rows']; $i=array_search($data['row_id'],array_column($rows,'row_id'),true);
+            if ($i===false) throw ValidationException::withMessages(['row_id'=>'Baris tidak ditemukan pada preview ini.']);
+            $rows[$i]['excluded']=!$request->boolean('restore'); $rows[$i]['exclusion_reason']=$rows[$i]['excluded'] ? trim($data['reason']) : null;
+            $cached['exclusions'][]=['row_id'=>$data['row_id'],'reason'=>trim($data['reason']),'user_uuid'=>Auth::user()->uuid,'at'=>now()->toIso8601String()];
+            if ($pdf) { $cached['parsed']['rows']=$rows; $method=$data['provider']==='CINEPOLIS PDF'?'mapCinepolisPreview':'mapPlatinumPreview'; $mapping=$this->$method($cached['parsed'],$cached['mapping']['cinema_uuid']??null); }
+            else {
+                $cached['rows']=$rows;
+                $mapping=$this->mapLegacyPreview($rows,$data['provider'],$data['provider']==='XXI'&&($cached['source_type']??null)==='pdf');
+                $mapping=$this->withPendingFreeAssignments($mapping, $cached['pending_free_assignments'] ?? []);
+            }
+            $mapping=$this->withImportTotals($mapping, $rows, $pdf); $mapping['source_type']=$cached['source_type']??($pdf?'pdf':'excel'); $cached['mapping']=$mapping; $this->putImportPreview($key,$cached,now()->addMinutes(30));
+            return response()->json(array_merge($mapping,['status'=>'success','token'=>$data['token'],'message'=>'Baris dikeluarkan dari import. Data sumber tetap tersimpan di audit preview.']));
+        });
     }
 
     public function correctImportPreview(Request $request)
@@ -73,7 +108,7 @@ trait CorrectsImportPreview
         ]);
         $pdf = in_array($data['provider'], ['CINEPOLIS PDF', 'PLATINUM PDF'], true);
         $key = $pdf ? (strtolower(explode(' ', $data['provider'])[0]).'_pdf_preview:'.$data['token']) : $this->legacyPreviewKey($data['token']);
-        return Cache::lock('report-import-mutation', 120)->block(5, function () use ($data, $pdf, $key) {
+        return Cache::lock('report-import-mutation', 120)->block(5, function () use ($data, $pdf, $key, $request) {
             $cached = $this->getImportPreview($key);
             if (!$cached || (!$pdf && ($cached['provider'] ?? null) !== $data['provider'])) {
                 return response()->json(['message' => 'Preview sudah kedaluwarsa. Silakan upload ulang file.'], 422);
@@ -158,6 +193,7 @@ trait CorrectsImportPreview
                 $mapping = $this->withPendingFreeAssignments($mapping, $cached['pending_free_assignments'] ?? []);
                 if (isset($cached['mapping']['source_totals'])) $mapping['source_totals'] = $cached['mapping']['source_totals'];
             }
+            $mapping = $this->withImportTotals($mapping, $rows, $pdf);
             $mapping['source_type'] = $cached['source_type'] ?? ($pdf ? 'pdf' : 'excel');
             $cached['mapping'] = $mapping;
             $this->putImportPreview($key, $cached, now()->addMinutes(30));

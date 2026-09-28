@@ -670,6 +670,7 @@ class PelaporanController extends Controller
         $rows = [];
         $duplicateRows = [];
         foreach ($parsed['rows'] as $row) {
+            if (!empty($row['excluded'])) continue;
             $resolved = $mapping['row_mappings'][$this->cinepolisRowKey($row)];
             $duplicate = Pelaporan::where('kategori', $mapping['category_uuid'])
                 ->where('nama_bioskop', $mapping['cinema_uuid'])
@@ -819,7 +820,7 @@ class PelaporanController extends Controller
                     'kategori' => 'CINEPOLIS',
                     'bioskop' => $parsed['cinema_name'],
                     'kota' => $city,
-                    'mapping_status' => $rowMappings[$key]['status'] ?? 'Diblokir',
+                    'mapping_status' => !empty($row['excluded']) ? 'Dikeluarkan' : ($rowMappings[$key]['status'] ?? 'Diblokir'),
                 ]);
             }, $parsed['rows']),
             'summary' => [
@@ -1091,6 +1092,7 @@ class PelaporanController extends Controller
         $rows = [];
         $duplicateRows = [];
         foreach ($parsed['rows'] as $row) {
+            if (!empty($row['excluded'])) continue;
             $resolved = $mapping['row_mappings'][$this->platinumRowKey($row)];
             $duplicate = Pelaporan::where('kategori', $mapping['category_uuid'])
                 ->where('nama_bioskop', $mapping['cinema_uuid'])
@@ -1240,7 +1242,7 @@ class PelaporanController extends Controller
                     'kategori' => 'PLATINUM',
                     'bioskop' => $parsed['cinema_name'],
                     'kota' => $city,
-                    'mapping_status' => $rowMappings[$key]['status'] ?? 'Diblokir',
+                    'mapping_status' => !empty($row['excluded']) ? 'Dikeluarkan' : ($rowMappings[$key]['status'] ?? 'Diblokir'),
                 ]);
             }, $parsed['rows']),
             'summary' => [
@@ -1849,9 +1851,9 @@ class PelaporanController extends Controller
                 'film_uuid' => $filmMap[$this->legacyNormalize($row['nama_film'])]->uuid ?? null,
                 'ticket_uuid' => $ticket->uuid ?? null,
                 'capacity_uuid' => $capacity->uuid ?? null,
-                'mapping_status' => $ready ? 'Siap' : 'Diblokir',
+                'mapping_status' => !empty($row['excluded']) ? 'Dikeluarkan' : ($ready ? 'Siap' : 'Diblokir'),
             ]);
-            if ($ready) {
+            if ($ready && empty($row['excluded'])) {
                 $gross = $effectivePrice * (float) $row['jumlah'];
                 $tax = $cinema->pajak ?? 0;
                 $canonical[] = [
@@ -1864,7 +1866,7 @@ class PelaporanController extends Controller
             }
         }
         $cinemaNames=collect($sourceRows)->pluck('source_cinema')->unique();
-        $issues=array_values(array_unique($issues)); return ['preview'=>$preview,'rows'=>$canonical,'blocking_issues'=>$issues,'warnings'=>$warnings,'summary'=>['provider'=>$provider,'rows'=>count($sourceRows),'ready'=>count($canonical),'blocked'=>count($sourceRows)-count($canonical)],'quick_master_context'=>['cinema_name'=>$cinemaNames->first(),'film_name'=>$filmNames->first(),'category_uuid'=>optional($category)->uuid,'ticket_types'=>$sourceRows?array_values(array_unique(array_column($sourceRows,'ticket_name'))):[],'studios'=>$sourceRows?array_values(array_unique(array_column($sourceRows,'studio'))):[]]];
+        $issues=array_values(array_unique($issues)); return ['preview'=>$preview,'rows'=>$canonical,'blocking_issues'=>$issues,'warnings'=>$warnings,'summary'=>['provider'=>$provider,'rows'=>count($sourceRows),'ready'=>count($canonical),'blocked'=>count($sourceRows)-count($canonical),'imported_rows'=>count($canonical),'excluded'=>count(array_filter($sourceRows, fn ($row) => !empty($row['excluded'])))],'quick_master_context'=>['cinema_name'=>$cinemaNames->first(),'film_name'=>$filmNames->first(),'category_uuid'=>optional($category)->uuid,'ticket_types'=>$sourceRows?array_values(array_unique(array_column($sourceRows,'ticket_name'))):[],'studios'=>$sourceRows?array_values(array_unique(array_column($sourceRows,'studio'))):[]]];
     }
 
     private function legacyCinemaKey($name, $city): string { return $this->legacyNormalize($name).'|'.(string)$city; }

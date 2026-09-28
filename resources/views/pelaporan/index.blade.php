@@ -110,6 +110,10 @@
 .cinepolis-preview-table { font-size: 11px; white-space: nowrap; }
 .cinepolis-preview-table th { background: #1f2937; color: #fff; }
 .cinepolis-preview-table .is-blocked { background: #fff1f2; color: #991b1b; }
+.cinepolis-preview-table .is-excluded,
+.cinepolis-preview-table .is-excluded:hover { background: #fee2e2 !important; color: #991b1b; }
+.cinepolis-preview-table .is-excluded td:not(:last-child) { opacity: .78; text-decoration: line-through; }
+.cinepolis-preview-table .is-excluded td:first-child { opacity: 1; text-decoration: none; font-weight: 700; }
 .cinepolis-preview-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; }
 .cinepolis-preview-summary .metric { padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f8fafc; }
 .cinepolis-preview-summary .label { display: block; color: #6b7280; font-size: 11px; }
@@ -673,9 +677,13 @@
         ImportPreviewEditor.destroy('#cinepolis-preview-table');
         var summary = res.summary || {};
         var money = function (value) { return 'IDR ' + Number(value || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+        var sourceTotals = summary.source_totals || { admits: summary.admits, gross: summary.gross, tax_amount: summary.tax_amount, net: summary.net };
+        var importTotals = summary.import_totals || sourceTotals;
         var metrics = [
             ['Kategori', summary.category], ['Bioskop', summary.cinema], ['Film', summary.film], ['Tanggal', summary.date],
-            ['Admits', summary.admits], ['Gross', money(summary.gross)], ['Tax', money(summary.tax_amount)], ['Net', money(summary.net)]
+            ['Total sumber', sourceTotals.admits + ' penonton / ' + money(sourceTotals.gross)],
+            ['Dikeluarkan', (summary.excluded_rows || 0) + ' baris / ' + ((sourceTotals.admits || 0) - (importTotals.admits || 0)) + ' penonton'],
+            ['Akan diimport', importTotals.admits + ' penonton / ' + money(importTotals.gross)]
         ];
         $('#cinepolis-preview-summary').html(metrics.map(function (item) { return '<div class="metric"><span class="label">' + escapeHtml(item[0]) + '</span><span class="value">' + escapeHtml(item[1]) + '</span></div>'; }).join(''));
         var cinemaMapping = res.cinema_mapping || {};
@@ -1104,8 +1112,13 @@
         activeLegacyPreview = { res: res, provider: provider, urls: urls };
         renderFreeAssignments(res, provider, urls);
         var summary = res.summary || {};
+        var sourceTotals = summary.source_totals || {};
+        var importTotals = summary.import_totals || sourceTotals;
+        var sourceAdmits = sourceTotals.admits == null ? '-' : sourceTotals.admits;
+        var importAdmits = importTotals.admits == null ? '-' : importTotals.admits;
         $('#legacy-preview-summary').html([
-            ['Provider', summary.provider], ['Baris sumber', summary.rows], ['Siap import', summary.ready], ['Diblokir', summary.blocked]
+            ['Provider', summary.provider], ['Baris sumber', summary.rows], ['Siap import', summary.ready], ['Diblokir', summary.blocked],
+            ['Total sumber', sourceAdmits + ' penonton'], ['Dikeluarkan', (summary.excluded_rows || 0) + ' baris'], ['Akan diimport', importAdmits + ' penonton']
         ].map(function (item) { return '<div class="metric"><span class="label">' + escapeHtml(item[0]) + '</span><span class="value">' + escapeHtml(item[1]) + '</span></div>'; }).join(''));
         var issues = res.blocking_issues || [];
         var actionFor = function (issue) {

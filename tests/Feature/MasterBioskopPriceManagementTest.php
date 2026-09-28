@@ -188,6 +188,13 @@ class MasterBioskopPriceManagementTest extends TestCase
         $this->assertStringContainsString("$(window).on('resize.edit-wizard',fitEditWizard)", $edit);
         $this->assertStringNotContainsString('lockEditWizardToPriceStep', $edit);
         $this->assertStringNotContainsString('const panelHeight=Math.ceil($panel.outerHeight(true))', $edit);
+
+        // Keep the identity save action beside the wizard's Next action rather
+        // than at the bottom of the first pane, where it was easy to miss.
+        $this->assertStringContainsString('id="edit-save-identity"', $edit);
+        $this->assertStringContainsString('form="identity-form"', $edit);
+        $this->assertStringContainsString("$('#edit-save-identity').toggleClass('d-none',index!==0)", $edit);
+        $this->assertSame(1, substr_count($edit, 'Simpan identitas'));
     }
 
     private function user(): User
