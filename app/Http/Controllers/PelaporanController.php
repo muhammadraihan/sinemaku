@@ -744,7 +744,8 @@ class PelaporanController extends Controller
             $query->where('nama', $city)->orWhere('nama', 'Kota ' . $city);
         })->first() : null;
         $province = $cityRecord ? optional(Province::where('uuid', $cityRecord->provinsi_id)->first())->nama : null;
-        $blocking = array_merge($this->correctionIssues($parsed['rows']), $this->duplicateCorrectionRows($parsed['rows'], true));
+        $activeRows = array_values(array_filter($parsed['rows'], fn ($row) => empty($row['excluded'])));
+        $blocking = array_merge($this->correctionIssues($activeRows), $this->duplicateCorrectionRows($activeRows, true));
         $warnings = [];
         if (!$category) $blocking[] = 'Kategori CINEPOLIS belum tersedia di Master Kategori Bioskop.';
         if (!$cinema && !$cinemaMatch['ambiguous']) {
@@ -763,6 +764,7 @@ class PelaporanController extends Controller
 
         $rowMappings = [];
         foreach ($parsed['rows'] as $row) {
+            $excluded = !empty($row['excluded']);
             $ticket = $category ? TypeTiket::where('kategori', $category->uuid)->whereRaw('UPPER(TRIM(name)) = ?', [$row['type_tiket']])->first() : null;
             $capacity = null;
             if ($ticket && $cinema) {
@@ -779,8 +781,8 @@ class PelaporanController extends Controller
                         return (int) $masterDigits === (int) $reportDigits;
                     });
             }
-            if (!$ticket) $blocking[] = 'Tipe tiket ' . $row['type_tiket'] . ' belum tersedia untuk kategori CINEPOLIS.';
-            if (!$capacity && !$cinemaMatch['ambiguous']) $blocking[] = 'Studio ' . ($row['studio'] ?? '-') . ' belum memiliki mapping kapasitas untuk tipe tiket ' . $row['type_tiket'] . '.';
+            if (!$excluded && !$ticket) $blocking[] = 'Tipe tiket ' . $row['type_tiket'] . ' belum tersedia untuk kategori CINEPOLIS.';
+            if (!$excluded && !$capacity && !$cinemaMatch['ambiguous']) $blocking[] = 'Studio ' . ($row['studio'] ?? '-') . ' belum memiliki mapping kapasitas untuk tipe tiket ' . $row['type_tiket'] . '.';
             $key = $this->cinepolisRowKey($row);
             $rowMappings[$key] = [
                 'ticket_uuid' => optional($ticket)->uuid,
@@ -1185,6 +1187,7 @@ class PelaporanController extends Controller
 
         $rowMappings = [];
         foreach ($parsed['rows'] as $row) {
+            $excluded = !empty($row['excluded']);
             $ticket = $category ? TypeTiket::where('kategori', $category->uuid)->whereRaw('UPPER(TRIM(name)) = ?', [$row['type_tiket']])->first() : null;
             $capacity = null;
             if ($ticket && $cinema) {
@@ -1201,8 +1204,8 @@ class PelaporanController extends Controller
                         return (int) $masterDigits === (int) $reportDigits;
                     });
             }
-            if (!$ticket) $blocking[] = 'Tipe tiket ' . $row['type_tiket'] . ' belum tersedia untuk kategori PLATINUM.';
-            if (!$capacity && !$cinemaMatch['ambiguous']) $blocking[] = 'Studio ' . ($row['studio'] ?? '-') . ' belum memiliki mapping kapasitas untuk tipe tiket ' . $row['type_tiket'] . '.';
+            if (!$excluded && !$ticket) $blocking[] = 'Tipe tiket ' . $row['type_tiket'] . ' belum tersedia untuk kategori PLATINUM.';
+            if (!$excluded && !$capacity && !$cinemaMatch['ambiguous']) $blocking[] = 'Studio ' . ($row['studio'] ?? '-') . ' belum memiliki mapping kapasitas untuk tipe tiket ' . $row['type_tiket'] . '.';
             $key = $this->platinumRowKey($row);
             $rowMappings[$key] = [
                 'ticket_uuid' => optional($ticket)->uuid,
@@ -1800,10 +1803,11 @@ class PelaporanController extends Controller
     private function mapLegacyPreview(array &$sourceRows, string $provider, bool $useXxiPriceMaster = false): array
     {
         $this->prepareCorrectionRows($sourceRows);
-        $category=KategoriBioskop::whereRaw('UPPER(name) = ?',[$provider])->first(); $issues=array_merge($this->correctionIssues($sourceRows), $this->duplicateCorrectionRows($sourceRows, false)); $warnings=[]; $filmNames=collect($sourceRows)->pluck('nama_film')->unique();
+        $activeRows = array_values(array_filter($sourceRows, fn ($row) => empty($row['excluded'])));
+        $category=KategoriBioskop::whereRaw('UPPER(name) = ?',[$provider])->first(); $issues=array_merge($this->correctionIssues($activeRows), $this->duplicateCorrectionRows($activeRows, false)); $warnings=[]; $filmNames=collect($activeRows)->pluck('nama_film')->unique();
         $filmMap=MasterFilm::get()->filter(fn($f)=>in_array($this->legacyNormalize($f->name),$filmNames->map(fn($v)=>$this->legacyNormalize($v))->all(),true))->keyBy(fn($f)=>$this->legacyNormalize($f->name));
         $cinemas=$category?MasterBioskop::where('type',$category->uuid)->get():collect(); $cinemaMap=[];
-        foreach (collect($sourceRows)->unique(fn($row)=>$this->legacyCinemaKey($row['source_cinema'],$row['source_city'])) as $row) {
+        foreach (collect($activeRows)->unique(fn($row)=>$this->legacyCinemaKey($row['source_cinema'],$row['source_city'])) as $row) {
             $key=$this->legacyCinemaKey($row['source_cinema'],$row['source_city']);
             // If the source supplies a city, require an exact city match. Providers without a city
             // must not guess when the same cinema name exists more than once.
@@ -1826,16 +1830,17 @@ class PelaporanController extends Controller
         $ticketMap=$category?TypeTiket::where('kategori',$category->uuid)->get():collect(); $canonical=[]; $preview=[];
         $priceResolver = $useXxiPriceMaster ? app(CinemaTicketPriceResolver::class) : null;
         foreach ($sourceRows as $row) {
+            $excluded = !empty($row['excluded']);
             $cinema = $cinemaMap[$this->legacyCinemaKey($row['source_cinema'], $row['source_city'])] ?? null;
             $ticket = $ticketMap->first(fn ($item) => $this->legacyNormalize($item->name) === $this->legacyNormalize($row['ticket_name']));
             $capacity = $cinema && $ticket ? $this->findLegacyCapacity($category->uuid, $cinema->uuid, $ticket->uuid, $row['studio']) : null;
-            if (!$ticket) $issues[] = 'Tipe tiket '.$row['ticket_name'].' belum tersedia untuk kategori '.$provider.'.';
-            if ($cinema && $ticket && !$capacity) $issues[] = 'Studio '.$row['studio'].' belum memiliki mapping kapasitas untuk tipe tiket '.$row['ticket_name'].' di bioskop '.$row['source_cinema'].' (baris '.$row['source_row'].').';
+            if (!$excluded && !$ticket) $issues[] = 'Tipe tiket '.$row['ticket_name'].' belum tersedia untuk kategori '.$provider.'.';
+            if (!$excluded && $cinema && $ticket && !$capacity) $issues[] = 'Studio '.$row['studio'].' belum memiliki mapping kapasitas untuk tipe tiket '.$row['ticket_name'].' di bioskop '.$row['source_cinema'].' (baris '.$row['source_row'].').';
 
             $resolvedPrice = null;
             if ($useXxiPriceMaster && $cinema && $ticket && $this->legacyNormalize($row['ticket_name']) === 'REGULAR') {
                 $resolvedPrice = $priceResolver->resolve($cinema->uuid, $ticket->uuid, $row['tgl_tayang']);
-                if (!$resolvedPrice) $issues[] = 'Harga REGULAR untuk '.$row['source_cinema'].' pada tanggal '.$row['tgl_tayang'].' belum tersedia.';
+                if (!$excluded && !$resolvedPrice) $issues[] = 'Harga REGULAR untuk '.$row['source_cinema'].' pada tanggal '.$row['tgl_tayang'].' belum tersedia.';
             }
             $effectivePrice = $resolvedPrice ? (float) $resolvedPrice['price'] : (float) $row['harga'];
             $priceReady = !$useXxiPriceMaster || $this->legacyNormalize($row['ticket_name']) !== 'REGULAR' || $resolvedPrice;
