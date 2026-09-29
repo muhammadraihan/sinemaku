@@ -42,6 +42,23 @@ class KcmXlsxParserTest extends TestCase
     }
 
     /** @test */
+    public function it_uses_numeric_kota_as_studio_in_sinemaku_layout(): void
+    {
+        $path = $this->workbook([
+            ['LAPORAN PENJUALAN TIKET SINEMAKU'],
+            ['JEMBER', null, 'Nama Bioskop : KOTA CINEMA MALL JEMBER'],
+            [null, null, null, 'Hari/Tanggal: MINGGU, 27 SEPTEMBER 2026'],
+            ['KOTA', 'MOVIE', 'Fmt', 'Seat', 'HTM', 'Show 1', null, null, 'TOTAL', null, null, 'Jumlah Uang'],
+            [null, null, null, null, null, 'Sold', 'Free', 'Promo', 'Sold', 'Free', 'Promo'],
+            [2, 'MEMBURU PEMANGSA', '2D', 180, 27000, 8, 0, 0, 8, 0, 0, 216000],
+        ]);
+
+        $result = (new KcmXlsxParser())->parse($path);
+
+        $this->assertSame('2', $result['rows'][0]['studio']);
+    }
+
+    /** @test */
     public function it_parses_external_layout_with_dynamic_shows_and_source_identity(): void
     {
         $path = $this->workbook([

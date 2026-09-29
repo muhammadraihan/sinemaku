@@ -43,7 +43,11 @@ class KcmXlsxParser
         $totals = $this->totalColumns($rows[$header], $sub === null ? [] : $rows[$sub]);
         $out=['rows'=>[], 'audit'=>[], 'warnings'=>[], 'totals'=>['sold'=>0.0,'free'=>0.0,'promo'=>0.0,'gross'=>0.0], 'cinema'=>$cinema, 'city'=>$city, 'date'=>$this->date($date), 'layout'=>$layout];
         for ($i=($sub ?? $header)+1; $i<count($rows); $i++) {
-            $line=$rows[$i]; $film=$this->value($line[$filmColumn] ?? null); $studio=$this->value($line[$studioColumn] ?? null); $price=$this->money($line[$priceColumn] ?? null);
+            $line=$rows[$i];
+            $film=$this->value($line[$filmColumn] ?? null);
+            $numericKota = $sinemaku && $this->isNumericValue($line[0] ?? null);
+            $studio=$this->value($line[$numericKota ? 0 : $studioColumn] ?? null);
+            $price=$this->money($line[$priceColumn] ?? null);
             if ($this->norm($line[0] ?? '') === 'TOTAL' || $this->norm($line[0] ?? '') === 'NOTE' || $this->norm($line[0] ?? '') === 'GRAND TOTAL') break;
             if ($film === '' || $studio === '' || $price === null) continue;
             $date = $sinemaku ? $out['date'] : ($this->date($line[0] ?? null) ?? $out['date']); if (!$date) throw new \InvalidArgumentException("Tanggal KCM tidak dapat dibaca pada sheet $sheet baris ".($i+1).'.');
@@ -80,6 +84,7 @@ class KcmXlsxParser
     private function date($v): ?string { if($v===null||trim((string)$v)==='')return null; try { if(is_numeric($v))return ExcelDate::excelToDateTimeObject($v)->format('Y-m-d'); $s=trim((string)$v); $s=str_ireplace(['JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI','AGUSTUS','SEPTEMBER','OKTOBER','NOVEMBER','DESEMBER'],['January','February','March','April','May','June','July','August','September','October','November','December'],$s); foreach(['d/m/Y','d-m-Y','Y-m-d','d F Y','j F Y'] as $format){$d=\DateTimeImmutable::createFromFormat('!'.$format,$s); $e=\DateTimeImmutable::getLastErrors(); if($d!==false&&($e===false||($e['warning_count']===0&&$e['error_count']===0)))return $d->format('Y-m-d');} return Carbon::parse($s)->format('Y-m-d'); }catch(\Throwable $e){return null;} }
     private function money($v): ?float { $v=trim((string)$v); if($v===''||preg_match('/^-+$/',$v))return null; $v=preg_replace('/[^0-9,.-]/','',$v); if(str_contains($v,',')&&str_contains($v,'.')){ $lastComma=strrpos($v,','); $lastDot=strrpos($v,'.'); $v=$lastComma>$lastDot?str_replace(['.'],[''],$v):str_replace([','],[''],$v); if($lastComma>$lastDot)$v=str_replace(',','.',$v); } elseif(str_contains($v,','))$v=str_replace(',','',$v); elseif(preg_match('/^-?\d{1,3}(?:\.\d{3})+$/',$v))$v=str_replace('.','',$v); return is_numeric($v)?(float)$v:null; }
     private function number($v): float { return $this->money($v) ?? 0.0; }
+    private function isNumericValue($value): bool { return $value !== null && trim((string) $value) !== '' && is_numeric(trim((string) $value)); }
     private function same($a,$b): bool{return abs(round($a,2)-round($b,2))<=0.01;}
     private function value($v): string{return trim(preg_replace('/\s+/u',' ',(string)$v));}
     private function norm($v): string{return mb_strtoupper($this->value($v),'UTF-8');}
