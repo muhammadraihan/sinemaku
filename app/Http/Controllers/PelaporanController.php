@@ -1576,6 +1576,7 @@ class PelaporanController extends Controller
             @set_time_limit(0);
             @ini_set('memory_limit', '512M');
             $rows = $this->parseLegacyExcel($request->file('file')->getPathname(), $provider);
+            if ($provider === 'CGV') $rows = $this->mergeCgvFreeRows($rows);
             $mapping = $this->mapLegacyPreview($rows, $provider);
             $uploadMetadata = $this->previewUploadMetadata($request, $provider, count($mapping['preview']));
             $token = (string) Str::uuid();
@@ -1825,6 +1826,35 @@ class PelaporanController extends Controller
     }
 
     private function legacySourceRow($sourceRow,$date,$film,$cinema,$city,$studio,$ticket,$time,$show,$count,$price,$tax): array { return ['source_row'=>(int)$sourceRow,'tgl_tayang'=>$date,'nama_film'=>mb_strtoupper($film),'source_cinema'=>$cinema,'source_city'=>$city,'studio'=>$studio,'ticket_name'=>mb_strtoupper($ticket),'jam_tayang'=>$time,'show'=>(string)$show,'jumlah'=>(float)str_replace(',','',$count),'harga'=>$price,'tax'=>$tax,'net'=>0]; }
+
+    /**
+     * CGV repeats Free counts on separate paid-ticket rows. Once normalized to
+     * FREE PASS those rows share one canonical identity, so combine only that
+     * ticket type while retaining every source row for audit evidence.
+     */
+    private function mergeCgvFreeRows(array $rows): array
+    {
+        $merged = [];
+        $positions = [];
+        foreach ($rows as $row) {
+            if ($this->legacyNormalize($row['ticket_name'] ?? '') !== 'FREE PASS') {
+                $merged[] = $row;
+                continue;
+            }
+            $fields = ['tgl_tayang', 'nama_film', 'source_cinema', 'source_city', 'studio', 'ticket_name', 'jam_tayang', 'show', 'harga'];
+            $key = json_encode(array_map(fn ($field) => $this->legacyNormalize((string) ($row[$field] ?? '')), $fields));
+            if (!isset($positions[$key])) {
+                $row['source_rows'] = [(int) $row['source_row']];
+                $positions[$key] = count($merged);
+                $merged[] = $row;
+                continue;
+            }
+            $index = $positions[$key];
+            $merged[$index]['jumlah'] += (float) $row['jumlah'];
+            $merged[$index]['source_rows'][] = (int) $row['source_row'];
+        }
+        return array_values($merged);
+    }
 
     private function mapLegacyPreview(array &$sourceRows, string $provider, bool $useXxiPriceMaster = false): array
     {

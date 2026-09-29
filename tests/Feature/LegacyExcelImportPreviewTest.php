@@ -373,6 +373,26 @@ class LegacyExcelImportPreviewTest extends TestCase
         $this->assertSame(0, DB::table('pelaporans')->count());
     }
 
+    public function test_cgv_preview_merges_duplicate_free_pass_from_separate_ticket_rows(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid' => 'cgv-category', 'name' => 'CGV']);
+
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.cgv'), [
+            'file' => $this->makeCgvDuplicateFreeFile(),
+        ]);
+
+        $preview->assertOk()->assertJsonPath('status', 'success');
+        $this->assertNotContains(
+            'Detail preview duplikat setelah mapping/koreksi. Periksa studio, show, jam, dan tipe tiket sebelum import.',
+            $preview->json('blocking_issues')
+        );
+        $free = collect($preview->json('preview'))->where('ticket_name', 'FREE PASS')->values();
+        $this->assertCount(1, $free);
+        $this->assertSame(3, $free[0]['jumlah']);
+        $this->assertSame([2, 3], $free[0]['source_rows']);
+    }
+
     public function test_cgv_confirm_import_persists_free_pass_with_zero_amounts(): void
     {
         $owner = $this->createUser();
@@ -707,6 +727,15 @@ class LegacyExcelImportPreviewTest extends TestCase
             ['Date', 'Cinema', 'Studio', 'Film', 'Format', 'Ticket', 'Price', 'Time 1', 'Admit 1', 'Free 1', 'Time 2', 'Admit 2', 'Free 2', 'Time 3', 'Admit 3', 'Free 3', 'Time 4', 'Admit 4', 'Free 4', 'Time 5', 'Admit 5', 'Free 5', 'Time 6', 'Admit 6', 'Free 6', 'Total', 'Free Total', 'Net'],
             ['2026-01-01', 'CGV TEST', '2', 'FILM CGV', '', 'VELVET', '75000', '10:15', '3', '1', '13:30', '4', '2', '15:45', '-', '3', '', '-', '', '', '-', '', '', '-', '', '', '', ''],
         ], 'cgv.xlsx');
+    }
+
+    private function makeCgvDuplicateFreeFile(): UploadedFile
+    {
+        return $this->makeWorkbook([
+            ['Date', 'Cinema', 'Studio', 'Film', 'Format', 'Ticket', 'Price', 'Time 1', 'Admit 1', 'Free 1', 'Time 2', 'Admit 2', 'Free 2', 'Time 3', 'Admit 3', 'Free 3', 'Time 4', 'Admit 4', 'Free 4', 'Time 5', 'Admit 5', 'Free 5', 'Time 6', 'Admit 6', 'Free 6'],
+            ['2026-09-28', 'CGV TEST', '2', 'FILM CGV', '', 'REGULAR', '35000', '15:40', '4', '1'],
+            ['2026-09-28', 'CGV TEST', '2', 'FILM CGV', '', 'SWEETBOX', '45000', '15:40', '2', '2'],
+        ], 'cgv-duplicate-free.xlsx');
     }
 
     private function makeKcmFile(): UploadedFile
