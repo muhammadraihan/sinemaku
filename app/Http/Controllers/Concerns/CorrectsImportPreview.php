@@ -75,7 +75,7 @@ trait CorrectsImportPreview
 
     public function excludeImportPreview(Request $request)
     {
-        $data = $request->validate(['token'=>'required|uuid','provider'=>'required|in:XXI,CGV,SAMS STUDIOS,NSC,CINEPOLIS PDF,PLATINUM PDF','row_id'=>'required|uuid','reason'=>'required|string|min:3|max:500','restore'=>'nullable|boolean']);
+        $data = $request->validate(['token'=>'required|uuid','provider'=>'required|in:XXI,CGV,SAMS STUDIOS,NSC,KCM,CINEPOLIS PDF,PLATINUM PDF','row_id'=>'required|uuid','reason'=>'required|string|min:3|max:500','restore'=>'nullable|boolean']);
         $pdf = in_array($data['provider'], ['CINEPOLIS PDF', 'PLATINUM PDF'], true);
         $key = $pdf ? strtolower(explode(' ', $data['provider'])[0]).'_pdf_preview:'.$data['token'] : $this->legacyPreviewKey($data['token']);
         return Cache::lock('report-import-mutation', 120)->block(5, function () use ($data, $pdf, $key, $request) {
@@ -101,7 +101,7 @@ trait CorrectsImportPreview
     {
         $data = $request->validate([
             'token' => 'required|uuid',
-            'provider' => 'required|in:XXI,CGV,SAMS STUDIOS,NSC,CINEPOLIS PDF,PLATINUM PDF',
+            'provider' => 'required|in:XXI,CGV,SAMS STUDIOS,NSC,KCM,CINEPOLIS PDF,PLATINUM PDF',
             'row_id' => 'required|uuid',
             'changes' => 'required|array|min:1|max:14',
             'reason' => 'required|string|min:3|max:500',

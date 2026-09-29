@@ -641,6 +641,33 @@ class LegacyExcelImportPreviewTest extends TestCase
         }
     }
 
+    public function test_kcm_preview_blocks_missing_category_and_writes_nothing(): void
+    {
+        $owner = $this->createUser();
+        $preview = $this->actingAs($owner)->post(route('pelaporan.upload.kcm'), ['file'=>$this->makeKcmFile()]);
+        $preview->assertOk()->assertJsonPath('status','success')->assertJsonPath('source_profile','EXTERNAL');
+        $this->assertStringContainsString('Kategori KCM belum tersedia', implode(' ', $preview->json('blocking_issues')));
+        $this->assertSame(0, DB::table('pelaporans')->count());
+        $this->assertSame(0, DB::table('report_upload_histories')->count());
+    }
+
+    public function test_kcm_confirm_persists_paid_and_free_rows_and_upload_history(): void
+    {
+        $owner = $this->createUser();
+        DB::table('kategori_bioskops')->insert(['uuid'=>'kcm-category','name'=>'KCM']);
+        DB::table('master_bioskops')->insert(['uuid'=>'kcm-cinema','nama_bioskop'=>'KCM TEST','type'=>'kcm-category','kota'=>'JAKARTA','pajak'=>'10']);
+        DB::table('master_films')->insert(['uuid'=>'kcm-film','name'=>'FILM KCM']);
+        DB::table('type_tikets')->insert([['uuid'=>'kcm-regular','name'=>'REGULAR','kategori'=>'kcm-category'],['uuid'=>'kcm-free','name'=>'FREE PASS','kategori'=>'kcm-category']]);
+        DB::table('kapasitas')->insert([['uuid'=>'kcm-reg-cap','kategori'=>'kcm-category','nama_bioskop'=>'kcm-cinema','type_tiket'=>'kcm-regular','studio'=>'1','kapasitas'=>'100'],['uuid'=>'kcm-free-cap','kategori'=>'kcm-category','nama_bioskop'=>'kcm-cinema','type_tiket'=>'kcm-free','studio'=>'1','kapasitas'=>'100']]);
+        $preview=$this->actingAs($owner)->post(route('pelaporan.upload.kcm'),['file'=>$this->makeKcmFile()]);
+        $preview->assertOk()->assertJsonPath('blocking_issues',[])->assertJsonCount(2,'preview');
+        $this->assertSame(0,DB::table('pelaporans')->count());
+        $this->actingAs($owner)->post(route('pelaporan.upload.kcm.confirm'),['token'=>$preview->json('token')])->assertOk()->assertJsonPath('inserted',2);
+        $this->assertDatabaseHas('pelaporans',['type_tiket'=>'kcm-regular','jumlah'=>'4','harga'=>'25000','gross'=>'100000']);
+        $this->assertDatabaseHas('pelaporans',['type_tiket'=>'kcm-free','jumlah'=>'2','harga'=>'0','gross'=>'0']);
+        $this->assertDatabaseHas('report_upload_histories',['provider'=>'KCM','original_filename'=>'kcm.xlsx','imported_rows'=>2]);
+    }
+
     private function seedResolvedXxiMappings(): User
     {
         $user = $this->createUser();
@@ -680,6 +707,16 @@ class LegacyExcelImportPreviewTest extends TestCase
             ['Date', 'Cinema', 'Studio', 'Film', 'Format', 'Ticket', 'Price', 'Time 1', 'Admit 1', 'Free 1', 'Time 2', 'Admit 2', 'Free 2', 'Time 3', 'Admit 3', 'Free 3', 'Time 4', 'Admit 4', 'Free 4', 'Time 5', 'Admit 5', 'Free 5', 'Time 6', 'Admit 6', 'Free 6', 'Total', 'Free Total', 'Net'],
             ['2026-01-01', 'CGV TEST', '2', 'FILM CGV', '', 'VELVET', '75000', '10:15', '3', '1', '13:30', '4', '2', '15:45', '-', '3', '', '-', '', '', '-', '', '', '-', '', '', '', ''],
         ], 'cgv.xlsx');
+    }
+
+    private function makeKcmFile(): UploadedFile
+    {
+        return $this->makeWorkbook([
+            ['Cinema','KCM TEST'], ['City','JAKARTA'], ['Report Date','2026-09-25'], [],
+            ['Tanggal','ST','Judul Film','KP','Show 1',null,'Show 2',null,'TOTAL',null,'HTM','TOTAL'],
+            [null,null,null,null,'SO','FP','SO','FP','SO','FP'],
+            ['2026-09-25','1','FILM KCM','100',4,2,0,0,4,2,'25000','100000'],
+        ], 'kcm.xlsx');
     }
 
     private function makeNscFile(): UploadedFile

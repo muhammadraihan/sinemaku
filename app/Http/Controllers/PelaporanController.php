@@ -33,6 +33,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Services\Reports\CinepolisPdfParser;
 use App\Services\Reports\PlatinumPdfParser;
 use App\Services\Reports\NscXlsxParser;
+use App\Services\Reports\KcmXlsxParser;
 use App\Services\Reports\XxiPdfParser;
 use App\Services\Reports\CinemaTicketPriceResolver;
 
@@ -1457,6 +1458,26 @@ class PelaporanController extends Controller
         return $this->previewLegacyExcel($request, 'SAMS STUDIOS');
     }
 
+    public function uploadKCM(Request $request, KcmXlsxParser $parser)
+    {
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls|max:20480'], [
+            'file.required' => 'File wajib diunggah.', 'file.mimes' => 'Format file KCM harus .xlsx atau .xls.', 'file.max' => 'Ukuran file maksimal 20MB.',
+        ]);
+        try {
+            $parsed = $parser->parse($request->file('file')->getPathname());
+            $mapping = $this->mapLegacyPreview($parsed['rows'], 'KCM');
+            $mapping['source_profile'] = $parsed['layout'];
+            $mapping['source_audit'] = $parsed['row_audit'];
+            $mapping['source_totals'] = $parsed['source_totals'];
+            $mapping['warnings'] = array_values(array_unique(array_merge($mapping['warnings'] ?? [], $parsed['blocking_warnings'] ?? [])));
+            $mapping['blocking_issues'] = array_values(array_unique(array_merge($mapping['blocking_issues'], $parsed['blocking_warnings'] ?? [])));
+            $mapping['summary'] = array_merge($mapping['summary'], ['paid'=>$parsed['source_totals']['sold'], 'free'=>$parsed['source_totals']['free'], 'promo'=>$parsed['source_totals']['promo'], 'gross'=>$parsed['source_totals']['gross']]);
+            $token=(string) Str::uuid();
+            $this->putImportPreview($this->legacyPreviewKey($token), ['provider'=>'KCM','rows'=>$parsed['rows'],'mapping'=>$mapping,'source_type'=>'excel','source_profile'=>$parsed['layout'],'source_audit'=>$parsed['row_audit'],'source_totals'=>$parsed['source_totals'],'upload_metadata'=>$this->previewUploadMetadata($request,'KCM',count($mapping['preview'])),'created_by'=>Auth::user()->uuid??null], now()->addMinutes(30));
+            return response()->json(array_merge(['status'=>'success','token'=>$token,'source_profile'=>$parsed['layout']],$mapping));
+        } catch (\Throwable $e) { report($e); return response()->json(['status'=>'failed','message'=>'Preview KCM gagal: '.$e->getMessage()],422); }
+    }
+
     public function uploadNSC(Request $request, NscXlsxParser $parser)
     {
         $request->validate(['file' => 'required|file|mimes:xlsx,xls|max:20480'], [
@@ -1591,6 +1612,11 @@ class PelaporanController extends Controller
         if (in_array($provider, ['NSC', 'XXI'], true) && !empty($cached['pending_free_assignments'])) {
             return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena masih ada tiket Free yang belum ditentukan show-nya.'], 422);
         }
+        if ($provider === 'KCM' && !empty($cached['source_audit'])) {
+            $excluded = collect($cached['rows'])->filter(fn ($row) => !empty($row['excluded']))->map(fn ($row) => ($row['source_sheet'] ?? '').'|'.($row['source_row'] ?? ''))->all();
+            $promos = collect($cached['source_audit'])->filter(fn ($audit) => (float) ($audit['promo'] ?? 0) > 0 && !in_array(($audit['source_sheet'] ?? '').'|'.($audit['source_row'] ?? ''), $excluded, true));
+            if ($promos->isNotEmpty()) return response()->json(['status'=>'failed','message'=>'Import diblokir karena Promo KCM belum memiliki pemetaan kanonik. Keluarkan baris sumber atau unggah laporan tanpa Promo.'],422);
+        }
         $mapping = $this->mapLegacyPreview($cached['rows'], $provider, $provider === 'XXI' && ($cached['source_type'] ?? null) === 'pdf');
         if (!empty($mapping['blocking_issues'])) {
             return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena mapping belum lengkap.', 'issues' => $mapping['blocking_issues']], 422);
@@ -1700,7 +1726,7 @@ class PelaporanController extends Controller
         }
 
         $provider = $request->query('provider');
-        $allowedProviders = ['XXI', 'CGV', 'SAMS STUDIOS', 'NSC', 'CINEPOLIS PDF', 'PLATINUM PDF'];
+        $allowedProviders = ['XXI', 'CGV', 'SAMS STUDIOS', 'NSC', 'KCM', 'CINEPOLIS PDF', 'PLATINUM PDF'];
         if ($provider !== null && !in_array($provider, $allowedProviders, true)) {
             return response()->json(['data' => []]);
         }
@@ -1864,7 +1890,7 @@ class PelaporanController extends Controller
                 $canonical[] = [
                     'kategori' => $category->uuid, 'provinsi' => $this->legacyProvinceForCity($cinema->kota), 'kota' => $cinema->kota,
                     'nama_bioskop' => $cinema->uuid, 'nama_film' => $filmMap[$this->legacyNormalize($row['nama_film'])]->name,
-                    'tgl_tayang' => $row['tgl_tayang'], 'jam_tayang' => $row['jam_tayang'] ?: '00:00', 'show' => $row['show'],
+                    'tgl_tayang' => $row['tgl_tayang'], 'jam_tayang' => $row['jam_tayang'] ?: null, 'show' => $row['show'],
                     'type_tiket' => $ticket->uuid, 'harga' => $effectivePrice, 'jumlah' => $row['jumlah'], 'gross' => $gross,
                     'tax' => $tax, 'net' => $row['net'] ?: $gross - ($gross * $tax / 100), 'studio' => $capacity->uuid,
                 ];
