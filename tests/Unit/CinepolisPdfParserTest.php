@@ -447,6 +447,37 @@ PDF;
     }
 
     /** @test */
+    public function it_does_not_double_count_complimentary_gross_in_ticket_class_day_totals(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+CITIMALL SAMPIT
+Detailed Distributors Report
+From Tuesday 29/09/2026 06:00 am Until Wednesday 30/09/2026 06:00 am Ticket Detail Level: Ticket Class
+SINEMAKU
+MEMBURU PEMANGSA CINEMA03
+Ticket Class Attribute Ticket Price Admits Gross Tax Net
+29/09/2026
+14:30 REGULAR 2D 0.00 4 100.000,00 9.091 90.909
+REGULAR 2D 25.000 60 1.500.000,00 136.364 1.363.636
+19:00 REGULAR 2D 0.00 2 50.000,00 4.545 45.455
+REGULAR 2D 25.000 119 2.975.000,00 270.455 2.704.545
+Day Total Paid 179 4.625.000 406.819 4.068.181
+Day Total Complementory 6 150,000.00 13,636.38 136,363.62
+Total for Film this Screen 185 4.625.000 420.455 4.204.545
+PDF;
+
+        $result = $parser->parseText($text);
+
+        $this->assertSame(185, $result['source_totals']['admits']);
+        $this->assertSame(4625000.0, $result['source_totals']['gross']);
+        $this->assertSame(420455.38, $result['source_totals']['tax_amount']);
+        $this->assertSame(4204544.62, $result['source_totals']['net']);
+        $this->assertSame(185, $result['totals']['admits']);
+        $this->assertSame(4625000.0, $result['totals']['gross']);
+    }
+
+    /** @test */
     public function it_uses_only_the_number_after_cinema_and_ignores_floor_suffix(): void
     {
         $parser = new CinepolisPdfParser();

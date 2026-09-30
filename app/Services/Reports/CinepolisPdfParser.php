@@ -77,9 +77,9 @@ class CinepolisPdfParser
             'net' => round(array_sum(array_column($rows, 'net')), 2),
         ];
         $totals['tax_rate'] = $totals['gross'] > 0 ? round(($totals['tax_amount'] / $totals['gross']) * 100, 4) : 0.0;
-        $dayTotals = $this->parseSourceTotals($text);
-        $screenTotals = $this->parseScreenTotals($text);
         $isTicketClassProfile = preg_match('/Ticket\s+Detail\s+Level\s*:\s*Ticket\s+Class/i', $text) === 1;
+        $dayTotals = $this->parseSourceTotals($text, $isTicketClassProfile);
+        $screenTotals = $this->parseScreenTotals($text);
         $sourceTotals = $isTicketClassProfile
             ? ($screenTotals ?? $dayTotals)
             : $dayTotals;
@@ -305,7 +305,7 @@ class CinepolisPdfParser
         ];
     }
 
-    private function parseSourceTotals(string $text): array
+    private function parseSourceTotals(string $text, bool $ticketClassProfile = false): array
     {
         preg_match_all('/Day\s+Total(?:\s+Paid)?\s+(\d+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i', $text, $matches, PREG_SET_ORDER);
         if (!$matches) {
@@ -326,13 +326,17 @@ class CinepolisPdfParser
         foreach ($complimentaryMatches as $match) {
             if (!empty($match[1])) {
                 $totals['admits'] += $this->parseInteger($match[1]);
-                $totals['gross'] += $this->parseMoney($match[2]);
+                if (!$ticketClassProfile) {
+                    $totals['gross'] += $this->parseMoney($match[2]);
+                }
                 $totals['tax_amount'] += $this->parseMoney($match[3]);
                 $totals['net'] += $this->parseMoney($match[4]);
             } else {
                 $totals['net'] += $this->parseMoney($match[5]);
                 $totals['tax_amount'] += $this->parseMoney($match[6]);
-                $totals['gross'] += $this->parseMoney($match[7]);
+                if (!$ticketClassProfile) {
+                    $totals['gross'] += $this->parseMoney($match[7]);
+                }
                 $totals['admits'] += $this->parseInteger($match[8]);
             }
         }
