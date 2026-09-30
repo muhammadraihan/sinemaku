@@ -447,6 +447,55 @@ PDF;
     }
 
     /** @test */
+    public function it_uses_only_the_number_after_cinema_and_ignores_floor_suffix(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+MALL THE GALERIA
+Detailed Distributors Report
+From Tuesday 29/09/2026 06:00 am Until Wednesday 30/09/2026 06:00 am Ticket Detail Level: Ticket Class
+SINEMAKU
+MEMBURU PEMANGSA CINEMA 1 (Lt.7)
+Admits Gross Tax NetTicket PriceTicket Class Attribute
+29/09/2026
+21:00 REGULAR 25,000.00 2 50,000.00 4,545.45 45,454.55 2D
+Day Total Paid 2 50,000.00 4,545.45 45,454.55
+PDF;
+
+        $result = $parser->parseText($text);
+
+        $this->assertSame('1', $result['studio']);
+        $this->assertSame('1', $result['rows'][0]['studio']);
+    }
+
+    /** @test */
+    public function it_merges_repeated_rows_with_the_same_canonical_identity(): void
+    {
+        $parser = new CinepolisPdfParser();
+        $text = <<<'PDF'
+MALL PHINISI POINT
+Detailed Distributors Report
+From Tuesday 29/09/2026 06:00 am Until Wednesday 30/09/2026 06:00 am Ticket Detail Level: Ticket Type
+SINEMAKU
+MEMBURU PEMANGSA CINEMA04
+Admits Gross Tax NetTicket PriceTicket Type Attribute
+29/09/2026
+21:00 REGULAR 25,000.00 113 2,825,000.00 256,818.49 2,568,181.51 2D
+REGULAR 25,000.00 1 25,000.00 2,272.73 22,727.27 2D
+Day Total Paid 114 2,850,000.00 259,091.22 2,590,908.78
+PDF;
+
+        $result = $parser->parseText($text);
+
+        $this->assertCount(1, $result['rows']);
+        $this->assertSame(114, $result['rows'][0]['jumlah']);
+        $this->assertSame(2850000.0, $result['rows'][0]['gross']);
+        $this->assertSame(114, $result['totals']['admits']);
+        $this->assertSame(2850000.0, $result['totals']['gross']);
+        $this->assertSame([1, 2], $result['rows'][0]['source_rows']);
+    }
+
+    /** @test */
     public function it_rejects_pdf_without_parseable_cinema_name()
     {
         $parser = new CinepolisPdfParser();

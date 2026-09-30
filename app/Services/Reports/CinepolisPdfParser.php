@@ -65,6 +65,7 @@ class CinepolisPdfParser
         foreach ($blocks as $block) {
             $rows = array_merge($rows, $this->parseBlockRows($block, $reportDate));
         }
+        $rows = $this->mergeCanonicalRows($rows);
         if (!$rows) {
             throw new \InvalidArgumentException('Tidak ada detail tiket yang dapat diparse dari PDF.');
         }
@@ -111,7 +112,7 @@ class CinepolisPdfParser
     {
         $starts = [];
         foreach ($lines as $index => $line) {
-            if (preg_match('/^(.+?)\s+CINEMA\s*(\d+)$/i', $line, $match)) {
+            if (preg_match('/^(.+?)\s+CINEMA\s*(\d+)(?:\s*\(.*\))?$/i', $line, $match)) {
                 $filmName = $this->normalizeName($match[1]);
                 if ($filmName !== '') {
                     $starts[] = ['index' => $index, 'film_name' => $filmName, 'studio' => $match[2]];
@@ -250,6 +251,33 @@ class CinepolisPdfParser
         }
 
         return $rows;
+    }
+
+    private function mergeCanonicalRows(array $rows): array
+    {
+        $merged = [];
+        $positions = [];
+        $fields = ['tanggal', 'studio', 'type_tiket', 'jam_tayang', 'show', 'harga'];
+        foreach ($rows as $sourceIndex => $row) {
+            $key = json_encode(array_map(fn ($field) => mb_strtoupper(trim((string) ($row[$field] ?? ''))), $fields));
+            if (!isset($positions[$key])) {
+                $row['source_rows'] = [$sourceIndex + 1];
+                $positions[$key] = count($merged);
+                $merged[] = $row;
+                continue;
+            }
+            $index = $positions[$key];
+            $merged[$index]['jumlah'] = (int) $merged[$index]['jumlah'] + (int) $row['jumlah'];
+            foreach (['gross', 'tax_amount', 'net'] as $field) {
+                $merged[$index][$field] = round((float) ($merged[$index][$field] ?? 0) + (float) ($row[$field] ?? 0), 2);
+            }
+            $merged[$index]['source_rows'][] = $sourceIndex + 1;
+        }
+        foreach ($merged as &$row) {
+            if (count($row['source_rows']) === 1) unset($row['source_rows']);
+        }
+        unset($row);
+        return array_values($merged);
     }
 
     private function parseScreenTotals(string $text): ?array
