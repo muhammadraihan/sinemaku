@@ -29,12 +29,13 @@ class KcmXlsxParserTest extends TestCase
         $this->assertSame('KCM PAMEKASAN', $result['cinema_name']);
         $this->assertSame('PAMEKASAN', $result['city']);
         $this->assertSame('2026-09-27', $result['report_date']);
-        $this->assertSame(['REGULAR', 'FREE PASS', 'REGULAR', 'FREE PASS'], array_column($result['rows'], 'ticket_name'));
-        $this->assertSame(['1', '1', '2', '3'], array_column($result['rows'], 'show'));
-        $this->assertSame([4.0, 1.0, 3.0, 2.0], array_column($result['rows'], 'jumlah'));
-        $this->assertSame([null, null, null, null], array_column($result['rows'], 'jam_tayang'));
+        $this->assertSame(['REGULAR', 'FREE PASS', 'BOGOF', 'REGULAR', 'FREE PASS'], array_column($result['rows'], 'ticket_name'));
+        $this->assertSame(['1', '1', '1', '2', '3'], array_column($result['rows'], 'show'));
+        $this->assertSame([4.0, 1.0, 2.0, 3.0, 2.0], array_column($result['rows'], 'jumlah'));
+        $this->assertSame([null, null, null, null, null], array_column($result['rows'], 'jam_tayang'));
+        $this->assertSame([50000.0, 0.0, 0.0, 50000.0, 0.0], array_column($result['rows'], 'harga'));
         $this->assertSame(2.0, $result['source_totals']['promo']);
-        $this->assertNotEmpty($result['blocking_warnings']);
+        $this->assertSame([], $result['blocking_warnings']);
         $this->assertSame(2.0, $result['row_audit'][0]['promo']);
         $this->assertSame(7.0, $result['source_totals']['sold']);
         $this->assertSame(3.0, $result['source_totals']['free']);

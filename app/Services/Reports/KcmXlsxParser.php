@@ -58,6 +58,9 @@ class KcmXlsxParser
                 $sold += $paid; $free += $fp; $promo += $pr;
                 if ($paid > 0) $out['rows'][]=$this->row($sheet,$i+1,$date,$film,$cinema,$city,$studio,'REGULAR',$group['show'],$paid,$price);
                 if ($fp > 0) $out['rows'][]=$this->row($sheet,$i+1,$date,$film,$cinema,$city,$studio,'FREE PASS',$group['show'],$fp,0.0);
+                // KCM Sinemaku explicitly labels Promo as BOGO. It is a complimentary
+                // ticket with zero canonical price; the printed promo amount remains audit-only.
+                if ($pr > 0 && $sinemaku) $out['rows'][]=$this->row($sheet,$i+1,$date,$film,$cinema,$city,$studio,'BOGOF',$group['show'],$pr,0.0);
             }
             $printedSold=$this->number($line[$totals['sold']] ?? null); $printedFree=$this->number($line[$totals['free']] ?? null); $printedPromo=$sinemaku?$this->number($line[$totals['promo']] ?? null):0; $printedGross=$this->money($line[$totals['gross']] ?? null) ?? 0.0;
             if (!$this->same($sold,$printedSold)) throw new \InvalidArgumentException("Total sold tidak sama dengan detail show pada sheet $sheet baris ".($i+1).'.');
@@ -67,7 +70,6 @@ class KcmXlsxParser
             if (!$this->same($printedGross, $sold * $price) && !$freeIsPaid) throw new \InvalidArgumentException("Jumlah uang tidak sama dengan harga × sold/free pada sheet $sheet baris ".($i+1).'.');
             if ($freeIsPaid) for ($j=$rowStart; $j<count($out['rows']); $j++) if ($out['rows'][$j]['ticket_name'] === 'FREE PASS') { $out['rows'][$j]['harga']=$price; $out['rows'][$j]['net']=$out['rows'][$j]['jumlah']*$price; }
             $audit=['source_sheet'=>$sheet,'source_row'=>$i+1,'film'=>$film,'studio'=>$studio,'sold'=>$sold,'free'=>$free,'promo'=>$promo,'printed_sold'=>$printedSold,'printed_free'=>$printedFree,'printed_promo'=>$printedPromo,'printed_gross'=>$printedGross]; $out['audit'][]=$audit;
-            if ($promo > 0) $out['warnings'][]="Promo $promo pada sheet $sheet baris ".($i+1).' tidak dapat dipetakan otomatis dan memblokir import.';
             foreach (['sold'=>$sold,'free'=>$free,'promo'=>$promo] as $key=>$amount) $out['totals'][$key]+=$amount; $out['totals']['gross'] += $printedGross;
         }
         return $out;

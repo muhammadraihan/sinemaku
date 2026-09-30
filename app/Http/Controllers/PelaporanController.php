@@ -1613,11 +1613,6 @@ class PelaporanController extends Controller
         if (in_array($provider, ['NSC', 'XXI'], true) && !empty($cached['pending_free_assignments'])) {
             return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena masih ada tiket Free yang belum ditentukan show-nya.'], 422);
         }
-        if ($provider === 'KCM' && !empty($cached['source_audit'])) {
-            $excluded = collect($cached['rows'])->filter(fn ($row) => !empty($row['excluded']))->map(fn ($row) => ($row['source_sheet'] ?? '').'|'.($row['source_row'] ?? ''))->all();
-            $promos = collect($cached['source_audit'])->filter(fn ($audit) => (float) ($audit['promo'] ?? 0) > 0 && !in_array(($audit['source_sheet'] ?? '').'|'.($audit['source_row'] ?? ''), $excluded, true));
-            if ($promos->isNotEmpty()) return response()->json(['status'=>'failed','message'=>'Import diblokir karena Promo KCM belum memiliki pemetaan kanonik. Keluarkan baris sumber atau unggah laporan tanpa Promo.'],422);
-        }
         $mapping = $this->mapLegacyPreview($cached['rows'], $provider, $provider === 'XXI' && ($cached['source_type'] ?? null) === 'pdf');
         if (!empty($mapping['blocking_issues'])) {
             return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena mapping belum lengkap.', 'issues' => $mapping['blocking_issues']], 422);
