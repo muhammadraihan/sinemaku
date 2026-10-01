@@ -176,6 +176,16 @@ class XxiPdfParser
             if ($cinema === '') {
                 $cinema = $this->mergedCellCinemaName($lines, $index, $currentCinema, $showColumns);
             }
+            if ($cinema === 'XXI' && $currentCinema !== null && !str_ends_with($currentCinema, ' XXI')) {
+                $completeCinema = $currentCinema.' XXI';
+                foreach ($rows as &$existingRow) {
+                    if ($existingRow['source_cinema'] === $currentCinema && $existingRow['source_city'] === $city) {
+                        $existingRow['source_cinema'] = $completeCinema;
+                    }
+                }
+                unset($existingRow);
+                $cinema = $completeCinema;
+            }
             if ($cinema === '') {
                 throw new \InvalidArgumentException('Nama cinema tidak dapat dibaca pada baris sumber XXI '.$sourceRow.'.');
             }

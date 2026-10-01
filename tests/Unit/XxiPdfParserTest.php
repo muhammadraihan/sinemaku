@@ -169,6 +169,27 @@ PDF);
     }
 
     /** @test */
+    public function it_treats_a_standalone_xxi_suffix_as_part_of_one_merged_cinema_name(): void
+    {
+        $result = (new XxiPdfParser())->parseText(<<<'PDF'
+FILM MEMBURU PEMANGSA
+SHOW: TUESDAY, 29 SEPTEMBER 2026
+CINEMA St Kp 1 2 3 4 5 6 PTN FP
+** PEMATANG SIANTAR **
+SUZUYA MERDEKA SIANTAR 3 134 - - - - - 14 14 -
+
+XXI
+
+4 130 - - - 37 - 5 42 -
+TOTAL 56 -
+PDF);
+
+        $this->assertSame(['SUZUYA MERDEKA SIANTAR XXI'], array_values(array_unique(array_column($result['rows'], 'source_cinema'))));
+        $this->assertSame(['3', '4'], array_values(array_unique(array_column($result['rows'], 'studio'))));
+        $this->assertSame(56, array_sum(array_column($result['rows'], 'jumlah')));
+    }
+
+    /** @test */
     public function it_rejects_malformed_rows_and_total_mismatches_without_guessing(): void
     {
         $this->expectException(\InvalidArgumentException::class);
