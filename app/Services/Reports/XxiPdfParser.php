@@ -132,6 +132,21 @@ class XxiPdfParser
                 continue;
             }
 
+            // In vertically merged cells, the chain suffix can be printed on
+            // its own line after the first cinema row. It is not a new cinema
+            // and must be consumed before wrapped-row joining sees it.
+            if ($line === 'XXI' && $currentCinema !== null && !str_ends_with($currentCinema, ' XXI')) {
+                $completeCinema = $currentCinema.' XXI';
+                foreach ($rows as &$existingRow) {
+                    if ($existingRow['source_cinema'] === $currentCinema && $existingRow['source_city'] === $city) {
+                        $existingRow['source_cinema'] = $completeCinema;
+                    }
+                }
+                unset($existingRow);
+                $currentCinema = $completeCinema;
+                continue;
+            }
+
             $sourceRow = $index + 1;
             $parsed = $this->sourceRow($line, $showColumns);
             if ($parsed === null && preg_match('/^\d+\s+\d[\d,]*(?:\s+(?:-|\d[\d,]*)){'.($showColumns + 2).'}$/u', $line) === 1) {
@@ -175,16 +190,6 @@ class XxiPdfParser
             $cinema = $parsed['cinema'];
             if ($cinema === '') {
                 $cinema = $this->mergedCellCinemaName($lines, $index, $currentCinema, $showColumns);
-            }
-            if ($cinema === 'XXI' && $currentCinema !== null && !str_ends_with($currentCinema, ' XXI')) {
-                $completeCinema = $currentCinema.' XXI';
-                foreach ($rows as &$existingRow) {
-                    if ($existingRow['source_cinema'] === $currentCinema && $existingRow['source_city'] === $city) {
-                        $existingRow['source_cinema'] = $completeCinema;
-                    }
-                }
-                unset($existingRow);
-                $cinema = $completeCinema;
             }
             if ($cinema === '') {
                 throw new \InvalidArgumentException('Nama cinema tidak dapat dibaca pada baris sumber XXI '.$sourceRow.'.');
@@ -386,6 +391,9 @@ class XxiPdfParser
             }
             $candidate = $lines[$rowIndex + $offset];
             if ($candidate === '' || $this->sourceRow($candidate, $showColumns) !== null || !$this->isCinemaFragment($candidate)) {
+                continue;
+            }
+            if ($candidate === 'XXI' && $currentCinema !== null && str_ends_with($currentCinema, ' XXI')) {
                 continue;
             }
             $parts[] = $candidate;
