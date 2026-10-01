@@ -99,6 +99,28 @@ class KcmXlsxParserTest extends TestCase
         (new KcmXlsxParser())->parse($path);
     }
 
+    public function test_external_layout_recognizes_aggregate_free_voucher_included_in_sold(): void
+    {
+        $path = $this->workbook([
+            ['LAPORAN PENJUALAN FILM HARIAN EXTERNAL SINEMAKU 29.09.2026'],
+            [], ['DISTRIBUTOR', '', 'SINEMAKU'], ['JUDUL FILM', '', 'Semua Movie'],
+            ['NAMA BIOSKOP', '', 'KCM Wisma Asri'], ['HTM'], [], [],
+            ['Tanggal', 'ST', 'Judul Film', 'KP', 'Show 1', '', 'Show 2', '', 'TOTAL', '', 'HTM', 'FREE VOUCHER', '', 'TOTAL'],
+            ['', '', '', '', 'SO', 'FP', 'SO', 'FP', 'SO', 'FP', '', 'QTY', 'IDR'],
+            ['2026-09-29', '3', 'MEMBURU PEMANGSA', '116', 51, 0, 25, 0, 76, 0, 25000, 15, 375000, 1525000],
+        ]);
+
+        $result = (new KcmXlsxParser())->parse($path);
+
+        $this->assertSame(61.0, $result['source_totals']['sold']);
+        $this->assertSame(15.0, $result['source_totals']['free']);
+        $this->assertSame(1525000.0, $result['source_totals']['gross']);
+        $this->assertCount(1, $result['pending_free_assignments']);
+        $this->assertSame(15.0, $result['pending_free_assignments'][0]['jumlah']);
+        $this->assertSame([1, 2], array_column($result['pending_free_assignments'][0]['candidate_shows'], 'show'));
+        $this->assertSame(15.0, $result['row_audit'][0]['free_voucher']);
+    }
+
     public function test_external_layout_preserves_valued_free_pass_when_source_gross_includes_it(): void
     {
         $path = $this->workbook([

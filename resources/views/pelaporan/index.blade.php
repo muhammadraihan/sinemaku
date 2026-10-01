@@ -887,7 +887,7 @@
                 'CGV': { preview: @json(route('pelaporan.upload.cgv')), confirm: @json(route('pelaporan.upload.cgv.confirm')), quick: @json(route('pelaporan.upload.cgv.quick-master')) },
                 'SAMS STUDIOS': { preview: @json(route('pelaporan.upload.sams')), confirm: @json(route('pelaporan.upload.sams.confirm')), quick: @json(route('pelaporan.upload.sams.quick-master')) },
                 'NSC': { preview: @json(route('pelaporan.upload.nsc')), confirm: @json(route('pelaporan.upload.nsc.confirm')), quick: @json(route('pelaporan.upload.nsc.quick-master')), assignFree: @json(route('pelaporan.upload.nsc.assign-free')) },
-                'KCM': { preview: @json(route('pelaporan.upload.kcm')), confirm: @json(route('pelaporan.upload.kcm.confirm')), quick: @json(route('pelaporan.upload.kcm.quick-master')) },
+                'KCM': { preview: @json(route('pelaporan.upload.kcm')), confirm: @json(route('pelaporan.upload.kcm.confirm')), quick: @json(route('pelaporan.upload.kcm.quick-master')), assignFree: @json(route('pelaporan.upload.kcm.assign-free-voucher')) },
                 'XXI': { preview: @json(route('pelaporan.upload.xxi')), confirm: @json(route('pelaporan.upload.xxi.confirm')), quick: @json(route('pelaporan.upload.xxi.quick-master')), assignFree: @json(route('pelaporan.upload.xxi.assign-free')) }
             };
             $.ajax({ url: legacyUrls[bioskop].preview, method: 'POST', data: formData, contentType: false, processData: false })
@@ -1081,9 +1081,16 @@
         var state = activeLegacyPreview;
         if (!state) return;
         var resource = button.data('resource'), issue = button.data('issue'), issueRow = legacyRowForIssue(state.res, issue) || {};
+        if (resource === 'capacity') {
+            issueRow = $.extend({}, issueRow, {
+                source_row: button.attr('data-source-row') || issueRow.source_row,
+                ticket_name: button.attr('data-ticket-name') || issueRow.ticket_name,
+                studio: button.attr('data-studio') || issueRow.studio
+            });
+        }
         var field = resource === 'cinema' ? '<input id="legacy-qm-name" class="swal2-input" value="'+escapeHtml(issueRow.bioskop || '')+'" placeholder="Nama bioskop"><input id="legacy-qm-city" class="swal2-input" value="'+escapeHtml(issueRow.kota || '')+'" placeholder="Kota">' : resource === 'film' ? '<input id="legacy-qm-name" class="swal2-input" value="'+escapeHtml(issueRow.nama_film || '')+'" placeholder="Nama film">' : resource === 'ticket_type' ? '<input id="legacy-qm-name" class="swal2-input" value="'+escapeHtml(issueRow.ticket_name || '')+'" placeholder="Tipe tiket">' : '<input id="legacy-qm-studio" class="swal2-input" value="'+escapeHtml(issueRow.studio || '')+'" placeholder="Studio"><input id="legacy-qm-capacity" type="number" min="0" class="swal2-input" placeholder="Kapasitas">';
         var target = document.querySelector('#modal-legacy-preview .cinepolis-preview-swal-target');
-        Swal.fire({target:target,title:'Tambah Master',html:field,showCancelButton:true,confirmButtonText:'Simpan & Periksa Ulang',cancelButtonText:'Batal',showLoaderOnConfirm:true,preConfirm:function(){ var p={token:state.res.token,resource:resource}; if(resource==='cinema'){p.name=$('#legacy-qm-name').val();p.city=$('#legacy-qm-city').val();} else if(resource==='film'||resource==='ticket_type'){p.name=$('#legacy-qm-name').val();} else { var capacityRow=legacyRowForIssue(state.res,issue)||{}; p.source_row=capacityRow.source_row||''; p.ticket_name=capacityRow.ticket_name||''; p.studio=$('#legacy-qm-studio').val() || capacityRow.studio || '';p.kapasitas=$('#legacy-qm-capacity').val(); }
+        Swal.fire({target:target,title:'Tambah Master',html:field,showCancelButton:true,confirmButtonText:'Simpan & Periksa Ulang',cancelButtonText:'Batal',showLoaderOnConfirm:true,preConfirm:function(){ var p={token:state.res.token,resource:resource}; if(resource==='cinema'){p.name=$('#legacy-qm-name').val();p.city=$('#legacy-qm-city').val();} else if(resource==='film'||resource==='ticket_type'){p.name=$('#legacy-qm-name').val();} else { p.source_row=issueRow.source_row||''; p.ticket_name=issueRow.ticket_name||''; p.studio=$('#legacy-qm-studio').val() || issueRow.studio || '';p.kapasitas=$('#legacy-qm-capacity').val(); }
             if ((resource==='capacity' && (!p.source_row || !p.ticket_name || !p.studio || p.kapasitas==='')) || ((resource==='film'||resource==='ticket_type') && !p.name) || (resource==='cinema' && (!p.name || !p.city))) { Swal.showValidationMessage('Lengkapi semua field wajib.'); return false; }
             return $.post(state.urls.quick,p).then(function(response){ if (!response || response.status !== 'success') { throw new Error(response && response.message ? response.message : 'Master gagal disimpan.'); } return response; }).catch(function(xhr){ var json=xhr.responseJSON||{}; var message=json.message||xhr.message||((json.errors&&Object.values(json.errors)[0]) ? Object.values(json.errors)[0][0] : 'Master gagal disimpan.'); Swal.showValidationMessage(message); return false; }); }}).then(function(result){if(result.isConfirmed&&result.value){showLegacyPreview(result.value,state.provider,state.urls);Swal.fire({target:target,icon:'success',title:'Master tersimpan',text:result.value.message,timer:1200,showConfirmButton:false});}});
     }
@@ -1129,11 +1136,11 @@
             if (issue.indexOf('Tipe tiket ') === 0) return ['ticket_type', 'Tambah Tipe Tiket'];
             if (issue.indexOf('Studio ') === 0) {
                 var capacityRow = legacyRowForIssue(res, issue);
-                return capacityRow && capacityRow.cinema_uuid && capacityRow.ticket_uuid ? ['capacity', 'Tambah Master Kapasitas'] : null;
+                return capacityRow && capacityRow.cinema_uuid && capacityRow.ticket_uuid ? ['capacity', 'Tambah Master Kapasitas', capacityRow] : null;
             }
             return null;
         };
-        $('#legacy-preview-issues').toggleClass('d-none', !issues.length).html(issues.length ? '<strong>Import diblokir:</strong><ul class="cinepolis-preview-issues-list">' + issues.map(function(issue) { var action=actionFor(issue); return '<li><div class="d-flex justify-content-between align-items-center flex-wrap"><span>' + escapeHtml(issue) + '</span>' + (action ? '<button type="button" class="btn btn-sm btn-outline-danger ml-2 mt-1 legacy-quick-master" data-resource="'+action[0]+'" data-issue="'+escapeHtml(issue)+'">'+action[1]+'</button>' : '') + '</div></li>'; }).join('') + '</ul>' : '');
+        $('#legacy-preview-issues').toggleClass('d-none', !issues.length).html(issues.length ? '<strong>Import diblokir:</strong><ul class="cinepolis-preview-issues-list">' + issues.map(function(issue) { var action=actionFor(issue), row=action&&action[2]?action[2]:{}; return '<li><div class="d-flex justify-content-between align-items-center flex-wrap"><span>' + escapeHtml(issue) + '</span>' + (action ? '<button type="button" class="btn btn-sm btn-outline-danger ml-2 mt-1 legacy-quick-master" data-resource="'+action[0]+'" data-issue="'+escapeHtml(issue)+'" data-source-row="'+escapeHtml(row.source_row||'')+'" data-ticket-name="'+escapeHtml(row.ticket_name||'')+'" data-studio="'+escapeHtml(row.studio||'')+'">'+action[1]+'</button>' : '') + '</div></li>'; }).join('') + '</ul>' : '');
         $('#legacy-preview-issues .legacy-quick-master').off('click').on('click', function (event) {
             event.preventDefault();
             event.stopPropagation();

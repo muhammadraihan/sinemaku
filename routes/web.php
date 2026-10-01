@@ -119,6 +119,8 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     ->name('pelaporan.upload.sams.quick-master');
     Route::post('/pelaporan/upload-kcm', [PelaporanController::class, 'uploadKCM'])
     ->name('pelaporan.upload.kcm');
+    Route::post('/pelaporan/upload-kcm/assign-free-voucher', [PelaporanController::class, 'assignKcmFreeVoucherShow'])
+    ->name('pelaporan.upload.kcm.assign-free-voucher');
     Route::post('/pelaporan/upload-kcm/confirm', [PelaporanController::class, 'confirmLegacyExcel'])->defaults('provider', 'KCM')
     ->name('pelaporan.upload.kcm.confirm');
     Route::post('/pelaporan/upload-kcm/quick-master', [PelaporanController::class, 'quickMasterLegacy'])->defaults('provider', 'KCM')

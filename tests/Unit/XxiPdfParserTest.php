@@ -143,6 +143,32 @@ PDF);
     }
 
     /** @test */
+    public function it_assigns_a_leading_blank_merged_cell_row_to_the_next_cinema_group(): void
+    {
+        $result = (new XxiPdfParser())->parseText(<<<'PDF'
+FILM MEMBURU PEMANGSA
+SHOW: SUNDAY, 28 SEPTEMBER 2026
+CINEMA St Kp 1 2 3 4 5 6 PTN FP
+** PADANG **
+PLAZA ANDALAS XXI 3 117 - - 27 - 20 - 47 -
+
+3 119 - - 14 - - - 14 -
+
+TRANSMART PADANG XXI
+4 119 - - 34 - 48 - 82 -
+5 119 - 4 - - - - 4 -
+TOTAL 147 -
+PDF);
+
+        $plaza = array_values(array_filter($result['rows'], fn (array $row) => $row['source_cinema'] === 'PLAZA ANDALAS XXI'));
+        $transmart = array_values(array_filter($result['rows'], fn (array $row) => $row['source_cinema'] === 'TRANSMART PADANG XXI'));
+
+        $this->assertSame([27, 20], array_column($plaza, 'jumlah'));
+        $this->assertSame(['3', '4', '5'], array_values(array_unique(array_column($transmart, 'studio'))));
+        $this->assertSame(14, collect($transmart)->first(fn (array $row) => $row['studio'] === '3')['jumlah']);
+    }
+
+    /** @test */
     public function it_rejects_malformed_rows_and_total_mismatches_without_guessing(): void
     {
         $this->expectException(\InvalidArgumentException::class);

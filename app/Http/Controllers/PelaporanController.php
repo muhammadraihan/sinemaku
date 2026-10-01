@@ -1468,12 +1468,19 @@ class PelaporanController extends Controller
             $mapping = $this->mapLegacyPreview($parsed['rows'], 'KCM');
             $mapping['source_profile'] = $parsed['layout'];
             $mapping['source_audit'] = $parsed['row_audit'];
+            $mapping['pending_free_assignments'] = $parsed['pending_free_assignments'] ?? [];
+            foreach ($mapping['pending_free_assignments'] as $pending) {
+                $mapping['blocking_issues'][] = 'FREE VOUCHER '.$pending['jumlah'].' pada sheet '.$pending['source_sheet'].' baris '.$pending['source_row'].' belum ditentukan show-nya.';
+            }
+            $mapping['blocking_issues'] = array_values(array_unique($mapping['blocking_issues']));
+            $mapping['summary']['blocked'] = count($mapping['preview']) - count($mapping['rows']);
+            $mapping['source_audit'] = $parsed['row_audit'];
             $mapping['source_totals'] = $parsed['source_totals'];
             $mapping['warnings'] = array_values(array_unique(array_merge($mapping['warnings'] ?? [], $parsed['blocking_warnings'] ?? [])));
             $mapping['blocking_issues'] = array_values(array_unique(array_merge($mapping['blocking_issues'], $parsed['blocking_warnings'] ?? [])));
             $mapping['summary'] = array_merge($mapping['summary'], ['paid'=>$parsed['source_totals']['sold'], 'free'=>$parsed['source_totals']['free'], 'promo'=>$parsed['source_totals']['promo'], 'gross'=>$parsed['source_totals']['gross']]);
             $token=(string) Str::uuid();
-            $this->putImportPreview($this->legacyPreviewKey($token), ['provider'=>'KCM','rows'=>$parsed['rows'],'mapping'=>$mapping,'source_type'=>'excel','source_profile'=>$parsed['layout'],'source_audit'=>$parsed['row_audit'],'source_totals'=>$parsed['source_totals'],'upload_metadata'=>$this->previewUploadMetadata($request,'KCM',count($mapping['preview'])),'created_by'=>Auth::user()->uuid??null], now()->addMinutes(30));
+            $this->putImportPreview($this->legacyPreviewKey($token), ['provider'=>'KCM','rows'=>$parsed['rows'],'mapping'=>$mapping,'source_type'=>'excel','source_profile'=>$parsed['layout'],'source_audit'=>$parsed['row_audit'],'source_totals'=>$parsed['source_totals'],'pending_free_assignments'=>$parsed['pending_free_assignments'] ?? [],'upload_metadata'=>$this->previewUploadMetadata($request,'KCM',count($mapping['preview'])),'created_by'=>Auth::user()->uuid??null], now()->addMinutes(30));
             return response()->json(array_merge(['status'=>'success','token'=>$token,'source_profile'=>$parsed['layout']],$mapping));
         } catch (\Throwable $e) { report($e); return response()->json(['status'=>'failed','message'=>'Preview KCM gagal: '.$e->getMessage()],422); }
     }
@@ -1564,6 +1571,48 @@ class PelaporanController extends Controller
         return response()->json(array_merge(['status' => 'success', 'message' => 'Show untuk tiket Free berhasil ditentukan.', 'token' => $request->input('token')], $mapping));
     }
 
+    public function assignKcmFreeVoucherShow(Request $request)
+    {
+        return Cache::lock('report-import-mutation', 120)->block(5, fn () => $this->assignKcmFreeVoucherShowLocked($request));
+    }
+
+    private function assignKcmFreeVoucherShowLocked(Request $request)
+    {
+        $request->validate(['token' => 'required|string', 'assignment_key' => 'required|string', 'show' => 'required|integer|min:1|max:20']);
+        $cacheKey = $this->legacyPreviewKey($request->input('token'));
+        $cached = $this->getImportPreview($cacheKey);
+        if (!$cached || ($cached['provider'] ?? null) !== 'KCM') return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa.'], 422);
+        if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
+        $pending = collect($cached['pending_free_assignments'] ?? [])->firstWhere('key', $request->input('assignment_key'));
+        if (!$pending) return response()->json(['status' => 'failed', 'message' => 'Alokasi FREE VOUCHER tidak ditemukan pada preview.'], 422);
+        $show = (int) $request->input('show');
+        $selected = collect($pending['candidate_shows'])->firstWhere('show', $show);
+        if (!$selected) return response()->json(['status' => 'failed', 'message' => 'Show yang dipilih tidak tersedia pada laporan sumber.'], 422);
+        $amount = (float) $pending['jumlah'];
+        $index = collect($cached['rows'])->search(fn ($row) => (int) ($row['source_row'] ?? 0) === (int) $pending['source_row']
+            && (string) ($row['source_sheet'] ?? '') === (string) $pending['source_sheet']
+            && (string) $row['studio'] === (string) $pending['studio']
+            && ($row['ticket_name'] ?? '') === 'REGULAR'
+            && (int) ($row['show'] ?? 0) === $show);
+        if ($index === false || (float) $cached['rows'][$index]['jumlah'] < $amount) return response()->json(['status' => 'failed', 'message' => 'Jumlah tiket pada show sumber tidak cukup untuk alokasi voucher.'], 422);
+        $source = $cached['rows'][$index];
+        $cached['rows'][$index]['jumlah'] = (float) $cached['rows'][$index]['jumlah'] - $amount;
+        $cached['rows'][$index]['net'] = (float) $cached['rows'][$index]['jumlah'] * (float) $cached['rows'][$index]['harga'];
+        if ($cached['rows'][$index]['jumlah'] <= 0) array_splice($cached['rows'], $index, 1);
+        $cached['rows'][] = array_merge($source, ['row_id' => null, 'original_row' => null, 'correction_issues' => [], 'ticket_name' => 'FREE PASS', 'show' => (string) $show, 'jumlah' => $amount, 'harga' => 0.0, 'tax' => 0, 'net' => 0]);
+        $cached['pending_free_assignments'] = array_values(array_filter($cached['pending_free_assignments'], fn ($item) => $item['key'] !== $pending['key']));
+        $mapping = $this->mapLegacyPreview($cached['rows'], 'KCM');
+        $mapping['source_profile'] = $cached['source_profile'] ?? 'EXTERNAL';
+        $mapping['source_audit'] = $cached['source_audit'] ?? [];
+        $mapping['source_totals'] = $cached['source_totals'] ?? [];
+        $mapping['pending_free_assignments'] = $cached['pending_free_assignments'];
+        foreach ($mapping['pending_free_assignments'] as $item) $mapping['blocking_issues'][] = 'FREE VOUCHER '.$item['jumlah'].' pada sheet '.$item['source_sheet'].' baris '.$item['source_row'].' belum ditentukan show-nya.';
+        $mapping['blocking_issues'] = array_values(array_unique($mapping['blocking_issues']));
+        $cached['mapping'] = $mapping;
+        $this->putImportPreview($cacheKey, $cached, now()->addMinutes(30));
+        return response()->json(array_merge(['status' => 'success', 'message' => 'Show untuk FREE VOUCHER berhasil ditentukan.', 'token' => $request->input('token')], $mapping));
+    }
+
     public function previewLegacyExcel(Request $request, string $provider)
     {
         $request->validate(['file' => 'required|file|mimes:xlsx,xls|max:20480'], [
@@ -1610,7 +1659,7 @@ class PelaporanController extends Controller
         if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) {
             return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
         }
-        if (in_array($provider, ['NSC', 'XXI'], true) && !empty($cached['pending_free_assignments'])) {
+        if (in_array($provider, ['NSC', 'XXI', 'KCM'], true) && !empty($cached['pending_free_assignments'])) {
             return response()->json(['status' => 'failed', 'message' => 'Import diblokir karena masih ada tiket Free yang belum ditentukan show-nya.'], 422);
         }
         $mapping = $this->mapLegacyPreview($cached['rows'], $provider, $provider === 'XXI' && ($cached['source_type'] ?? null) === 'pdf');
@@ -1707,7 +1756,7 @@ class PelaporanController extends Controller
             $capacity->save();
         }
         $fresh = $this->mapLegacyPreview($rows, $provider, $provider === 'XXI' && ($cached['source_type'] ?? null) === 'pdf');
-        if (in_array($provider, ['NSC', 'XXI'], true)) {
+        if (in_array($provider, ['NSC', 'XXI', 'KCM'], true)) {
             $fresh = $this->withPendingFreeAssignments($fresh, $cached['pending_free_assignments'] ?? []);
         }
         $cached['mapping'] = $fresh;

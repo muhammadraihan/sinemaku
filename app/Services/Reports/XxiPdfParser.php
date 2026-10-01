@@ -134,6 +134,10 @@ class XxiPdfParser
 
             $sourceRow = $index + 1;
             $parsed = $this->sourceRow($line, $showColumns);
+            if ($parsed === null && preg_match('/^\d+\s+\d[\d,]*(?:\s+(?:-|\d[\d,]*)){'.($showColumns + 2).'}$/u', $line) === 1) {
+                $parsed = $this->sourceRow('__BLANK_CINEMA__ '.$line, $showColumns);
+                if ($parsed !== null) $parsed['cinema'] = '';
+            }
             if ($parsed === null && isset($lines[$index - 1]) && $this->isCinemaFragment($lines[$index - 1])) {
                 $parsed = $this->sourceRow($lines[$index - 1].' '.$line, $showColumns);
                 if ($parsed !== null) {
@@ -170,7 +174,7 @@ class XxiPdfParser
 
             $cinema = $parsed['cinema'];
             if ($cinema === '') {
-                $cinema = $this->wrappedCinemaName($lines, $index, $currentCinema, $showColumns);
+                $cinema = $this->mergedCellCinemaName($lines, $index, $currentCinema, $showColumns);
             }
             if ($cinema === '') {
                 throw new \InvalidArgumentException('Nama cinema tidak dapat dibaca pada baris sumber XXI '.$sourceRow.'.');
@@ -344,6 +348,23 @@ class XxiPdfParser
             }
         }
         return $found;
+    }
+
+    private function mergedCellCinemaName(array $lines, int $rowIndex, ?string $currentCinema, int $showColumns): string
+    {
+        // In layout extraction, a vertically merged cinema label may be placed
+        // between its first and later numeric rows. Prefer the next explicit
+        // label within the same contiguous group over the previous cinema.
+        for ($offset = 1; $offset <= 3; $offset++) {
+            $candidate = $lines[$rowIndex + $offset] ?? null;
+            if ($candidate === null) break;
+            if ($candidate === '') continue;
+            if (preg_match('/^(?:\*\*|TOTAL\b|FILM\b|SHOW\b)/iu', $candidate) === 1) break;
+            $next = $this->sourceRow($candidate, $showColumns);
+            if ($next !== null && $next['cinema'] !== '') return $next['cinema'];
+            if ($this->isCinemaFragment($candidate)) return $this->normalizeName($candidate);
+        }
+        return $this->wrappedCinemaName($lines, $rowIndex, $currentCinema, $showColumns);
     }
 
     private function wrappedCinemaName(array $lines, int $rowIndex, ?string $currentCinema, int $showColumns): string
