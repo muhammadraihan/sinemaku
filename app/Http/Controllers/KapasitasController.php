@@ -66,7 +66,7 @@ class KapasitasController extends Controller
         $bioskop_kategori = KategoriBioskop::all()->pluck('name', 'uuid');
         $selectedCategory = old('kategori');
         $nama_bioskop = $selectedCategory
-            ? MasterBioskop::where('type', $selectedCategory)->pluck('nama_bioskop', 'uuid')
+            ? $this->cinemaOptionsWithCity($selectedCategory)
             : collect();
         $type_tiket = TypeTiket::all()->pluck('name', 'uuid');
         return view('kapasitas.create', compact('bioskop_kategori', 'nama_bioskop', 'type_tiket'));
@@ -242,14 +242,22 @@ class KapasitasController extends Controller
     }
 
     public function getCinemaByCategory(Request $request){
-        $kategori = $request->kategori;
+        return response()->json($this->cinemaOptionsWithCity($request->kategori));
+    }
 
-        $cinema = MasterBioskop::select('uuid', 'nama_bioskop')
-                    ->where('type', $kategori)
-                    ->get()
-                    ->pluck('nama_bioskop', 'uuid');
+    private function cinemaOptionsWithCity(string $category): \Illuminate\Support\Collection
+    {
+        return MasterBioskop::query()
+            ->where('type', $category)
+            ->orderBy('nama_bioskop')
+            ->orderBy('kota')
+            ->get(['uuid', 'nama_bioskop', 'kota'])
+            ->mapWithKeys(function (MasterBioskop $cinema) {
+                $city = trim((string) $cinema->kota);
+                $label = trim((string) $cinema->nama_bioskop).($city !== '' ? ' — '.$city : '');
 
-        return response()->json($cinema);
+                return [$cinema->uuid => $label];
+            });
     }
 
     public function getTypeByCategory(Request $request){

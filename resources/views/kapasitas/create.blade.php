@@ -113,7 +113,7 @@
             var kategori = $(this).val();
 
             $.ajax({
-                url: "{{ route('ref.cinema') }}",
+                url: "{{ route('kapasitas.cinema-options') }}",
                 type: 'GET',
                 data: {
                     kategori: kategori

@@ -17,6 +17,7 @@ use App\Http\Controllers\GrafikKotaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CinepointDailyController;
 use App\Http\Controllers\CityPerformanceController;
+use App\Http\Controllers\KapasitasController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use SebastianBergmann\CodeCoverage\Report\Html\Dashboard;
@@ -65,6 +66,7 @@ Route::group(['prefix' => 'backoffice', 'middleware' => ['auth']], function () {
     Route::post('pelaporan/import-preview/exclude', [PelaporanController::class, 'excludeImportPreview'])->name('pelaporan.import-preview.exclude');
     Route::resource('pelaporan', 'PelaporanController');
     Route::resource('laporan', 'LaporanController');
+    Route::get('kapasitas/cinema-options', [KapasitasController::class, 'getCinemaByCategory'])->name('kapasitas.cinema-options');
     Route::resource('kapasitas', 'KapasitasController');
     Route::get('vendor-export', 'VendorController@export')->name('vendor.export');
     Route::resource('vendor', 'VendorController');

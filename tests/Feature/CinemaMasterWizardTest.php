@@ -129,6 +129,20 @@ class CinemaMasterWizardTest extends TestCase
         $this->assertSame(['REGULAR', 'VIP'], DB::table('type_tikets')->orderBy('id')->pluck('name')->all());
     }
 
+    public function test_capacity_cinema_options_include_city_without_changing_uuid_values(): void
+    {
+        $user = $this->createUser();
+        DB::table('master_bioskops')->insert([
+            ['uuid' => 'studio-bogor', 'type' => 'category-1', 'nama_bioskop' => 'STUDIO XXI', 'kota' => 'BOGOR'],
+            ['uuid' => 'studio-jakarta', 'type' => 'category-1', 'nama_bioskop' => 'STUDIO XXI', 'kota' => 'JAKARTA'],
+        ]);
+
+        $response = $this->actingAs($user)->getJson(route('kapasitas.cinema-options', ['kategori' => 'category-1']));
+
+        $response->assertOk()->assertJsonPath('studio-bogor', 'STUDIO XXI — BOGOR')
+            ->assertJsonPath('studio-jakarta', 'STUDIO XXI — JAKARTA');
+    }
+
     public function test_capacity_create_page_can_apply_ticket_rows_to_multiple_cinemas(): void
     {
         $user = $this->createUser();
