@@ -190,6 +190,47 @@ PDF);
     }
 
     /** @test */
+    public function it_joins_a_trailing_standalone_xxi_suffix_to_the_name_above_a_numeric_row(): void
+    {
+        $result = (new XxiPdfParser())->parseText(<<<'PDF'
+FILM MEMBURU PEMANGSA
+SHOW: MONDAY, 28 SEPTEMBER 2026
+CINEMA St Kp 1 2 3 4 5 6 PTN FP
+** BEKASI **
+LIVING WORLD G. WISATA
+5 164 - - 12 - 18 - 30 -
+XXI
+MEGA BEKASI XXI 9 134 5 5 20 58 10 - 98 3
+TOTAL 128 3
+PDF);
+
+        $livingWorld = array_values(array_filter($result['rows'], fn (array $row) => $row['studio'] === '5'));
+        $this->assertNotEmpty($livingWorld);
+        $this->assertSame(['LIVING WORLD G. WISATA XXI'], array_values(array_unique(array_column($livingWorld, 'source_cinema'))));
+        $this->assertNotContains('XXI', array_column($result['rows'], 'source_cinema'));
+        $this->assertNotContains('XXI XXI', array_column($result['rows'], 'source_cinema'));
+    }
+
+    /** @test */
+    public function it_keeps_the_xxi_suffix_for_later_studios_in_the_same_merged_cinema_cell(): void
+    {
+        $result = (new XxiPdfParser())->parseText(<<<'PDF'
+FILM MEMBURU PEMANGSA
+SHOW: MONDAY, 28 SEPTEMBER 2026
+CINEMA St Kp 1 2 3 4 5 6 PTN FP
+** KUALA KAPUAS **
+CITIMALL KUALA KAPUAS
+1 191 - - - 33 - 49 82 -
+XXI
+2 191 - - - 22 - 43 65 -
+TOTAL 147 -
+PDF);
+
+        $this->assertSame(['CITIMALL KUALA KAPUAS XXI'], array_values(array_unique(array_column($result['rows'], 'source_cinema'))));
+        $this->assertSame(['1', '2'], array_values(array_unique(array_column($result['rows'], 'studio'))));
+    }
+
+    /** @test */
     public function it_rejects_malformed_rows_and_total_mismatches_without_guessing(): void
     {
         $this->expectException(\InvalidArgumentException::class);

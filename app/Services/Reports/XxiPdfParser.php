@@ -153,6 +153,17 @@ class XxiPdfParser
                 $parsed = $this->sourceRow('__BLANK_CINEMA__ '.$line, $showColumns);
                 if ($parsed !== null) $parsed['cinema'] = '';
             }
+            if ($parsed === null && ($lines[$index + 1] ?? '') === 'XXI') {
+                for ($offset = 1; $offset <= 3; $offset++) {
+                    $name = $lines[$index - $offset] ?? null;
+                    if ($name === null || $name === '') continue;
+                    if ($name !== 'XXI' && $this->isCinemaFragment($name)) {
+                        $parsed = $this->sourceRow($name.' XXI '.$line, $showColumns);
+                        if ($parsed !== null) $sourceRow -= $offset;
+                    }
+                    break;
+                }
+            }
             if ($parsed === null && isset($lines[$index - 1]) && $this->isCinemaFragment($lines[$index - 1])) {
                 $parsed = $this->sourceRow($lines[$index - 1].' '.$line, $showColumns);
                 if ($parsed !== null) {
@@ -367,6 +378,34 @@ class XxiPdfParser
 
     private function mergedCellCinemaName(array $lines, int $rowIndex, ?string $currentCinema, int $showColumns): string
     {
+        // A first numeric row may be preceded by the cinema name while the
+        // chain suffix is printed on the following line. Resolve that local
+        // group before considering the previous cinema carried by the merged
+        // cell state. Blank extraction lines are ignored on both sides.
+        $previousName = null;
+        for ($offset = -1; $offset >= -3; $offset--) {
+            $previous = $lines[$rowIndex + $offset] ?? null;
+            if ($previous === null || $previous === '') continue;
+            if ($previous === 'XXI' || $this->sourceRow($previous, $showColumns) !== null || !$this->isCinemaFragment($previous)) break;
+            $previousName = $previous;
+            break;
+        }
+        $followingSuffix = false;
+        for ($offset = 1; $offset <= 3; $offset++) {
+            $following = $lines[$rowIndex + $offset] ?? null;
+            if ($following === null) break;
+            if ($following === '') continue;
+            $followingSuffix = $following === 'XXI';
+            break;
+        }
+        if ($previousName !== null) {
+            $normalizedPrevious = $this->normalizeName($previousName);
+            if ($currentCinema !== null && $currentCinema === $normalizedPrevious.' XXI') {
+                return $currentCinema;
+            }
+            return $this->normalizeName($previousName.($followingSuffix ? ' XXI' : ''));
+        }
+
         // In layout extraction, a vertically merged cinema label may be placed
         // between its first and later numeric rows. Prefer the next explicit
         // label within the same contiguous group over the previous cinema.
@@ -378,6 +417,9 @@ class XxiPdfParser
             $next = $this->sourceRow($candidate, $showColumns);
             if ($next !== null && $next['cinema'] !== '') return $next['cinema'];
             if ($this->isCinemaFragment($candidate)) return $this->normalizeName($candidate);
+        }
+        if ($currentCinema !== null) {
+            return $currentCinema;
         }
         return $this->wrappedCinemaName($lines, $rowIndex, $currentCinema, $showColumns);
     }
