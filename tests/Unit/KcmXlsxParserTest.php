@@ -43,6 +43,31 @@ class KcmXlsxParserTest extends TestCase
     }
 
     /** @test */
+    public function it_requires_show_allocation_for_sinemaku_aggregate_promo(): void
+    {
+        $path = $this->workbook([
+            ['KCM PAMEKASAN'],
+            ['City', 'PAMEKASAN'],
+            ['Date', '29/09/2026'],
+            [],
+            ['KOTA', 'MOVIE', 'Fmt', 'Seat', 'HTM', 'Show 1', null, null, 'Show 2', null, null, 'TOTAL', null, null, 'Jumlah Uang'],
+            [null, null, null, null, null, 'Sold', 'Free', 'Promo', 'Sold', 'Free', 'Promo', 'Sold', 'Free', 'Promo'],
+            [2, 'MEMBURU PEMANGSA', '2D', 205, 30000, 20, 0, 0, 10, 0, 0, 30, 0, 11, 900000],
+        ]);
+
+        $result = (new KcmXlsxParser())->parse($path);
+
+        $this->assertSame(19.0, $result['source_totals']['sold']);
+        $this->assertSame(11.0, $result['source_totals']['promo']);
+        $this->assertSame(900000.0, $result['source_totals']['gross']);
+        $this->assertCount(1, $result['pending_free_assignments']);
+        $this->assertSame('PROMO', $result['pending_free_assignments'][0]['source_label']);
+        $this->assertSame('BOGOF', $result['pending_free_assignments'][0]['ticket_name']);
+        $this->assertSame(11.0, $result['pending_free_assignments'][0]['jumlah']);
+        $this->assertSame([1], array_column($result['pending_free_assignments'][0]['candidate_shows'], 'show'));
+    }
+
+    /** @test */
     public function it_uses_numeric_kota_as_studio_in_sinemaku_layout(): void
     {
         $path = $this->workbook([
@@ -119,6 +144,28 @@ class KcmXlsxParserTest extends TestCase
         $this->assertSame(15.0, $result['pending_free_assignments'][0]['jumlah']);
         $this->assertSame([1, 2], array_column($result['pending_free_assignments'][0]['candidate_shows'], 'show'));
         $this->assertSame(15.0, $result['row_audit'][0]['free_voucher']);
+    }
+
+    public function test_external_layout_supports_aggregate_bogo_included_in_sold(): void
+    {
+        $path = $this->workbook([
+            ['LAPORAN PENJUALAN FILM HARIAN EXTERNAL'],
+            [], ['DISTRIBUTOR', '', 'Sinemaku Entertaiment'], ['JUDUL FILM', '', 'MEMBURU PEMANGSA'],
+            ['NAMA BIOSKOP', '', 'Jati Asih'], ['HTM'], [], [],
+            ['Tanggal', 'ST', 'Judul Film', 'KP', 'Show 3', '', 'Show 4', '', 'BOGO', 'TOTAL', '', 'HTM', 'TOTAL'],
+            ['', '', '', '', 'SO', 'FP', 'SO', 'FP', 'QTY', 'SO', 'FP'],
+            ['2026-09-27', '1', 'MEMBURU PEMANGSA', '143', 34, 0, 46, 0, 18, 80, 0, 'Rp 28.000', 'Rp 1.736.000'],
+        ]);
+
+        $result = (new KcmXlsxParser())->parse($path);
+
+        $this->assertSame(62.0, $result['source_totals']['sold']);
+        $this->assertSame(18.0, $result['source_totals']['promo']);
+        $this->assertSame(1736000.0, $result['source_totals']['gross']);
+        $this->assertCount(1, $result['pending_free_assignments']);
+        $this->assertSame('BOGOF', $result['pending_free_assignments'][0]['ticket_name']);
+        $this->assertSame(18.0, $result['pending_free_assignments'][0]['jumlah']);
+        $this->assertSame('BOGO', $result['pending_free_assignments'][0]['source_label']);
     }
 
     public function test_external_layout_preserves_valued_free_pass_when_source_gross_includes_it(): void

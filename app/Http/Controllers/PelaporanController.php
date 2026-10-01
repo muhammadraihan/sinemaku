@@ -1470,7 +1470,7 @@ class PelaporanController extends Controller
             $mapping['source_audit'] = $parsed['row_audit'];
             $mapping['pending_free_assignments'] = $parsed['pending_free_assignments'] ?? [];
             foreach ($mapping['pending_free_assignments'] as $pending) {
-                $mapping['blocking_issues'][] = 'FREE VOUCHER '.$pending['jumlah'].' pada sheet '.$pending['source_sheet'].' baris '.$pending['source_row'].' belum ditentukan show-nya.';
+                $mapping['blocking_issues'][] = ($pending['source_label'] ?? 'FREE VOUCHER').' '.$pending['jumlah'].' pada sheet '.$pending['source_sheet'].' baris '.$pending['source_row'].' belum ditentukan show-nya.';
             }
             $mapping['blocking_issues'] = array_values(array_unique($mapping['blocking_issues']));
             $mapping['summary']['blocked'] = count($mapping['preview']) - count($mapping['rows']);
@@ -1584,7 +1584,7 @@ class PelaporanController extends Controller
         if (!$cached || ($cached['provider'] ?? null) !== 'KCM') return response()->json(['status' => 'failed', 'message' => 'Preview sudah kedaluwarsa.'], 422);
         if (($cached['created_by'] ?? null) !== (Auth::user()->uuid ?? null)) return response()->json(['status' => 'failed', 'message' => 'Preview ini bukan milik sesi pengguna aktif.'], 403);
         $pending = collect($cached['pending_free_assignments'] ?? [])->firstWhere('key', $request->input('assignment_key'));
-        if (!$pending) return response()->json(['status' => 'failed', 'message' => 'Alokasi FREE VOUCHER tidak ditemukan pada preview.'], 422);
+        if (!$pending) return response()->json(['status' => 'failed', 'message' => 'Alokasi tiket complimentary tidak ditemukan pada preview.'], 422);
         $show = (int) $request->input('show');
         $selected = collect($pending['candidate_shows'])->firstWhere('show', $show);
         if (!$selected) return response()->json(['status' => 'failed', 'message' => 'Show yang dipilih tidak tersedia pada laporan sumber.'], 422);
@@ -1599,14 +1599,14 @@ class PelaporanController extends Controller
         $cached['rows'][$index]['jumlah'] = (float) $cached['rows'][$index]['jumlah'] - $amount;
         $cached['rows'][$index]['net'] = (float) $cached['rows'][$index]['jumlah'] * (float) $cached['rows'][$index]['harga'];
         if ($cached['rows'][$index]['jumlah'] <= 0) array_splice($cached['rows'], $index, 1);
-        $cached['rows'][] = array_merge($source, ['row_id' => null, 'original_row' => null, 'correction_issues' => [], 'ticket_name' => 'FREE PASS', 'show' => (string) $show, 'jumlah' => $amount, 'harga' => 0.0, 'tax' => 0, 'net' => 0]);
+        $cached['rows'][] = array_merge($source, ['row_id' => null, 'original_row' => null, 'correction_issues' => [], 'ticket_name' => $pending['ticket_name'] ?? 'FREE PASS', 'show' => (string) $show, 'jumlah' => $amount, 'harga' => 0.0, 'tax' => 0, 'net' => 0]);
         $cached['pending_free_assignments'] = array_values(array_filter($cached['pending_free_assignments'], fn ($item) => $item['key'] !== $pending['key']));
         $mapping = $this->mapLegacyPreview($cached['rows'], 'KCM');
         $mapping['source_profile'] = $cached['source_profile'] ?? 'EXTERNAL';
         $mapping['source_audit'] = $cached['source_audit'] ?? [];
         $mapping['source_totals'] = $cached['source_totals'] ?? [];
         $mapping['pending_free_assignments'] = $cached['pending_free_assignments'];
-        foreach ($mapping['pending_free_assignments'] as $item) $mapping['blocking_issues'][] = 'FREE VOUCHER '.$item['jumlah'].' pada sheet '.$item['source_sheet'].' baris '.$item['source_row'].' belum ditentukan show-nya.';
+        foreach ($mapping['pending_free_assignments'] as $item) $mapping['blocking_issues'][] = ($item['source_label'] ?? 'FREE VOUCHER').' '.$item['jumlah'].' pada sheet '.$item['source_sheet'].' baris '.$item['source_row'].' belum ditentukan show-nya.';
         $mapping['blocking_issues'] = array_values(array_unique($mapping['blocking_issues']));
         $cached['mapping'] = $mapping;
         $this->putImportPreview($cacheKey, $cached, now()->addMinutes(30));

@@ -42,6 +42,7 @@ class KcmXlsxParser
         $sub = $this->findSubHeader($rows, $header, $groups[0]['col']);
         $totals = $this->totalColumns($rows[$header], $sub === null ? [] : $rows[$sub]);
         $freeVoucherQuantityColumn = $this->freeVoucherQuantityColumn($rows[$header], $sub === null ? [] : $rows[$sub]);
+        $aggregateBogoQuantityColumn = $this->aggregateBogoQuantityColumn($rows[$header], $sub === null ? [] : $rows[$sub]);
         $out=['rows'=>[], 'audit'=>[], 'warnings'=>[], 'pending_free_assignments'=>[], 'totals'=>['sold'=>0.0,'free'=>0.0,'promo'=>0.0,'gross'=>0.0], 'cinema'=>$cinema, 'city'=>$city, 'date'=>$this->date($date), 'layout'=>$layout];
         for ($i=($sub ?? $header)+1; $i<count($rows); $i++) {
             $line=$rows[$i];
@@ -65,20 +66,28 @@ class KcmXlsxParser
             }
             $printedSold=$this->number($line[$totals['sold']] ?? null); $printedFree=$this->number($line[$totals['free']] ?? null); $printedPromo=$sinemaku?$this->number($line[$totals['promo']] ?? null):0; $printedGross=$this->money($line[$totals['gross']] ?? null) ?? 0.0;
             $freeVoucher = $freeVoucherQuantityColumn === null ? 0.0 : $this->number($line[$freeVoucherQuantityColumn] ?? null);
+            $aggregateBogo = $aggregateBogoQuantityColumn === null ? 0.0 : $this->number($line[$aggregateBogoQuantityColumn] ?? null);
             if (!$this->same($sold,$printedSold)) throw new \InvalidArgumentException("Total sold tidak sama dengan detail show pada sheet $sheet baris ".($i+1).'.');
             if (!$this->same($free,$printedFree)) throw new \InvalidArgumentException("Total free tidak sama dengan detail show pada sheet $sheet baris ".($i+1).'.');
-            if ($sinemaku && !$this->same($promo,$printedPromo)) throw new \InvalidArgumentException("Total promo tidak sama dengan detail show pada sheet $sheet baris ".($i+1).'.');
+            $aggregatePromo = $sinemaku && $printedPromo > $promo && $printedPromo <= $sold && $this->same($printedGross, $sold * $price)
+                ? $printedPromo - $promo
+                : 0.0;
+            if ($sinemaku && !$this->same($promo + $aggregatePromo, $printedPromo)) throw new \InvalidArgumentException("Total promo tidak sama dengan detail show pada sheet $sheet baris ".($i+1).'.');
             $freeIsPaid = !$sinemaku && $this->same($printedGross, ($sold + $free) * $price);
             $voucherIsIncludedInSold = !$sinemaku && $freeVoucher > 0 && $freeVoucher <= $sold && $this->same($printedGross, ($sold - $freeVoucher) * $price);
-            if (!$this->same($printedGross, $sold * $price) && !$freeIsPaid && !$voucherIsIncludedInSold) throw new \InvalidArgumentException("Jumlah uang tidak sama dengan harga × sold/free pada sheet $sheet baris ".($i+1).'.');
+            $bogoIsIncludedInSold = !$sinemaku && $aggregateBogo > 0 && $aggregateBogo <= $sold && $this->same($printedGross, ($sold - $aggregateBogo) * $price);
+            if (!$this->same($printedGross, $sold * $price) && !$freeIsPaid && !$voucherIsIncludedInSold && !$bogoIsIncludedInSold) throw new \InvalidArgumentException("Jumlah uang tidak sama dengan harga × sold/free pada sheet $sheet baris ".($i+1).'.');
             if ($freeIsPaid) for ($j=$rowStart; $j<count($out['rows']); $j++) if ($out['rows'][$j]['ticket_name'] === 'FREE PASS') { $out['rows'][$j]['harga']=$price; $out['rows'][$j]['net']=$out['rows'][$j]['jumlah']*$price; }
-            if ($voucherIsIncludedInSold) {
-                $candidates=[]; foreach (array_slice($out['rows'], $rowStart) as $row) if ($row['ticket_name'] === 'REGULAR' && $row['jumlah'] >= $freeVoucher) $candidates[]=['show'=>(int)$row['show'],'jam_tayang'=>$row['jam_tayang'],'jumlah'=>$row['jumlah']];
-                if (!$candidates) throw new \InvalidArgumentException("FREE VOUCHER $freeVoucher tidak dapat dialokasikan ke satu show sumber pada sheet $sheet baris ".($i+1).'.');
-                $out['pending_free_assignments'][]=['key'=>hash('sha256', "$sheet|".($i+1)."|FREE_VOUCHER"),'source_sheet'=>$sheet,'source_row'=>$i+1,'source_cinema'=>$cinema,'studio'=>$studio,'jumlah'=>$freeVoucher,'candidate_shows'=>$candidates];
+            $aggregateComplimentary = $aggregatePromo ?: ($voucherIsIncludedInSold ? $freeVoucher : ($bogoIsIncludedInSold ? $aggregateBogo : 0.0));
+            if ($aggregateComplimentary > 0) {
+                $assignmentType = ($aggregatePromo > 0 || $bogoIsIncludedInSold) ? 'BOGOF' : 'FREE PASS';
+                $sourceLabel = $aggregatePromo > 0 ? 'PROMO' : ($bogoIsIncludedInSold ? 'BOGO' : 'FREE VOUCHER');
+                $candidates=[]; foreach (array_slice($out['rows'], $rowStart) as $row) if ($row['ticket_name'] === 'REGULAR' && $row['jumlah'] >= $aggregateComplimentary) $candidates[]=['show'=>(int)$row['show'],'jam_tayang'=>$row['jam_tayang'],'jumlah'=>$row['jumlah']];
+                if (!$candidates) throw new \InvalidArgumentException("$sourceLabel $aggregateComplimentary tidak dapat dialokasikan ke satu show sumber pada sheet $sheet baris ".($i+1).'.');
+                $out['pending_free_assignments'][]=['key'=>hash('sha256', "$sheet|".($i+1)."|$sourceLabel"),'source_sheet'=>$sheet,'source_row'=>$i+1,'source_cinema'=>$cinema,'studio'=>$studio,'jumlah'=>$aggregateComplimentary,'ticket_name'=>$assignmentType,'source_label'=>$sourceLabel,'candidate_shows'=>$candidates];
             }
-            $audit=['source_sheet'=>$sheet,'source_row'=>$i+1,'film'=>$film,'studio'=>$studio,'sold'=>$sold-$freeVoucher,'free'=>$free+$freeVoucher,'promo'=>$promo,'free_voucher'=>$freeVoucher,'printed_sold'=>$printedSold,'printed_free'=>$printedFree,'printed_promo'=>$printedPromo,'printed_gross'=>$printedGross]; $out['audit'][]=$audit;
-            foreach (['sold'=>$sold-$freeVoucher,'free'=>$free+$freeVoucher,'promo'=>$promo] as $key=>$amount) $out['totals'][$key]+=$amount; $out['totals']['gross'] += $printedGross;
+            $audit=['source_sheet'=>$sheet,'source_row'=>$i+1,'film'=>$film,'studio'=>$studio,'sold'=>$sold-$aggregateComplimentary,'free'=>$free+($voucherIsIncludedInSold?$freeVoucher:0),'promo'=>$promo+$aggregatePromo+($bogoIsIncludedInSold?$aggregateBogo:0),'free_voucher'=>$freeVoucher,'aggregate_bogo'=>$aggregateBogo,'aggregate_promo'=>$aggregatePromo,'printed_sold'=>$printedSold,'printed_free'=>$printedFree,'printed_promo'=>$printedPromo,'printed_gross'=>$printedGross]; $out['audit'][]=$audit;
+            foreach (['sold'=>$sold-$aggregateComplimentary,'free'=>$free+($voucherIsIncludedInSold?$freeVoucher:0),'promo'=>$promo+$aggregatePromo+($bogoIsIncludedInSold?$aggregateBogo:0)] as $key=>$amount) $out['totals'][$key]+=$amount; $out['totals']['gross'] += $printedGross;
         }
         return $out;
     }
@@ -91,6 +100,17 @@ class KcmXlsxParser
             if ($this->norm($value) !== 'FREE VOUCHER') continue;
             foreach ([$i, $i + 1, $i + 2] as $candidate) {
                 if ($this->norm($sub[$candidate] ?? '') === 'QTY') return $candidate;
+            }
+            return $i;
+        }
+        return null;
+    }
+
+    private function aggregateBogoQuantityColumn(array $head, array $sub): ?int {
+        foreach ($head as $i => $value) {
+            if ($this->norm($value) !== 'BOGO') continue;
+            foreach ([$i, $i + 1, $i + 2] as $candidate) {
+                if (in_array($this->norm($sub[$candidate] ?? ''), ['QTY', 'JUMLAH'], true)) return $candidate;
             }
             return $i;
         }

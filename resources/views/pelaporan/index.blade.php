@@ -1099,9 +1099,10 @@
         var assignments = res.pending_free_assignments || [];
         var container = $('#legacy-preview-free-assignments');
         if (!assignments.length) { container.addClass('d-none').empty(); return; }
-        container.removeClass('d-none').html('<strong>Tentukan lokasi tiket Free</strong><p class="mb-2">Total Free dari sumber belum mencantumkan show. Pilih show untuk setiap baris berikut sebelum import:</p>' + assignments.map(function (item) {
+        container.removeClass('d-none').html('<strong>Tentukan lokasi tiket complimentary</strong><p class="mb-2">Tiket complimentary dari sumber belum mencantumkan show. Pilih show untuk setiap baris berikut sebelum import:</p>' + assignments.map(function (item) {
             var options = (item.candidate_shows || []).map(function (show) { return '<option value="' + escapeHtml(show.show) + '">Show ' + escapeHtml(show.show) + ' — ' + escapeHtml(show.jam_tayang) + '</option>'; }).join('');
-            return '<div class="d-flex align-items-center flex-wrap mb-2 nsc-free-assignment" data-key="' + escapeHtml(item.key) + '"><span class="mr-2">Studio ' + escapeHtml(item.studio) + ', ' + escapeHtml(item.jumlah) + ' tiket Free:</span><select class="form-control form-control-sm mr-2 nsc-free-show" style="max-width:220px"><option value="">Pilih show</option>' + options + '</select><button type="button" class="btn btn-sm btn-warning nsc-assign-free" disabled>Tentukan Show</button></div>';
+            var label = item.source_label || 'Tiket Free';
+            return '<div class="d-flex align-items-center flex-wrap mb-2 nsc-free-assignment" data-key="' + escapeHtml(item.key) + '"><span class="mr-2">Studio ' + escapeHtml(item.studio) + ', ' + escapeHtml(item.jumlah) + ' tiket ' + escapeHtml(label) + ':</span><select class="form-control form-control-sm mr-2 nsc-free-show" style="max-width:220px"><option value="">Pilih show</option>' + options + '</select><button type="button" class="btn btn-sm btn-warning nsc-assign-free" disabled>Tentukan Show</button></div>';
         }).join(''));
         container.find('.nsc-free-show').on('change', function () { $(this).siblings('.nsc-assign-free').prop('disabled', !$(this).val()); });
         container.find('.nsc-assign-free').on('click', function () {
