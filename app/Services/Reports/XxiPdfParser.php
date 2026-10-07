@@ -482,8 +482,14 @@ class XxiPdfParser
 
     private function isCinemaFragment(string $line): bool
     {
-        return preg_match('/\d/', $line) !== 1
-            && preg_match('/^\*\*/', $line) !== 1
+        $line = trim($line);
+        if ($line === '' || $line === 'XXI') {
+            return false;
+        }
+        if (preg_match('/^\d/', $line) === 1) {
+            return false;
+        }
+        return preg_match('/^\*\*/', $line) !== 1
             && preg_match('/^(?:FILM|RELEASE|SHOW|GROUP|CINEMA|TOTAL|Halaman|Created|Catatan)/iu', $line) !== 1;
     }
 

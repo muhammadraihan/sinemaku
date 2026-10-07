@@ -231,6 +231,25 @@ PDF);
     }
 
     /** @test */
+    public function it_accepts_a_digit_inside_a_merged_cinema_name(): void
+    {
+        $result = (new XxiPdfParser())->parseText(<<<'PDF'
+FILM MEMBURU PEMANGSA
+SHOW: TUESDAY, 6 OCTOBER 2026
+CINEMA St Kp 1 2 3 4 5 6 PTN FP
+** DENPASAR **
+2 119 - - 6 - 12 - 18 -
+LEVEL 21 XXI
+5 112 - - - 20 - - 20 -
+TOTAL 38 -
+PDF);
+
+        $this->assertSame(['LEVEL 21 XXI'], array_values(array_unique(array_column($result['rows'], 'source_cinema'))));
+        $this->assertSame(['2', '5'], array_values(array_unique(array_column($result['rows'], 'studio'))));
+        $this->assertSame(38, array_sum(array_column($result['rows'], 'jumlah')));
+    }
+
+    /** @test */
     public function it_rejects_malformed_rows_and_total_mismatches_without_guessing(): void
     {
         $this->expectException(\InvalidArgumentException::class);
