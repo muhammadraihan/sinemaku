@@ -143,6 +143,23 @@ PDF);
     }
 
     /** @test */
+    public function it_parses_a_friday_header_with_an_indonesian_apostrophe(): void
+    {
+        $result = (new XxiPdfParser())->parseText(<<<'PDF'
+FILM MEMBURU PEMANGSA
+SHOW: JUM'AT, 9 OKTOBER 2026
+CINEMA St Kp 1 2 3 4 5 6 PTN FP
+** JAKARTA **
+ARION XXI 2 150 - - 3 - 16 - 19 1
+TOTAL 19 1
+PDF);
+
+        $this->assertSame('2026-10-09', $result['report_date']);
+        $this->assertSame(19, $result['source_totals']['ptn']);
+        $this->assertSame(1, $result['source_totals']['fp']);
+    }
+
+    /** @test */
     public function it_assigns_a_leading_blank_merged_cell_row_to_the_next_cinema_group(): void
     {
         $result = (new XxiPdfParser())->parseText(<<<'PDF'

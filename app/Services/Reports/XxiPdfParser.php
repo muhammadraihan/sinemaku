@@ -302,7 +302,7 @@ class XxiPdfParser
         ];
 
         foreach ($lines as $line) {
-            if (!preg_match('/^(?:SHOW|REPORT\s*DATE|TANGGAL\s*LAPORAN)\s*:\s*(?:[\p{L}]+\s*,?\s*)?(\d{1,2})\s+([\p{L}]+)\s+(\d{4})$/iu', $line, $match)) {
+            if (!preg_match('/^(?:SHOW|REPORT\s*DATE|TANGGAL\s*LAPORAN)\s*:\s*(?:[\p{L}\'’.-]+\s*,?\s*)?(\d{1,2})\s+([\p{L}]+)\s+(\d{4})$/iu', $line, $match)) {
                 continue;
             }
             $monthName = mb_strtoupper($match[2], 'UTF-8');
