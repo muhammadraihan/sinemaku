@@ -93,6 +93,9 @@ class LegacyExcelImportPreviewTest extends TestCase
         $script = file_exists(public_path('js/import-preview-editor.js')) ? file_get_contents(public_path('js/import-preview-editor.js')) : '';
         $this->assertStringContainsString('ImportPreviewEditor.mount', $view);
         $this->assertStringContainsString('DataTable(', $script);
+        $this->assertStringContainsString("'sinemaku.pelaporan.report-table-state'", $view);
+        $this->assertStringContainsString("trigger('change.select2')", $view);
+        $this->assertStringContainsString('"search": { "search": restoredTableState', $view);
         $this->assertStringContainsString('Simpan koreksi', $script);
         $this->assertStringContainsString('Batal', $script);
     }

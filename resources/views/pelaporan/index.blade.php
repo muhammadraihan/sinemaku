@@ -491,14 +491,17 @@
         function restoreReportFilters() {
             var state = readReportTableState();
             if (!state || !state.filters) return false;
-            $('#nama_film').val(state.filters.nama_film).trigger('change');
+            // Update Select2's visual state without firing the shared film-date
+            // handler, which would replace the user's dates with defaults.
+            $('#nama_film').val(state.filters.nama_film).trigger('change.select2');
+            $('#bioskop_kategori').val(state.filters.bioskop_kategori).trigger('change.select2');
             $('#tanggal_mulai').val(state.filters.tanggal_mulai);
             $('#tanggal_akhir').val(state.filters.tanggal_akhir);
-            $('#bioskop_kategori').val(state.filters.bioskop_kategori).trigger('change');
             return !!(state.filters.nama_film || state.filters.tanggal_mulai || state.filters.tanggal_akhir || state.filters.bioskop_kategori);
         }
 
         function saveReportFiltersOnly() {
+            var currentState = readReportTableState() || {};
             sessionStorage.setItem(reportFilterStorageKey, JSON.stringify({
                 filters: {
                     nama_film: $('#nama_film').val() || '',
@@ -506,7 +509,7 @@
                     tanggal_akhir: $('#tanggal_akhir').val() || '',
                     bioskop_kategori: $('#bioskop_kategori').val() || ''
                 },
-                table: null
+                table: currentState.table || null
             }));
         }
 
@@ -1246,13 +1249,20 @@
                 $('#summary-table').DataTable().destroy();
             }
 
+            var restoredTableState = pendingRestoredTableState;
+            pendingRestoredTableState = null;
             var table = $('#datatable').DataTable({
                 "processing": true,
                 "serverSide": true,
                 "responsive": false,
                 "scrollX": true,
                 "autoWidth": false,
-                "order": [[ 0, "asc" ]],
+                "displayStart": restoredTableState && typeof restoredTableState.page === 'number' && restoredTableState.pageLength
+                    ? restoredTableState.page * restoredTableState.pageLength
+                    : 0,
+                "pageLength": restoredTableState && restoredTableState.pageLength ? restoredTableState.pageLength : 10,
+                "search": { "search": restoredTableState && restoredTableState.search ? restoredTableState.search : '' },
+                "order": restoredTableState && restoredTableState.order ? restoredTableState.order : [[ 0, "asc" ]],
                 "ajax":{
                     url:'{{route('laporan.search')}}',
                     type : "GET",
@@ -1265,17 +1275,6 @@
                         nama_bioskop : nama_bioskop,
                         type_tiket : type_tiket,
                     }
-                },
-                    "initComplete": function () {
-                    if (!pendingRestoredTableState) return;
-                    var restored = pendingRestoredTableState;
-                    pendingRestoredTableState = null;
-                    var api = this.api();
-                    if (restored.pageLength) api.page.len(restored.pageLength);
-                    if (restored.order) api.order(restored.order);
-                    if (restored.search) api.search(restored.search);
-                    api.draw(false);
-                    if (typeof restored.page === 'number') api.page(restored.page).draw('page');
                 },
                 "columns": [
                         {data: 'DT_RowIndex', name: 'DT_RowIndex'},
