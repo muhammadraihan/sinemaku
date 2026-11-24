@@ -10,7 +10,7 @@ use App\Models\KategoriBioskop;
 use App\Models\MasterBioskop;
 use App\Models\MasterFilm;
 use App\Models\Laporan;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use App\Services\Reports\DetailExportWorkbook;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -1042,6 +1042,7 @@ class LaporanController extends Controller
             SELECT
                 p.tgl_tayang,
                 kb.name,
+                tt.name AS type_tiket,
                 mb.kota,
                 mb.nama_bioskop,
                 k.studio,
@@ -1127,6 +1128,7 @@ class LaporanController extends Controller
                 k.studio,
                 k.kapasitas,
                 p.type_tiket,
+                tt.name,
                 p.harga,
                 mb.pajak
             ORDER BY
@@ -1188,71 +1190,7 @@ class LaporanController extends Controller
             ]);
         }
 
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-
-        $headers = [
-            'Tanggal', 'Kategori', 'Kota', 'Nama Bioskop', 'Studio', 'Kapasitas',
-            'S1','S2','S3','S4','S5','S6','S7','Total','Kapasitas Tersedia','Occupancy Rate','Harga','Gross','ATP','Effective Tax Rate','Pajak %','Pajak','Net','Share','Share Production House','Royalty (1.5%)','Total Akhir'
-        ];
-
-        $sheet->fromArray($headers, null, 'A1');
-
-        $rowNum = 2;
-        foreach ($rows as $r) {
-
-            $sheet->setCellValue('A' . $rowNum, $r->tgl_tayang);
-            $sheet->setCellValue('B' . $rowNum, $r->name);
-            $sheet->setCellValue('C' . $rowNum, $r->kota);
-            $sheet->setCellValue('D' . $rowNum, strtoupper($r->nama_bioskop));
-            $sheet->setCellValue('E' . $rowNum, $r->studio);
-            $sheet->setCellValue('F' . $rowNum, $r->kapasitas);
-            $sheet->setCellValue('G' . $rowNum, $r->S1);
-            $sheet->setCellValue('H' . $rowNum, $r->S2);
-            $sheet->setCellValue('I' . $rowNum, $r->S3);
-            $sheet->setCellValue('J' . $rowNum, $r->S4);
-            $sheet->setCellValue('K' . $rowNum, $r->S5);
-            $sheet->setCellValue('L' . $rowNum, $r->S6);
-            $sheet->setCellValue('M' . $rowNum, $r->S7);
-            $sheet->setCellValue('N' . $rowNum, $r->Total);
-            $sheet->setCellValue('O' . $rowNum, $r->seats_available);
-            $sheet->setCellValue('P' . $rowNum, $r->occupancy_rate . '%');
-            $sheet->setCellValue('Q' . $rowNum, $r->harga);
-            $sheet->setCellValue('R' . $rowNum, $r->gross);
-            $sheet->setCellValue('S' . $rowNum, $r->atp);
-            $sheet->setCellValue('T' . $rowNum, $r->effective_tax_rate . '%');
-            $sheet->setCellValue('U' . $rowNum, $r->pajak_persen . '%');
-            $sheet->setCellValue('V' . $rowNum, $r->pajak);
-            $sheet->setCellValue('W' . $rowNum, $r->net);
-            $sheet->setCellValue('X' . $rowNum, '50%');
-            $sheet->setCellValue('Y' . $rowNum, $r->share_ph);
-            $sheet->setCellValue('Z' . $rowNum, $r->royalty);
-            $sheet->setCellValue('AA' . $rowNum, $r->total_akhir);
-            $rowNum++;
-        }
-
-        $sheet->setCellValue('A' . $rowNum, 'TOTAL');
-        $sheet->mergeCells('A' . $rowNum . ':F' . $rowNum);
-        $sheet->setCellValue('G' . $rowNum, $totals['S1']);
-        $sheet->setCellValue('H' . $rowNum, $totals['S2']);
-        $sheet->setCellValue('I' . $rowNum, $totals['S3']);
-        $sheet->setCellValue('J' . $rowNum, $totals['S4']);
-        $sheet->setCellValue('K' . $rowNum, $totals['S5']);
-        $sheet->setCellValue('L' . $rowNum, $totals['S6']);
-        $sheet->setCellValue('M' . $rowNum, $totals['S7']);
-        $sheet->setCellValue('N' . $rowNum, $totals['Total']);
-        $sheet->setCellValue('O' . $rowNum, number_format($totals['seats_available'], 2));
-        $sheet->setCellValue('P' . $rowNum, $totals['seats_available'] ? number_format(($totals['Total'] / $totals['seats_available']) * 100, 2) . '%' : '0.00%');
-        $sheet->setCellValue('R' . $rowNum, number_format($totals['gross'], 2));
-        $sheet->setCellValue('S' . $rowNum, $totals['Total'] ? number_format($totals['gross'] / $totals['Total'], 2) : '0.00');
-        $sheet->setCellValue('T' . $rowNum, $totals['gross'] ? number_format(($totals['pajak'] / $totals['gross']) * 100, 2) . '%' : '0.00%');
-        $sheet->setCellValue('V' . $rowNum, number_format($totals['pajak'], 2));
-        $sheet->setCellValue('W' . $rowNum, number_format($totals['net'], 2));
-        $sheet->setCellValue('Y' . $rowNum, number_format($totals['share_ph'], 2));
-        $sheet->setCellValue('Z' . $rowNum, number_format($totals['royalty'], 2));
-        $sheet->setCellValue('AA' . $rowNum, number_format($totals['total_akhir'], 2));
-        $sheet->getStyle('A' . $rowNum . ':AA' . $rowNum)->getFont()->setBold(true);
-
+        $spreadsheet = (new DetailExportWorkbook())->build($rows, $totals);
         $filename = 'laporan-detail-' . date('YmdHis') . '.xlsx';
 
         $writer = new Xlsx($spreadsheet);

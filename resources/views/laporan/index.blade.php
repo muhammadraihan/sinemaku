@@ -431,6 +431,10 @@
                         </div>
                         <div class="finance-kpi-grid">
                             <div class="finance-kpi">
+                                <small>Total Penonton</small>
+                                <strong id="wf-audience">0</strong>
+                            </div>
+                            <div class="finance-kpi">
                                 <small>Gross Box Office</small>
                                 <strong id="wf-gross">0.00</strong>
                             </div>
@@ -1682,6 +1686,7 @@
                     $(api.column(11).footer()).html(formatCurrency(totalFinal));
 
                     renderRevenueWaterfall({
+                        audience: totalPenonton,
                         gross: totalGross,
                         atp: totalAtp,
                         occupancyRate: occupancyRate,
@@ -1953,6 +1958,7 @@
                         displayDate(row.tgl_tayang),
                         row.kota || '-',
                         String(row.nama_bioskop || '-').toUpperCase(),
+                        row.type_tiket || '-',
                         pdfNumber(row.seats_available, 2),
                         pdfPercent(row.occupancy_rate),
                         pdfNumber(row.harga, 2),
@@ -1966,7 +1972,7 @@
                     ];
                 });
                 detailRows.push([
-                    'TOTAL', '', '', pdfNumber(totals.seats_available, 2),
+                    'TOTAL', '', '', '', pdfNumber(totals.seats_available, 2),
                     totals.seats_available ? pdfPercent((totals.Total / totals.seats_available) * 100) : '0,00%',
                     '', pdfNumber(totals.gross, 2), '', pdfNumber(totals.pajak, 2), pdfNumber(totals.net, 2),
                     pdfNumber(totals.share_ph, 2), pdfNumber(totals.royalty, 2), pdfNumber(totals.total_akhir, 2)
@@ -1977,7 +1983,7 @@
                     startY: 43,
                     margin: { top: 43, left: marginX, right: marginX, bottom: 18 },
                     head: [[
-                        'Date', 'City', 'Cinema Name', 'Available Capacity', 'Occupancy', 'Price', 'Gross',
+                        'Date', 'City', 'Cinema Name', 'Ticket Type', 'Available Capacity', 'Occupancy', 'Price', 'Gross',
                         'Tax %', 'Tax', 'Net', 'Share Production House', 'Royalty (1.5%)', 'Final Total'
                     ]],
                     body: detailRows,
@@ -1998,17 +2004,18 @@
                     columnStyles: {
                         0: { halign: 'center', cellWidth: 17 },
                         1: { cellWidth: 20 },
-                        2: { cellWidth: 35 },
-                        3: { halign: 'right', cellWidth: 20 },
-                        4: { halign: 'right', cellWidth: 15 },
-                        5: { halign: 'right', cellWidth: 17 },
-                        6: { halign: 'right', cellWidth: 23 },
-                        7: { halign: 'right', cellWidth: 11 },
-                        8: { halign: 'right', cellWidth: 21 },
-                        9: { halign: 'right', cellWidth: 22 },
-                        10: { halign: 'right', cellWidth: 22 },
-                        11: { halign: 'right', cellWidth: 22 },
-                        12: { halign: 'right', cellWidth: 24 }
+                        2: { cellWidth: 32 },
+                        3: { cellWidth: 18 },
+                        4: { halign: 'right', cellWidth: 19 },
+                        5: { halign: 'right', cellWidth: 14 },
+                        6: { halign: 'right', cellWidth: 16 },
+                        7: { halign: 'right', cellWidth: 22 },
+                        8: { halign: 'right', cellWidth: 10 },
+                        9: { halign: 'right', cellWidth: 20 },
+                        10: { halign: 'right', cellWidth: 21 },
+                        11: { halign: 'right', cellWidth: 21 },
+                        12: { halign: 'right', cellWidth: 21 },
+                        13: { halign: 'right', cellWidth: 23 }
                     },
                     didParseCell: function (tableData) {
                         if (tableData.section === 'body' && tableData.row.index === detailRows.length - 1) {
@@ -2065,6 +2072,7 @@
             { label: 'Total Production House', value: values.total, type: 'final' }
         ];
 
+        $('#wf-audience').text(formatNumber(values.audience || 0));
         $('#wf-gross').text(formatCurrency(values.gross || 0));
         $('#wf-atp').text(formatCurrency(values.atp || 0));
         $('#wf-occupancy').text(formatPercent(values.occupancyRate || 0));
@@ -2223,11 +2231,12 @@
         addFilterBox();
 
         var gap = 4;
-        var metricW = (usableW - (gap * 3)) / 4;
-        addMetric('Gross Box Office', pdfNumber(values.gross, 2), marginX, 85, metricW, brandColor);
-        addMetric('Average Ticket Price', pdfNumber(values.atp, 2), marginX + metricW + gap, 85, metricW, [98, 91, 214]);
-        addMetric('Occupancy Rate', pdfNumber(values.occupancyRate, 2) + '%', marginX + ((metricW + gap) * 2), 85, metricW, [37, 99, 235]);
-        addMetric('Effective Tax Rate', pdfNumber(values.effectiveTaxRate, 2) + '%', marginX + ((metricW + gap) * 3), 85, metricW, accentColor);
+        var metricW = (usableW - (gap * 4)) / 5;
+        addMetric('Total Penonton', pdfNumber(values.audience, 0), marginX, 85, metricW, [37, 99, 235]);
+        addMetric('Gross Box Office', pdfNumber(values.gross, 2), marginX + metricW + gap, 85, metricW, brandColor);
+        addMetric('Average Ticket Price', pdfNumber(values.atp, 2), marginX + ((metricW + gap) * 2), 85, metricW, [98, 91, 214]);
+        addMetric('Occupancy Rate', pdfNumber(values.occupancyRate, 2) + '%', marginX + ((metricW + gap) * 3), 85, metricW, [37, 99, 235]);
+        addMetric('Effective Tax Rate', pdfNumber(values.effectiveTaxRate, 2) + '%', marginX + ((metricW + gap) * 4), 85, metricW, accentColor);
 
         var steps = [
             { label: 'Gross Box Office', value: values.gross, color: [124, 58, 237] },
