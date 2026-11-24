@@ -460,13 +460,81 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     $(document).ready(function(){
+        var reportFilterStorageKey = 'sinemaku.pelaporan.report-table-state';
+
+        function readReportTableState() {
+            try { return JSON.parse(sessionStorage.getItem(reportFilterStorageKey) || 'null'); } catch (error) { return null; }
+        }
+
+        function saveReportTableState() {
+            var tableState = null;
+            if ($.fn.DataTable.isDataTable('#datatable')) {
+                var table = $('#datatable').DataTable();
+                tableState = {
+                    page: table.page(),
+                    pageLength: table.page.len(),
+                    order: table.order(),
+                    search: table.search()
+                };
+            }
+            sessionStorage.setItem(reportFilterStorageKey, JSON.stringify({
+                filters: {
+                    nama_film: $('#nama_film').val() || '',
+                    tanggal_mulai: $('#tanggal_mulai').val() || '',
+                    tanggal_akhir: $('#tanggal_akhir').val() || '',
+                    bioskop_kategori: $('#bioskop_kategori').val() || ''
+                },
+                table: tableState
+            }));
+        }
+
+        function restoreReportFilters() {
+            var state = readReportTableState();
+            if (!state || !state.filters) return false;
+            $('#nama_film').val(state.filters.nama_film).trigger('change');
+            $('#tanggal_mulai').val(state.filters.tanggal_mulai);
+            $('#tanggal_akhir').val(state.filters.tanggal_akhir);
+            $('#bioskop_kategori').val(state.filters.bioskop_kategori).trigger('change');
+            return !!(state.filters.nama_film || state.filters.tanggal_mulai || state.filters.tanggal_akhir || state.filters.bioskop_kategori);
+        }
+
+        function saveReportFiltersOnly() {
+            sessionStorage.setItem(reportFilterStorageKey, JSON.stringify({
+                filters: {
+                    nama_film: $('#nama_film').val() || '',
+                    tanggal_mulai: $('#tanggal_mulai').val() || '',
+                    tanggal_akhir: $('#tanggal_akhir').val() || '',
+                    bioskop_kategori: $('#bioskop_kategori').val() || ''
+                },
+                table: null
+            }));
+        }
+
         $('#nama_film').select2();
         $('#bioskop_kategori').select2();
         $('#kota').select2();
         $('#nama_bioskop').select2();
         $('#type_tiket').select2();
 
-        loadData();
+        $(document).on('click', '.edit-btn', function () {
+            saveReportTableState();
+        });
+
+        $('#datatable').on('draw.dt', function () {
+            if ($.fn.DataTable.isDataTable('#datatable')) saveReportTableState();
+        });
+
+        $('#datatable').on('search.dt order.dt length.dt page.dt', function () {
+            if ($.fn.DataTable.isDataTable('#datatable')) saveReportTableState();
+        });
+
+        var restoreReportTableOnLoad = restoreReportFilters();
+        var pendingRestoredTableState = restoreReportTableOnLoad ? (readReportTableState() || {}).table : null;
+        if (restoreReportTableOnLoad) {
+            window.setTimeout(function () { $('#search-btn').trigger('click'); }, 0);
+        } else {
+            loadData();
+        }
 
         $.ajaxSetup({
           headers: {
@@ -1160,6 +1228,8 @@
     $(document).delegate("#search-btn", "click", function (event) {
             event.preventDefault();
 
+            saveReportFiltersOnly();
+
             var nama_film = $('#nama_film').val();
             var tgl_mulai = $('#tanggal_mulai').val();
             var tgl_akhir = $('#tanggal_akhir').val();
@@ -1196,7 +1266,18 @@
                         type_tiket : type_tiket,
                     }
                 },
-                    "columns": [
+                    "initComplete": function () {
+                    if (!pendingRestoredTableState) return;
+                    var restored = pendingRestoredTableState;
+                    pendingRestoredTableState = null;
+                    var api = this.api();
+                    if (restored.pageLength) api.page.len(restored.pageLength);
+                    if (restored.order) api.order(restored.order);
+                    if (restored.search) api.search(restored.search);
+                    api.draw(false);
+                    if (typeof restored.page === 'number') api.page(restored.page).draw('page');
+                },
+                "columns": [
                         {data: 'DT_RowIndex', name: 'DT_RowIndex'},
                         {data: 'tgl_tayang', name: 'tgl_tayang'},
                         {data: 'kategori', name: 'kategori'},
@@ -1227,6 +1308,10 @@
 
         $(document).delegate("#reset", "click", function (event) {
             event.preventDefault();
+            sessionStorage.removeItem(reportFilterStorageKey);
+            $('#nama_film, #bioskop_kategori').val('').trigger('change');
+            $('#tanggal_mulai, #tanggal_akhir').val('');
+            pendingRestoredTableState = null;
             if ($.fn.DataTable.isDataTable("#datatable")) {
                 $('#datatable').DataTable().destroy();
             }

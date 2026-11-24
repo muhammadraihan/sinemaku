@@ -512,7 +512,8 @@
                                                 <th>Kapasitas Tersedia</th>
                                                 <th>Occupancy Rate</th>
                                                 <th>Total Pendapatan</th>
-                                                <th>ATP</th>
+                                                <th>ATP Gross</th>
+                                                <th>ATP Net</th>
                                                 <th>Effective Tax Rate</th>
                                                 {{-- <th>Pajak</th> --}}
                                                 <th>Net</th>
@@ -529,7 +530,8 @@
                                                 <th id="total-summary-seats"></th>
                                                 <th id="total-summary-occupancy"></th>
                                                 <th id="total-summary-gross"></th>
-                                                <th id="total-summary-atp"></th>
+                                                <th id="total-summary-atp-gross"></th>
+                                                <th id="total-summary-atp-net"></th>
                                                 <th id="total-summary-etr"></th>
                                                 {{-- <th id="total-summary-tax"></th> --}}
                                                 <th id="total-summary-net"></th>
@@ -1614,7 +1616,8 @@
                     {data: 'seats_available', name: 'seats_available'},
                     {data: 'occupancy_rate', name: 'occupancy_rate'},
                     {data: 'gross', name: 'gross'},
-                    {data: 'atp', name: 'atp'},
+                    {data: 'atp_gross', name: 'atp_gross'},
+                    {data: 'atp_net', name: 'atp_net'},
                     {data: 'effective_tax_rate', name: 'effective_tax_rate'},
                     // {data: 'tax', name: 'tax'},
                     {data: 'net', name: 'net'},
@@ -1644,24 +1647,25 @@
                         return valA + valB;
                     }, 0);
 
-                    var totalAtp = totalPenonton ? totalGross / totalPenonton : 0;
+                    var totalAtpGross = totalPenonton ? totalGross / totalPenonton : 0;
 
                     // Total Net
-                    var totalNet = api.column(8).data().reduce(function (a, b) {
+                    var totalNet = api.column(9).data().reduce(function (a, b) {
                         var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
                         var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
                         return valA + valB;
                     }, 0);
+                    var totalAtpNet = totalPenonton ? totalNet / totalPenonton : 0;
 
                     // Total Share
-                    var totalShare = api.column(9).data().reduce(function (a, b) {
+                    var totalShare = api.column(10).data().reduce(function (a, b) {
                         var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
                         var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
                         return valA + valB;
                     }, 0);
 
                     // Total (Net - Share - Royalty)
-                    var totalFinal = api.column(11).data().reduce(function (a, b) {
+                    var totalFinal = api.column(12).data().reduce(function (a, b) {
                         var valA = parseNumber(a); // Pastikan menjadi angka, jika tidak valid maka 0
                         var valB = parseNumber(b); // Pastikan menjadi angka, jika tidak valid maka 0
                         return valA + valB;
@@ -1679,16 +1683,17 @@
                     $(api.column(3).footer()).html(formatCurrency(totalSeats));
                     $(api.column(4).footer()).html(formatPercent(occupancyRate));
                     $(api.column(5).footer()).html(formatCurrency(totalGross));
-                    $(api.column(6).footer()).html(formatCurrency(totalAtp));
-                    $(api.column(7).footer()).html(formatPercent(effectiveTaxRate));
-                    $(api.column(8).footer()).html(formatCurrency(totalNet));
-                    $(api.column(9).footer()).html(formatCurrency(totalShare));
-                    $(api.column(11).footer()).html(formatCurrency(totalFinal));
+                    $(api.column(6).footer()).html(formatCurrency(totalAtpGross));
+                    $(api.column(7).footer()).html(formatCurrency(totalAtpNet));
+                    $(api.column(8).footer()).html(formatPercent(effectiveTaxRate));
+                    $(api.column(9).footer()).html(formatCurrency(totalNet));
+                    $(api.column(10).footer()).html(formatCurrency(totalShare));
+                    $(api.column(12).footer()).html(formatCurrency(totalFinal));
 
                     renderRevenueWaterfall({
                         audience: totalPenonton,
                         gross: totalGross,
-                        atp: totalAtp,
+                        atp: totalAtpGross,
                         occupancyRate: occupancyRate,
                         effectiveTaxRate: effectiveTaxRate,
                         tax: totalTax,

@@ -11,6 +11,7 @@ use App\Models\MasterBioskop;
 use App\Models\MasterFilm;
 use App\Models\Laporan;
 use App\Services\Reports\DetailExportWorkbook;
+use App\Services\Reports\RevenueMetricExpressions;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -594,6 +595,7 @@ class LaporanController extends Controller
         $kapasitas = "CAST(REPLACE(COALESCE(NULLIF(k.kapasitas, ''), '0'), ',', '') AS DECIMAL(20,2))";
         $tax = "($gross * $pajak / 100)";
         $net = "($gross - $tax)";
+        $revenueMetrics = new RevenueMetricExpressions("SUM($jumlah)", "SUM($gross)", "SUM($net)");
 
         $summary = Pelaporan::with(['categories', 'cinemas', 'typeTiket'])
                     ->leftJoin('master_bioskops as mb', 'mb.uuid', '=', 'pelaporans.nama_bioskop')
@@ -606,7 +608,8 @@ class LaporanController extends Controller
                         SUM($kapasitas) as seats_available,
                         CASE WHEN SUM($kapasitas) > 0 THEN (SUM($jumlah) / SUM($kapasitas)) * 100 ELSE 0 END as occupancy_rate,
                         SUM($gross) as gross,
-                        CASE WHEN SUM($jumlah) > 0 THEN SUM($gross) / SUM($jumlah) ELSE 0 END as atp,
+                        {$revenueMetrics->atpGross()} as atp_gross,
+                        {$revenueMetrics->atpNet()} as atp_net,
                         SUM($tax) as tax,
                         CASE WHEN SUM($gross) > 0 THEN (SUM($tax) / SUM($gross)) * 100 ELSE 0 END as effective_tax_rate,
                         SUM($net) as net,
@@ -665,8 +668,11 @@ class LaporanController extends Controller
         ->editColumn('gross',function($row){
             return $row->gross ? number_format($row->gross) : '' ;
         })
-        ->editColumn('atp',function($row){
-            return $row->atp ? number_format($row->atp, 2) : '' ;
+        ->editColumn('atp_gross',function($row){
+            return $row->atp_gross ? number_format($row->atp_gross, 2) : '' ;
+        })
+        ->editColumn('atp_net',function($row){
+            return $row->atp_net ? number_format($row->atp_net, 2) : '' ;
         })
         ->editColumn('tax',function($row){
             return $row->tax ? number_format($row->tax) : '' ;
